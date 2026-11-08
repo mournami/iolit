@@ -77,7 +77,15 @@ pub fn resolve_arguments(strategy: &Strategy, root: &Path) -> Result<Vec<String>
                 if !resolved.starts_with(&root) || !resolved.is_file() {
                     bail!("Файл стратегии находится вне набора");
                 }
-                Ok(format!("{flag}={}", resolved.display()))
+                let path = resolved.to_string_lossy();
+                // Cygwin's argv/path conversion rejects Win32 verbatim prefixes.
+                // Keep the canonical path for the containment check above; render only afterwards.
+                let rendered = if cfg!(windows) {
+                    conventional_windows_path(&path)
+                } else {
+                    path.into_owned()
+                };
+                Ok(format!("{flag}={rendered}"))
             } else {
                 Ok(arg.clone())
             }
@@ -85,9 +93,32 @@ pub fn resolve_arguments(strategy: &Strategy, root: &Path) -> Result<Vec<String>
         .collect()
 }
 
+fn conventional_windows_path(path: &str) -> String {
+    if let Some(unc) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{unc}")
+    } else {
+        path.strip_prefix(r"\\?\").unwrap_or(path).to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cygwin_arguments_use_conventional_windows_paths() {
+        assert_eq!(
+            conventional_windows_path(r"\\?\C:\Program Files\Zapret\list.txt"),
+            r"C:\Program Files\Zapret\list.txt"
+        );
+        assert_eq!(
+            conventional_windows_path(r"\\?\UNC\server\share\list.txt"),
+            r"\\server\share\list.txt"
+        );
+        assert_eq!(
+            conventional_windows_path(r"C:\Zapret\list.txt"),
+            r"C:\Zapret\list.txt"
+        );
+    }
     #[test]
     fn domain_input_rejects_injection_and_ip() {
         for d in [

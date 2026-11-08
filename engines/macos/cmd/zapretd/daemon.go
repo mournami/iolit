@@ -386,6 +386,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		Logf:       d.log.netcfgLogf,
 	})
 	d.hosts = netcfg.NewHosts(d.opts.hostsPath, d.dirs.state)
+	d.hosts.SetMarker(d.opts.anchor)
 	d.hosts.SetLogf(d.log.netcfgLogf)
 	d.hosts.SetDryRun(d.opts.dryRun)
 

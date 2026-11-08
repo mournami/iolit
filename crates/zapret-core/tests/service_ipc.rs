@@ -39,6 +39,12 @@ async fn service_rejects_invalid_commands_without_changing_state() {
     let started = request("start", json!({})).await;
     let running = request("status", json!({})).await;
     let stopped = request("stop", json!({})).await;
+    if started.is_err() {
+        eprintln!(
+            "engine startup log: {:?}",
+            request("logtail", json!({})).await
+        );
+    }
     assert!(stopped.is_ok(), "must restore disabled state: {stopped:?}");
     assert!(
         started.is_ok(),

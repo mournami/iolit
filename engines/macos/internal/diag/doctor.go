@@ -793,6 +793,7 @@ func busyLocalPorts(ports []int) []int {
 func collectHosts(o DoctorOpts) HostsState {
 	hs := HostsState{Path: o.HostsPath, UpstreamPath: o.UpstreamHostsPath}
 	h := netcfg.NewHosts(o.HostsPath, "")
+	h.SetMarker(o.Anchor)
 	h.SetMarker(o.HostsMarker)
 	applied, err := h.Applied()
 	if err != nil {
@@ -2142,6 +2143,7 @@ func Repair(ctx context.Context, o DoctorOpts) ([]Finding, error) {
 	defer pf.Close()
 
 	hosts := netcfg.NewHosts(o.HostsPath, o.StateDir)
+	hosts.SetMarker(o.Anchor)
 	hosts.SetMarker(o.HostsMarker)
 	hosts.SetDryRun(o.DryRun)
 	hosts.SetLogf(o.Logf)

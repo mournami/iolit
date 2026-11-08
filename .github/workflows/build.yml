@@ -45,6 +45,14 @@ jobs:
           name: Zapret-Desktop-Windows-x64-DEVELOPMENT
           path: target/release/bundle/nsis/*.exe
           if-no-files-found: error
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('Cargo.lock') }}
   macos:
     runs-on: macos-15
     steps:
