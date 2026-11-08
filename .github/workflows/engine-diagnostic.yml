@@ -1,0 +1,44 @@
+name: Diagnose packaged Windows engine
+on:
+  push:
+    branches: [codex/windows-diagnostic]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42514190753
+          name: Zapret-Desktop-Windows-x64-DEVELOPMENT
+          path: installer
+      - name: Install and collect the actual startup log
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem installer/*.exe | Select-Object -First 1
+          $p = Start-Process $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer failed: $($p.ExitCode)" }
+          function Request-Control([string]$command) {
+            $pipe = [IO.Pipes.NamedPipeClientStream]::new('.', 'ZapretDesktop.Control.v1', [IO.Pipes.PipeDirection]::InOut)
+            try {
+              $pipe.Connect(10000)
+              $writer = [IO.StreamWriter]::new($pipe, [Text.UTF8Encoding]::new($false), 1024, $true)
+              $reader = [IO.StreamReader]::new($pipe, [Text.UTF8Encoding]::new($false), $false, 1024, $true)
+              $writer.AutoFlush = $true
+              $writer.WriteLine((@{cmd=$command;args=@{}} | ConvertTo-Json -Compress))
+              $task = $reader.ReadLineAsync()
+              if (-not $task.Wait(15000)) { throw 'Control request timed out' }
+              $task.Result
+            } finally { $pipe.Dispose() }
+          }
+          Request-Control 'status'
+          try {
+            Request-Control 'start'
+            Request-Control 'status'
+            Get-Content "$env:ProgramData/ZapretDesktop/engine.log" -Tail 100
+          } finally { Request-Control 'stop' }
