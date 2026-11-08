@@ -1,0 +1,3 @@
+export type Strategy={id:string;name:string;description:string;supported:boolean};
+export type ProbeResult={id:string;name:string;protocol:string;ok:boolean;latency_ms:number;detail:string};
+export type Snapshot={version:string;service:{installed:boolean;running:boolean;platform:string;engine:string;strategy:string;uptime_secs:number;capabilities:{tcp:boolean;udp:boolean;ipv6:boolean;packet_injection:boolean};warnings:string[];packets:number;modified_packets:number;errors:number};strategies:Strategy[];operation:{busy:boolean;stage:string;current:number;total:number;results:ProbeResult[];error:string|null;winner:string|null;notice:string|null}};

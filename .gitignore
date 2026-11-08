@@ -1,0 +1,17 @@
+/target/
+/node_modules/
+/ui/dist/
+/work/
+/outputs/
+/resources/runtime/
+/.DS_Store
+*.log
+*.p12
+*.pfx
+*.key
+*.pem
+.env*
+!.env.example
+
+/src-tauri/gen/
+/scripts/__pycache__/

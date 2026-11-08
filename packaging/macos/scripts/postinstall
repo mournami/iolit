@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+install -d -o root -g wheel -m 0755 /var/run/zapret-desktop
+"/Library/PrivilegedHelperTools/io.zapret.desktop.engine" install-daemon \
+  --label io.zapret.desktop.engine \
+  --plist /Library/LaunchDaemons/io.zapret.desktop.engine.plist \
+  --data "/Library/Application Support/Zapret Desktop" \
+  --socket /var/run/zapret-desktop/control.sock \
+  --anchor zapret-desktop --transport divert --desktop \
+  --stdout /var/log/zapret-desktop.log --stderr /var/log/zapret-desktop.err.log
