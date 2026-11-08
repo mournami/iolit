@@ -68,3 +68,20 @@ jobs:
           Write-Output ('MANUAL EXIT: '+$process.ExitCode)
           $stdout.GetAwaiter().GetResult()
           $stderr.GetAwaiter().GetResult()
+
+          Write-Output 'VERBATIM PATH COMPARISON:'
+          $start.ArgumentList.Clear()
+          foreach ($arg in $strategy.arguments) {
+            if ($arg.Contains('=@')) { $pair = $arg.Split('=@',2); $arg = $pair[0]+'=\\?\'+(Join-Path $root $pair[1]) }
+            $start.ArgumentList.Add($arg)
+          }
+          $process = [Diagnostics.Process]::Start($start)
+          $stdout = $process.StandardOutput.ReadToEndAsync()
+          $stderr = $process.StandardError.ReadToEndAsync()
+          Start-Sleep 2
+          Write-Output ('VERBATIM ALIVE: '+(-not $process.HasExited))
+          if (-not $process.HasExited) { $process.Kill() }
+          $process.WaitForExit()
+          Write-Output ('VERBATIM EXIT: '+$process.ExitCode)
+          $stdout.GetAwaiter().GetResult()
+          $stderr.GetAwaiter().GetResult()
