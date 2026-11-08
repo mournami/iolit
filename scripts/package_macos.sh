@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+export COPYFILE_DISABLE=1
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$PROJECT_ROOT"
 STAGE="$PROJECT_ROOT/work/pkg-root"
@@ -9,6 +10,7 @@ cp -R resources/runtime/macos/data/. "$STAGE/Library/Application Support/Zapret 
 mkdir -p "$STAGE/Library/Application Support/Zapret Desktop/tools"
 install -m 0755 resources/runtime/macos/zaprctl "$STAGE/Library/Application Support/Zapret Desktop/tools/zaprctl"
 chmod 0755 packaging/macos/scripts/postinstall
+chmod 0755 packaging/macos/scripts/preinstall
 pkgbuild --root "$STAGE" --identifier io.zapret.desktop.service --version 0.1.0 --install-location / \
   --scripts packaging/macos/scripts resources/runtime/ZapretService.pkg
 if [ -n "${ZAPRET_INSTALLER_IDENTITY:-}" ]; then

@@ -55,7 +55,7 @@ def prepare_windows(lock):
     for s in catalog:
         for arg in s['arguments']:
             if '=@' in arg and not (target/arg.split('=@',1)[1]).is_file(): raise RuntimeError(f'Missing payload: {arg}')
-    (target/'strategies.json').write_text(json.dumps(catalog,ensure_ascii=False,indent=2)+'\n')
+    (target/'strategies.json').write_text(json.dumps(catalog,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     shutil.copy2(ROOT/'licenses/Flowseal-MIT.txt',target/'LICENSE-flowseal.txt')
     print(f'Imported {len(catalog)} pinned Windows strategies')
 
