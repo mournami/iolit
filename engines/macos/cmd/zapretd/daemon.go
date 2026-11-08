@@ -1778,9 +1778,8 @@ func (d *Daemon) Start(transport string) error {
 // Stop takes the datapath down and removes its pf rules, leaving the daemon
 // itself running so it can be started again without sudo.
 func (d *Daemon) Stop() error {
-	if err := d.saveDesktopEnabled(false); err != nil {
-		return err
-	}
+	// Failure to persist a preference must never prevent stopping interception.
+	persistErr := d.saveDesktopEnabled(false)
 	d.setEnabled(false)
 	d.cancelSession()
 	deadline := time.Now().Add(datapathStopWait)
@@ -1798,6 +1797,9 @@ func (d *Daemon) Stop() error {
 	// own cleanup failed.
 	if err := d.pf.FlushRules(); err != nil {
 		return fmt.Errorf("the datapath stopped but flushing the %q anchor failed: %w", d.opts.anchor, err)
+	}
+	if persistErr != nil {
+		return fmt.Errorf("the datapath stopped, but saving the disabled state failed: %w", persistErr)
 	}
 	return nil
 }

@@ -173,15 +173,15 @@ impl Controller {
         })
     }
     fn status(&mut self) -> Result<ServiceStatus> {
-        if let Some(child) = &mut self.child {
-            if let Some(exit) = child.try_wait()? {
-                self.warning = Some(format!(
-                    "Движок завершился: {exit}. Проверьте конфликт с другим zapret или WinDivert."
-                ));
-                self.child = None;
-                self.job = None;
-                self.started = None;
-            }
+        if let Some(child) = &mut self.child
+            && let Some(exit) = child.try_wait()?
+        {
+            self.warning = Some(format!(
+                "Движок завершился: {exit}. Проверьте конфликт с другим zapret или WinDivert."
+            ));
+            self.child = None;
+            self.job = None;
+            self.started = None;
         }
         Ok(ServiceStatus {
             installed: true,
@@ -204,6 +204,8 @@ impl Controller {
     }
     fn stop(&mut self) -> Result<()> {
         if let Some(mut child) = self.child.take() {
+            // Closing the job kills owned processes even if an explicit kill fails.
+            drop(self.job.take());
             let _ = child.kill();
             child.wait()?;
         }
@@ -271,8 +273,9 @@ impl Controller {
                 Ok(Value::Null)
             }
             "stop" => {
-                std::fs::write(self.data.join("enabled"), b"0")?;
+                let persisted = std::fs::write(self.data.join("enabled"), b"0");
                 self.stop()?;
+                persisted.context("Движок остановлен, но сохранить настройку не удалось")?;
                 Ok(Value::Null)
             }
             "use" => {
@@ -284,12 +287,10 @@ impl Controller {
                 let running = self.status()?.running;
                 self.stop()?;
                 self.active = id.into();
-                if running {
-                    if let Err(e) = self.start().await {
-                        self.active = old;
-                        let _ = self.start().await;
-                        return Err(e);
-                    }
+                if running && let Err(e) = self.start().await {
+                    self.active = old;
+                    let _ = self.start().await;
+                    return Err(e);
                 }
                 std::fs::write(self.data.join("strategy"), id)?;
                 Ok(Value::Null)
@@ -376,17 +377,17 @@ impl Drop for Security {
 
 async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
     let mut controller = Controller::new()?;
-    if std::fs::read_to_string(controller.data.join("enabled")).is_ok_and(|s| s.trim() == "1") {
-        if let Err(e) = controller.start().await {
-            controller.warning = Some(e.to_string());
-        }
+    if std::fs::read_to_string(controller.data.join("enabled")).is_ok_and(|s| s.trim() == "1")
+        && let Err(e) = controller.start().await
+    {
+        controller.warning = Some(e.to_string());
     }
     let controller = Arc::new(Mutex::new(controller));
     let mut first = true;
     loop {
         let pipe = {
             let security = Security::new()?;
-            let pipe = unsafe {
+            unsafe {
                 ServerOptions::new()
                     .first_pipe_instance(first)
                     .reject_remote_clients(true)
@@ -394,8 +395,7 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
                         zapret_core::WINDOWS_PIPE,
                         &security.attributes as *const _ as *mut _,
                     )
-            }?;
-            pipe
+            }?
         };
         first = false;
         tokio::select! {r=pipe.connect()=>r?,_=shutdown.changed()=>break}
