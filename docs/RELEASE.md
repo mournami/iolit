@@ -76,6 +76,9 @@ Codex outputs folder. Windows artifact ID **13631178771**, ZIP SHA256
 
 ## Next step
 
+The final native-UI attempt was blocked because the Mac screen is locked.
+The user must unlock it manually. The installation decision is also still pending.
+
 Wait for the existing Mac installation decision. If authorized, open the already
 built installer, hand native password entry to the user, then verify the live
 packet path and recovery before claiming functional macOS DPI circumvention.
