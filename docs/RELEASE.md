@@ -1,50 +1,83 @@
 # Release state — 2026-11-08
 
-**Not production-ready. Do not publish as a fully verified commercial release.**
+**Development/test builds are available. The commercial product is not finished.**
 
-## User requirements
+## Requirements and location
 
-- Project directory: `/Users/macbook/Desktop/проекты/zapret`.
-- Open source for now; commercial quality is required.
-- Windows and macOS required, including all TCP/UDP service functions.
-- User has a Windows machine and will perform Windows testing.
+- Project: `/Users/macbook/Desktop/проекты/zapret`.
+- User wants commercial quality, open source for now, Windows and macOS including TCP/UDP.
+- User has a Windows computer and agreed to test there.
+- Existing private repository: `mournami/zapret13231`, branch `codex/desktop-app`.
+- Draft PR #1: https://github.com/mournami/zapret13231/pull/1. Nothing merged or publicly released.
 
-## Completed implementation
+## Verified build and runtime evidence
 
-- Native Tauri/Svelte application with tray, service control, strategy selection,
-  on-demand HTTPS/STUN checks, doctor, custom domains and local report export.
-- Windows root service with a local-only named pipe and a kill-on-close job.
-- Pinned Flowseal import: no upstream batch files are executed.
-- Pinned, attributed macOS PF/BPF engine; GUI forces packet transport, not proxy.
-- Mac desktop integration: isolated data/socket/guard names; first start disabled;
-  enable/disable persisted; custom host list validation at both privilege boundaries.
-- Helper `.pkg`, per-machine Windows installer hooks, build scripts.
-- Signed manifest verification primitive. **Automatic update delivery is not yet implemented.**
+Code revision: `0e4c029b921d218ed850f96c0d8ccaa220becc1d`.
+Full native CI run **42516443155 passed on both Windows and macOS**:
+https://github.com/mournami/zapret13231/actions/runs/42516443155
 
-## Verified so far
+- Frontend type check: 0 errors/warnings; production build passed.
+- Rust core: 5 tests on macOS; Windows omits the Unix-only symlink test.
+- Windows service cross-check and strict clippy passed locally.
+- macOS Go engine, desktop integration and race tests passed.
+- Windows NSIS installer built and installed in Windows Server 2022 CI.
+- Real service IPC test passed, including rejection of invalid commands and actual
+  winws/WinDivert start, status and stop. This is not a real ISP/video/voice test.
+- Native Apple Silicon app, helper package, full `.pkg`, `.dmg` and app `.zip` built.
+- Mac GUI opened; five actual HTTPS/STUN probes and native report export passed
+  **without installing or running the packet engine**. Exported report was checked
+  for omission of raw logs, user domains and address-bearing error details.
+- Mac installer BOM confirmed root-owned executable files (0/0, mode 0755).
 
-- Frontend type check: 0 errors, 0 warnings.
-- Frontend production build: passed.
-- Rust core tests: 4 passed (domain validation, traversal/symlink escape, signature tampering).
-- Go engine and added desktop integration tests: passed without root.
-- 22 pinned Windows strategies imported with payload existence checks.
-- Native Apple Silicon Go engine/CLI built; macOS helper package built.
+Local packages are in `outputs/`; copies of Windows `.exe`, Mac `.pkg`/`.dmg`,
+SHA256 sums, BUILD-INFO.json, test instructions and screenshot are in this chat's
+Codex outputs folder. Windows artifact ID **13631178771**, ZIP SHA256
+`78d61c74d22f0976c7482f61e059950f19cfe7db95edea4e8a9579d42090bcd2` was verified.
 
-## Open gates
+## Material remaining work
 
-- Native GUI and bundle build / visual check: in progress.
-- Windows service cross-check: in progress; full MSVC application build must run on Windows.
-- Real macOS packet-path verification: blocked on administrator authorization;
-  `sudo -n -v` reports that a password is required. No system service or PF changes
-  have been installed/applied during this development run.
-- Publisher identity: `security find-identity -v -p codesigning` found 0 identities.
-  Current local packages are unsigned/ad-hoc development artifacts.
-- Intel macOS build and runtime verification are not complete.
-- Real YouTube playback, Discord voice, QUIC and network recovery not yet verified.
-- Signed update distribution/rollback, telemetry-free support flow and code audit.
-- License/source packaging review for redistributed WinDivert and engine dependencies.
-- npm audit reports two low-severity development dependency findings in the Svelte
-  build plugin/deepmerge; no patched release was offered by npm at this point.
+- **Mac root packet path has not been tested.** A user-input request asks whether
+  to open the concrete installer for administrator-authorized service installation
+  and TCP/UDP tests. It is still pending. Do not treat elapsed time as authorization.
+- `sudo -n -v` requires a password; no root service or PF/network change has been
+  installed/applied on this Mac during the session. User must enter any password
+  themselves in the native macOS window, never in chat.
+- Real video playback, Discord voice, QUIC, network changes, sleep/wake, crash
+  recovery and uninstall need the acceptance checks in `docs/ACCEPTANCE.md`.
+- Intel Mac binary/runtime validation is incomplete; current local package is arm64.
+- Signed automatic updates with health checks/rollback are not implemented.
+  Signature-verification primitives exist; that is not an updater.
+- Selector currently tests whole strategies with baseline checks and two successful
+  rounds, cancellation and persisted recovery. Per-service composite compilation
+  and automatic network-change repair are not finished.
+- Publisher certificates/notarization are absent (0 local code-signing identities).
+  Packages are unsigned/ad-hoc test builds.
+- Exact corresponding-source/notice packaging review is pending for WinDivert,
+  Cygwin and other dependencies. Do not describe the entire bundle as MIT.
+- Full security review and physical-device acceptance remain release gates.
+- npm audit recorded two low-severity development-only findings in the Svelte
+  build plugin/deepmerge; npm offered no patched release at the time.
 
-Evidence must be updated after each check; do not convert skipped privileged tests
-to a pass. Read `docs/ACCEPTANCE.md` before marking a production release complete.
+## Important fixes and investigation evidence
+
+- Explicit UTF-8 for Windows strategy export; macOS CI moved off retired macos-14.
+- Cygwin rejected Win32 canonical verbatim path prefixes. Canonical paths are still
+  used for containment checks; only the CLI rendering is converted afterwards.
+- Diagnostic branch `codex/windows-diagnostic` reproduced the failure and verified
+  the real SYSTEM service after conventional path substitution (run 42516317747).
+  Its workflow only runs on pushes to that branch, not on a schedule.
+- Windows output is captured through pipes, bounded to 2 MiB; log-tail reads bounded.
+- Disabling interception no longer depends on successfully saving a preference.
+- Mac service/socket/anchor/hosts markers are isolated; fresh install disabled;
+  enabled state persisted; upgrades preserve user host lists, including failed retries.
+- Source synchronization used the GitHub connector because shell Git has no HTTPS
+  credential. Local Git history matches connector-created commits. A future source
+  update must materialize its local tree before importing a connector-created commit.
+
+## Next step
+
+Wait for the existing Mac installation decision. If authorized, open the already
+built installer, hand native password entry to the user, then verify the live
+packet path and recovery before claiming functional macOS DPI circumvention.
+Continue the unfinished product work and release gates afterwards; do not mark the
+original commercial-ready objective complete from build/CI results alone.
