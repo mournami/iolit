@@ -23,6 +23,12 @@ This is a separate executable/driver component. Required corresponding-source
 delivery and exact-binary/version matching must be completed before commercial
 distribution; a link alone is not treated here as completed compliance.
 
+## Cygwin runtime
+
+The pinned Windows bundle also includes `cygwin1.dll`. Its runtime license,
+exceptions and exact-version corresponding-source requirements must be included
+in the redistribution review. Do not treat the complete Windows bundle as MIT.
+
 ## Rust / JavaScript / Go dependencies
 
 Exact package versions in Cargo.lock, package-lock.json and engines/macos/go.sum.
