@@ -1,0 +1,21 @@
+{
+  "flowseal": {
+    "version": "1.10.4",
+    "url": "https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.4/zapret-discord-youtube-1.10.4.tar.gz",
+    "sha256": "d64ec43e562dbeb0b11f8c0325a2f6fd61a0321bfcc3c40a23f020c553f3fdb6",
+    "license_commit": "2401b7a13837139b0265632464ba563dddbf80d8",
+    "license_sha256": "fe3983a1e91206ad1a530bcfae01fad207020cb61882edd62c1e3cb5f8d5d430"
+  },
+  "zapret": {
+    "commit": "73ee2aa04e6e94922e7dc07554a1c3a456dc3201",
+    "url": "https://codeload.github.com/bol-van/zapret/tar.gz/73ee2aa04e6e94922e7dc07554a1c3a456dc3201"
+  },
+  "macos": {
+    "repository": "https://github.com/naladwepo/zapret-for-mac",
+    "commit": "763790eb671b7bc5d89399b8af46ebed70a39f0d",
+    "license": "MIT",
+    "local_changes": [
+      "Start disabled; isolated socket/data paths; explicit packet transport; no automatic VPN changes."
+    ]
+  }
+}
