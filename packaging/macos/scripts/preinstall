@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+DATA="/Library/Application Support/Zapret Desktop"
+BACKUP="$DATA/state/installer-user-lists"
+# Stop only our daemon before replacing its executable and immutable data.
+if /bin/launchctl print system/io.zapret.desktop.engine >/dev/null 2>&1; then
+  /bin/launchctl bootout system/io.zapret.desktop.engine
+fi
+if [ -d "$DATA/lists" ]; then
+  install -d -o root -g wheel -m 0700 "$DATA/state" "$BACKUP"
+  for name in list-general-user.txt list-exclude-user.txt ipset-exclude-user.txt; do
+    path="$DATA/lists/$name"
+    if [ -L "$path" ]; then
+      printf '%s\n' 'A user list is a symbolic link; refusing to overwrite it.' >&2
+      exit 1
+    fi
+    if [ -f "$path" ]; then
+      install -o root -g wheel -m 0600 "$path" "$BACKUP/$name"
+    fi
+  done
+fi

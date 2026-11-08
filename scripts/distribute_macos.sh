@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+export COPYFILE_DISABLE=1
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$PROJECT_ROOT"
 APP="$PROJECT_ROOT/target/release/bundle/macos/Zapret Desktop.app"
