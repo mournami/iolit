@@ -380,6 +380,7 @@ func runUninstall(args []string, stdout, stderr io.Writer) int {
 
 	if !*keepHosts {
 		h := netcfg.NewHosts(o.hostsPath, stateDir)
+		h.SetMarker(o.anchor)
 		h.SetLogf(func(f string, a ...any) { fmt.Fprintf(stdout, "    "+f+"\n", a...) })
 		if err := h.Remove(); err != nil {
 			step("remove the hosts block", err)

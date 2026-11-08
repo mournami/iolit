@@ -38,6 +38,53 @@ use windows_sys::Win32::{
 };
 use zapret_core::{Capabilities, ServiceStatus, Strategy, strategy};
 
+// Cygwin binaries reliably inherit pipes. Drain both streams even when logging
+// fails, and bound the on-disk diagnostic data independently of engine output.
+fn capture_output<R: std::io::Read + Send + 'static>(
+    mut input: R,
+    log: Arc<std::sync::Mutex<std::fs::File>>,
+) {
+    std::thread::spawn(move || {
+        use std::io::{Seek, SeekFrom, Write};
+        let mut bytes = [0u8; 4096];
+        loop {
+            let n = match input.read(&mut bytes) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => n,
+            };
+            if let Ok(mut file) = log.lock() {
+                if file.metadata().map(|m| m.len()).unwrap_or(0) + n as u64 > 2 * 1024 * 1024 {
+                    let _ = file.set_len(0);
+                    let _ = file.seek(SeekFrom::Start(0));
+                    let _ = file.write_all(b"[Older engine output truncated]\n");
+                }
+                let _ = file.write_all(&bytes[..n]);
+            }
+        }
+    });
+}
+
+fn log_tail(path: &std::path::Path) -> Vec<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return vec![];
+    };
+    let start = file
+        .metadata()
+        .map(|m| m.len().saturating_sub(128 * 1024))
+        .unwrap_or(0);
+    if file.seek(SeekFrom::Start(start)).is_err() {
+        return vec![];
+    }
+    let mut bytes = Vec::new();
+    if file.take(128 * 1024).read_to_end(&mut bytes).is_err() {
+        return vec![];
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    let lines: Vec<_> = text.lines().rev().take(80).map(str::to_owned).collect();
+    lines.into_iter().rev().collect()
+}
+
 const NAME: &str = "ZapretDesktop";
 define_windows_service!(ffi_main, service_main);
 
@@ -235,18 +282,26 @@ impl Controller {
         }
         let log = std::fs::OpenOptions::new()
             .create(true)
-            .append(true)
+            .write(true)
+            .truncate(true)
             .open(self.data.join("engine.log"))?;
+        let log = Arc::new(std::sync::Mutex::new(log));
         let job = Job::new()?;
         let mut child = Command::new(self.root.join("bin/winws.exe"))
             .args(&args)
             .current_dir(&self.root)
             .stdin(Stdio::null())
-            .stdout(log.try_clone()?)
-            .stderr(log)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .context("Не удалось запустить winws. Проверьте драйвер WinDivert и антивирус.")?;
+        if let Some(stdout) = child.stdout.take() {
+            capture_output(stdout, log.clone());
+        }
+        if let Some(stderr) = child.stderr.take() {
+            capture_output(stderr, log);
+        }
         if unsafe { AssignProcessToJobObject(job.0, child.as_raw_handle() as HANDLE) } == 0 {
             let _ = child.kill();
             let _ = child.wait();
@@ -254,7 +309,8 @@ impl Controller {
         }
         tokio::time::sleep(Duration::from_millis(800)).await;
         if let Some(exit) = child.try_wait()? {
-            bail!("winws завершился при запуске: {exit}. Подробности в журнале.");
+            let details = log_tail(&self.data.join("engine.log")).join("\n");
+            bail!("winws завершился при запуске: {exit}.\n{details}");
         }
         self.child = Some(child);
         self.job = Some(job);
@@ -317,12 +373,7 @@ impl Controller {
                     json!({"checks":[{"name":"Системная служба","ok":true,"detail":"Служба доступна"},{"name":"Движок","ok":s.running,"detail":if s.running{"Движок запущен"}else{"Движок выключен"}},{"name":"WinDivert","ok":self.root.join("bin/WinDivert64.sys").is_file(),"detail":"Проверка наличия драйвера. Работу подтверждает запуск движка."}]}),
                 )
             }
-            "logtail" => {
-                let path = self.data.join("engine.log");
-                let text = std::fs::read_to_string(path).unwrap_or_default();
-                let lines: Vec<_> = text.lines().rev().take(80).collect();
-                Ok(json!({"lines":lines.into_iter().rev().collect::<Vec<_>>()}))
-            }
+            "logtail" => Ok(json!({"lines":log_tail(&self.data.join("engine.log"))})),
             _ => bail!("Неизвестная команда"),
         }
     }

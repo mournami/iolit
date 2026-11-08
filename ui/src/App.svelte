@@ -12,7 +12,7 @@
   $: results=operation?.results||[];
   $: platform=service?.platform==='windows'?'Windows':service?.platform==='macos'?'macOS':'Desktop';
   $: uptime=service?.uptime_secs?`${Math.floor(service.uptime_secs/3600).toString().padStart(2,'0')}:${Math.floor(service.uptime_secs/60%60).toString().padStart(2,'0')}:${Math.floor(service.uptime_secs%60).toString().padStart(2,'0')}`:'—';
-  const services=[{id:'youtube',name:'YouTube',hint:'Видео и сайт',icon:'youtube',color:'#f15b5b'},{id:'discord',name:'Discord',hint:'Соединение с API',icon:'discord',color:'#8b92ff'},{id:'udp',name:'UDP',hint:'Проверка STUN',icon:'pulse',color:'#80cba5'},{id:'cloudflare',name:'Сайты',hint:'Проверка HTTPS',icon:'globe',color:'#ebbd78'}];
+  const services=[{id:'youtube',name:'YouTube',hint:'Доступ к сайту',icon:'youtube',color:'#f15b5b'},{id:'discord',name:'Discord',hint:'Соединение с API',icon:'discord',color:'#8b92ff'},{id:'udp',name:'UDP',hint:'Проверка STUN',icon:'pulse',color:'#80cba5'},{id:'cloudflare',name:'Сайты',hint:'Проверка HTTPS',icon:'globe',color:'#ebbd78'}];
   async function refresh(){if(refreshing||!native)return;refreshing=true;try{data=await api<Snapshot>('snapshot');selected=data.service.strategy; }catch(e){error=String(e);}finally{refreshing=false;}}
   onMount(()=>{void refresh();const timer=setInterval(()=>void refresh(),2000);return()=>clearInterval(timer);});
   async function action(command:string,args?:Record<string,unknown>){pending=true;error='';notice='';try{await api(command,args);await refresh();}catch(e){error=String(e);}finally{pending=false;}}
