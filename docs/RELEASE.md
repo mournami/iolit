@@ -74,6 +74,22 @@ Codex outputs folder. Windows artifact ID **13631178771**, ZIP SHA256
   credential. Local Git history matches connector-created commits. A future source
   update must materialize its local tree before importing a connector-created commit.
 
+## UI redesign — 2026-11-08 (not yet verified in a native window)
+
+- New interface: top tab bar instead of sidebar; overview built around a route
+  diagram (computer → provider filter → YouTube / Discord / UDP / Cloudflare) that
+  shows probe results and the on/off state; on/off is a persistent switch.
+  Code: `ui/src/App.svelte`, `ui/src/store.svelte.ts`, `ui/src/components/*`,
+  `ui/src/style.css`, `ui/src/Icon.svelte`. Tauri commands and arguments unchanged.
+- Verified: `svelte-check` 0 errors / 0 warnings (run off-device with a stub for the
+  `vite/client` CSS typing), every component compiles with the Svelte 5.57 compiler,
+  and all states were rendered in Chrome against a mocked `invoke`
+  (no service, off, on, checking, strategy selection, winner, failure, Windows,
+  browser preview, 800 px window).
+- Not verified: `npm run build` (Vite/rolldown native binaries were unavailable in
+  the test environment) and the real Tauri window on macOS and Windows. Run
+  `npm run check && npm run build` and open the app before handing off.
+
 ## Next step
 
 The final native-UI attempt was blocked because the Mac screen is locked.
