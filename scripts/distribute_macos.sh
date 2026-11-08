@@ -14,7 +14,7 @@ FULL="$PROJECT_ROOT/work/full-pkg-root"
 mkdir -p "$FULL/Applications"
 cp -R work/pkg-root/. "$FULL/"
 cp -R "$APP" "$FULL/Applications/"
-pkgbuild --analyze --root "$FULL" --component-plist work/components.plist
+pkgbuild --analyze --root "$FULL" work/components.plist
 python3 - <<'PY'
 import plistlib
 p='work/components.plist'
@@ -24,4 +24,8 @@ with open(p,'wb') as f:plistlib.dump(data,f)
 PY
 pkgbuild --root "$FULL" --component-plist work/components.plist --identifier io.zapret.desktop.full \
   --version 0.1.0 --install-location / --scripts packaging/macos/scripts "outputs/Zapret-Desktop-0.1.0-macos-$ARCH.pkg"
+if [ -n "${ZAPRET_INSTALLER_IDENTITY:-}" ]; then
+  productsign --sign "$ZAPRET_INSTALLER_IDENTITY" "outputs/Zapret-Desktop-0.1.0-macos-$ARCH.pkg" work/full-signed.pkg
+  mv work/full-signed.pkg "outputs/Zapret-Desktop-0.1.0-macos-$ARCH.pkg"
+fi
 ditto -c -k --sequesterRsrc --keepParent "$APP" "outputs/Zapret-Desktop-0.1.0-macos-$ARCH.zip"
