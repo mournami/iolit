@@ -14,7 +14,7 @@ if [ -d "$DATA/lists" ]; then
       printf '%s\n' 'A user list is a symbolic link; refusing to overwrite it.' >&2
       exit 1
     fi
-    if [ -f "$path" ]; then
+    if [ -f "$path" ] && [ ! -f "$BACKUP/$name" ]; then
       install -o root -g wheel -m 0600 "$path" "$BACKUP/$name"
     fi
   done

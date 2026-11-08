@@ -3,6 +3,7 @@
 package main
 
 import (
+	"github.com/naladwepo/zapret-for-mac/internal/netcfg"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,6 +17,22 @@ func TestDesktopDomainRejectsInjection(t *testing.T) {
 	}
 	if s, err := validateDesktopDomain("EXAMPLE.COM."); err != nil || s != "example.com" {
 		t.Fatal(s, err)
+	}
+}
+
+func TestDesktopStopDoesNotDependOnPreferenceWrite(t *testing.T) {
+	state := t.TempDir()
+	if err := os.Mkdir(filepath.Join(state, "desktop-enabled"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	d := &Daemon{opts: options{desktop: true}, dirs: dirs{state: state}, enabled: true}
+	d.pf = netcfg.NewPF("desktop-stop-test", netcfg.PFOpts{StateDir: state, DryRun: true})
+	defer d.pf.Close()
+	if err := d.Stop(); err == nil {
+		t.Fatal("preference error must be reported")
+	}
+	if d.isEnabled() {
+		t.Fatal("failed preference write left interception enabled")
 	}
 }
 func TestDesktopStartsDisabledAndPersistsStop(t *testing.T) {
