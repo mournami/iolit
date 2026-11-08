@@ -85,3 +85,23 @@ jobs:
           Write-Output ('VERBATIM EXIT: '+$process.ExitCode)
           $stdout.GetAwaiter().GetResult()
           $stderr.GetAwaiter().GetResult()
+
+          Write-Output 'SERVICE WITH CONVENTIONAL PATHS:'
+          Stop-Service ZapretDesktop
+          foreach ($item in $catalog) {
+            $item.arguments = @(
+              foreach ($arg in $item.arguments) {
+                if ($arg.Contains('=@')) { $pair=$arg.Split('=@',2); $arg=$pair[0]+'='+(Join-Path $root $pair[1]) }
+                $arg
+              }
+            )
+          }
+          $catalog | ConvertTo-Json -Depth 20 | Set-Content (Join-Path $root 'strategies.json') -Encoding utf8NoBOM
+          Start-Service ZapretDesktop
+          Start-Sleep 1
+          try {
+            $reply=Request-Control 'start'
+            Write-Output $reply
+            Request-Control 'status'
+            if (-not ($reply | ConvertFrom-Json).ok) { throw 'Conventional service launch still failed' }
+          } finally { Request-Control 'stop' }
