@@ -42,3 +42,29 @@ jobs:
             Request-Control 'status'
             Get-Content "$env:ProgramData/ZapretDesktop/engine.log" -Tail 100
           } finally { Request-Control 'stop' }
+          $root = Join-Path $env:ProgramFiles 'Zapret Desktop/runtime/windows'
+          $engine = Join-Path $root 'bin/winws.exe'
+          Write-Output 'DIRECT HELP:'
+          & $engine --help 2>&1 | Select-Object -First 12
+          $catalog = Get-Content (Join-Path $root 'strategies.json') -Raw | ConvertFrom-Json
+          $strategy = $catalog | Where-Object id -eq 'general' | Select-Object -First 1
+          $start = [Diagnostics.ProcessStartInfo]::new($engine)
+          $start.UseShellExecute = $false
+          $start.CreateNoWindow = $true
+          $start.RedirectStandardOutput = $true
+          $start.RedirectStandardError = $true
+          $start.WorkingDirectory = $root
+          foreach ($arg in $strategy.arguments) {
+            if ($arg.Contains('=@')) { $pair = $arg.Split('=@',2); $arg = $pair[0]+'='+(Join-Path $root $pair[1]) }
+            $start.ArgumentList.Add($arg)
+          }
+          $process = [Diagnostics.Process]::Start($start)
+          $stdout = $process.StandardOutput.ReadToEndAsync()
+          $stderr = $process.StandardError.ReadToEndAsync()
+          Start-Sleep 2
+          Write-Output ('MANUAL ALIVE: '+(-not $process.HasExited))
+          if (-not $process.HasExited) { $process.Kill() }
+          $process.WaitForExit()
+          Write-Output ('MANUAL EXIT: '+$process.ExitCode)
+          $stdout.GetAwaiter().GetResult()
+          $stderr.GetAwaiter().GetResult()
