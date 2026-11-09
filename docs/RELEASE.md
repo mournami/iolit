@@ -100,3 +100,19 @@ built installer, hand native password entry to the user, then verify the live
 packet path and recovery before claiming functional macOS DPI circumvention.
 Continue the unfinished product work and release gates afterwards; do not mark the
 original commercial-ready objective complete from build/CI results alone.
+
+## 2026-11-09 — redesigned UI builds and main integration
+
+- Claude's existing commit `82c4011c2d942115c96ee8d29874c94d6f4a8466` was preserved.
+- Both native platform builds passed in CI run 42529904118; Windows package
+  installation and real service/WinDivert start-stop checks passed.
+- Local frontend check reported 0 errors/warnings, production frontend build and
+  Apple Silicon app/pkg/dmg build passed. The new top-tab/route-diagram UI was
+  opened in the native Mac app and visually checked. No root installation or
+  packet-path claim was made.
+- Both CI artifact archives were downloaded with verified SHA256 and extracted
+  into project outputs and chat outputs. BUILD-INFO.json records the source revision.
+- At the user's explicit request PR #1 was merged into main, merge commit
+  `670fd64eb1b2d6667de4a5fde8f2df16d703aac9`. Local checkout now tracks main.
+- The commercial release gates above remain; merging the source is not a
+  production release and the distributed packages remain unsigned development builds.
