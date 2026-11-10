@@ -229,6 +229,11 @@ by CI success.
 
 ## Next step
 
+The Russian phase-0 report is in `docs/PHASE-0-REPORT.md`. Before committing the
+report, local fmt, strict workspace clippy, workspace tests (15 passed), frontend
+check (0 errors / 0 warnings) and frontend build passed again. This publication
+changes documentation only; Windows CI evidence above refers to its tested revisions.
+
 Run the manual Windows checklist and record the actual results. The required
 Windows CI exit criterion has passed; physical-device and commercial release
 acceptance remain pending. Phase 1 has not been started and is outside this
