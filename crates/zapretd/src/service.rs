@@ -1,5 +1,4 @@
 use anyhow::{Context, Result, bail};
-use serde_json::{Value, json};
 use std::{
     ffi::OsString,
     os::windows::{io::AsRawHandle, process::CommandExt},
@@ -37,6 +36,11 @@ use windows_sys::Win32::{
     },
 };
 use zapret_core::{Capabilities, ServiceStatus, Strategy, strategy};
+use zapret_core::{VERSION, api::*};
+use zapretd::{
+    operation::OperationManager,
+    selector::{Backend, NetworkProbes},
+};
 
 // Cygwin binaries reliably inherit pipes. Drain both streams even when logging
 // fails, and bound the on-disk diagnostic data independently of engine output.
@@ -318,69 +322,179 @@ impl Controller {
         self.warning = None;
         Ok(())
     }
-    async fn dispatch(&mut self, request: Value) -> Result<Value> {
-        let args = &request["args"];
-        match request["cmd"].as_str().unwrap_or("") {
-            "status" => Ok(serde_json::to_value(self.status()?)?),
-            "list" => Ok(serde_json::to_value(&self.catalog)?),
-            "start" => {
-                self.start().await?;
-                std::fs::write(self.data.join("enabled"), b"1")?;
-                Ok(Value::Null)
-            }
-            "stop" => {
-                let persisted = std::fs::write(self.data.join("enabled"), b"0");
-                self.stop()?;
-                persisted.context("Движок остановлен, но сохранить настройку не удалось")?;
-                Ok(Value::Null)
-            }
-            "use" => {
-                let id = args["name"].as_str().context("Не указана стратегия")?;
-                if !strategy::valid_id(id) || !self.catalog.iter().any(|s| s.id == id) {
-                    bail!("Неизвестная стратегия");
-                }
-                let old = self.active.clone();
-                let running = self.status()?.running;
-                self.stop()?;
-                self.active = id.into();
-                if running && let Err(e) = self.start().await {
-                    self.active = old;
-                    let _ = self.start().await;
-                    return Err(e);
-                }
-                std::fs::write(self.data.join("strategy"), id)?;
-                Ok(Value::Null)
-            }
-            "add-domain" => {
-                let domain = strategy::normalize_domain(
-                    args["domain"].as_str().context("Не указан домен")?,
-                )?;
-                let file = self.data.join("user-domains.txt");
-                let mut text = std::fs::read_to_string(&file).unwrap_or_default();
-                if !text.lines().any(|l| l == domain) {
-                    text.push_str(&format!("{domain}\n"));
-                    std::fs::write(file, text)?;
-                }
-                if self.status()?.running {
-                    self.stop()?;
-                    self.start().await?;
-                }
-                Ok(Value::Null)
-            }
-            "doctor" => {
-                let s = self.status()?;
-                Ok(
-                    json!({"checks":[{"name":"Системная служба","ok":true,"detail":"Служба доступна"},{"name":"Движок","ok":s.running,"detail":if s.running{"Движок запущен"}else{"Движок выключен"}},{"name":"WinDivert","ok":self.root.join("bin/WinDivert64.sys").is_file(),"detail":"Проверка наличия драйвера. Работу подтверждает запуск движка."}]}),
-                )
-            }
-            "logtail" => Ok(json!({"lines":log_tail(&self.data.join("engine.log"))})),
-            _ => bail!("Неизвестная команда"),
+    fn disable(&mut self) -> Result<()> {
+        let persisted = std::fs::write(self.data.join("enabled"), b"0");
+        self.stop()?;
+        persisted.context("Движок остановлен, но сохранить настройку не удалось")
+    }
+    async fn enable(&mut self) -> Result<()> {
+        self.start().await?;
+        std::fs::write(self.data.join("enabled"), b"1")?;
+        Ok(())
+    }
+    async fn set_strategy(&mut self, id: &str) -> Result<()> {
+        if !strategy::valid_id(id) || !self.catalog.iter().any(|s| s.id == id) {
+            bail!("Неизвестная стратегия");
         }
+        let old = self.active.clone();
+        let running = self.status()?.running;
+        self.stop()?;
+        self.active = id.into();
+        if running && let Err(e) = self.start().await {
+            self.active = old;
+            let _ = self.start().await;
+            return Err(e);
+        }
+        std::fs::write(self.data.join("strategy"), id)?;
+        Ok(())
+    }
+    async fn add_domain(&mut self, domain: &str) -> Result<()> {
+        let domain = strategy::normalize_domain(domain)?;
+        let file = self.data.join("user-domains.txt");
+        let mut text = std::fs::read_to_string(&file).unwrap_or_default();
+        if !text.lines().any(|l| l == domain) {
+            text.push_str(&format!("{domain}\n"));
+            std::fs::write(file, text)?;
+        }
+        if self.status()?.running {
+            self.stop()?;
+            self.start().await?;
+        }
+        Ok(())
+    }
+    fn doctor(&mut self) -> Result<DoctorResult> {
+        let s = self.status()?;
+        Ok(DoctorResult {
+            checks: vec![
+                DoctorCheck {
+                    name: "Системная служба".into(),
+                    ok: true,
+                    detail: Some("Служба доступна".into()),
+                },
+                DoctorCheck {
+                    name: "Движок".into(),
+                    ok: s.running,
+                    detail: Some(
+                        if s.running {
+                            "Движок запущен"
+                        } else {
+                            "Движок выключен"
+                        }
+                        .into(),
+                    ),
+                },
+                DoctorCheck {
+                    name: "WinDivert".into(),
+                    ok: self.root.join("bin/WinDivert64.sys").is_file(),
+                    detail: Some(
+                        "Проверка наличия драйвера. Работу подтверждает запуск движка.".into(),
+                    ),
+                },
+            ],
+        })
     }
 }
 impl Drop for Controller {
     fn drop(&mut self) {
         let _ = self.stop();
+    }
+}
+
+impl Backend for Controller {
+    fn status(&mut self) -> Result<ServiceStatus> {
+        Controller::status(self)
+    }
+    fn strategies(&self) -> Result<Vec<Strategy>> {
+        Ok(self.catalog.clone())
+    }
+    fn disable(&mut self) -> Result<()> {
+        Controller::disable(self)
+    }
+    async fn enable(&mut self) -> Result<()> {
+        Controller::enable(self).await
+    }
+    async fn set_strategy(&mut self, id: &str) -> Result<()> {
+        Controller::set_strategy(self, id).await
+    }
+}
+
+struct Daemon {
+    controller: Arc<Mutex<Controller>>,
+    operations: Arc<OperationManager>,
+}
+impl Daemon {
+    async fn dispatch(&self, command: DaemonCommand) -> Result<DaemonResponse> {
+        match command {
+            DaemonCommand::Snapshot => {
+                let controller = &mut *self.controller.lock().await;
+                Ok(DaemonResponse::Snapshot(Snapshot {
+                    version: VERSION.into(),
+                    service: controller.status()?,
+                    strategies: controller.catalog.clone(),
+                    operation: self.operations.operation.lock().await.clone(),
+                }))
+            }
+            DaemonCommand::Diagnose | DaemonCommand::SelectStrategy => {
+                self.operations
+                    .launch(
+                        self.controller.clone(),
+                        Arc::new(NetworkProbes),
+                        matches!(command, DaemonCommand::SelectStrategy),
+                    )
+                    .await?;
+                Ok(DaemonResponse::Empty(()))
+            }
+            DaemonCommand::CancelOperation => {
+                self.operations.cancel();
+                Ok(DaemonResponse::Empty(()))
+            }
+            DaemonCommand::Logs => Ok(DaemonResponse::Logs(log_tail(
+                &self.controller.lock().await.data.join("engine.log"),
+            ))),
+            DaemonCommand::Report => {
+                let service = self.controller.lock().await.status()?;
+                let operation = self.operations.operation.lock().await.clone();
+                Ok(DaemonResponse::Report(Report {
+                    app_version: VERSION.into(),
+                    platform: service.platform,
+                    engine: service.engine,
+                    running: service.running,
+                    strategy: service.strategy,
+                    capabilities: service.capabilities,
+                    packets: service.packets,
+                    errors: service.errors,
+                    checks: operation
+                        .results
+                        .iter()
+                        .map(|r| ReportCheck {
+                            service: r.id.clone(),
+                            protocol: r.protocol.clone(),
+                            ok: r.ok,
+                            latency_ms: r.latency_ms,
+                        })
+                        .collect(),
+                }))
+            }
+            other => {
+                let _gate = self.operations.gate.try_lock().map_err(|_| {
+                    anyhow::anyhow!("Дождитесь завершения проверки или отмените её")
+                })?;
+                let controller = &mut *self.controller.lock().await;
+                match other {
+                    DaemonCommand::Enable => controller.enable().await?,
+                    DaemonCommand::Disable => controller.disable()?,
+                    DaemonCommand::SetStrategy { strategy_id } => {
+                        controller.set_strategy(&strategy_id).await?
+                    }
+                    DaemonCommand::AddDomain { domain } => controller.add_domain(&domain).await?,
+                    DaemonCommand::Doctor => {
+                        return Ok(DaemonResponse::Doctor(controller.doctor()?));
+                    }
+                    _ => unreachable!(),
+                }
+                Ok(DaemonResponse::Empty(()))
+            }
+        }
     }
 }
 
@@ -427,13 +541,26 @@ impl Drop for Security {
 }
 
 async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
-    let mut controller = Controller::new()?;
-    if std::fs::read_to_string(controller.data.join("enabled")).is_ok_and(|s| s.trim() == "1")
-        && let Err(e) = controller.start().await
-    {
-        controller.warning = Some(e.to_string());
-    }
+    let controller = Controller::new()?;
+    let operations = Arc::new(OperationManager::new(controller.data.clone()));
     let controller = Arc::new(Mutex::new(controller));
+    match operations.recover(&controller).await {
+        Ok(false) => {
+            let controller = &mut *controller.lock().await;
+            if std::fs::read_to_string(controller.data.join("enabled"))
+                .is_ok_and(|s| s.trim() == "1")
+                && let Err(e) = controller.start().await
+            {
+                controller.warning = Some(e.to_string());
+            }
+        }
+        Ok(true) => {}
+        Err(_) => {} // Recovery failure is visible in snapshot; never enable a half-selected state.
+    }
+    let daemon = Arc::new(Daemon {
+        controller: controller.clone(),
+        operations: operations.clone(),
+    });
     let mut first = true;
     loop {
         let pipe = {
@@ -450,7 +577,7 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
         };
         first = false;
         tokio::select! {r=pipe.connect()=>r?,_=shutdown.changed()=>break}
-        let controller = controller.clone();
+        let daemon = daemon.clone();
         tokio::spawn(async move {
             let outcome = tokio::time::timeout(Duration::from_secs(20), async {
                 let mut stream = BufReader::new(pipe);
@@ -474,13 +601,21 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
                         break;
                     }
                 }
-                let result = match serde_json::from_slice::<Value>(&line) {
-                    Ok(req) => controller.lock().await.dispatch(req).await,
+                let result = match serde_json::from_slice::<DaemonCommand>(&line) {
+                    Ok(req) => daemon.dispatch(req).await,
                     Err(e) => Err(e.into()),
                 };
                 let response = match result {
-                    Ok(data) => json!({"ok":true,"data":data}),
-                    Err(e) => json!({"ok":false,"error":e.to_string()}),
+                    Ok(data) => ApiResponse {
+                        ok: true,
+                        data: Some(data),
+                        error: None,
+                    },
+                    Err(e) => ApiResponse {
+                        ok: false,
+                        data: None,
+                        error: Some(e.to_string()),
+                    },
                 };
                 let mut data = serde_json::to_vec(&response)?;
                 data.push(b'\n');
@@ -491,6 +626,8 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
             let _ = outcome;
         });
     }
+    operations.cancel();
+    let _gate = operations.gate.lock().await;
     controller.lock().await.stop()?;
     Ok(())
 }

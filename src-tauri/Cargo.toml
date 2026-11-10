@@ -16,7 +16,7 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
-zapret-core.workspace = true
+zapret-core = { workspace = true, default-features = false }
 
 [lib]
 name = "zapret_desktop"

@@ -5,13 +5,35 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 pub const MAX_MESSAGE: usize = 1024 * 1024;
 
+/// Phase 0 enables the Rust daemon API on Windows only. Never route new commands
+/// into the frozen Go daemon or pretend that another platform ran an operation.
+pub async fn request_command<T: serde::de::DeserializeOwned>(
+    command: crate::DaemonCommand,
+) -> Result<T> {
+    #[cfg(windows)]
+    {
+        let request = serde_json::to_value(command)?;
+        let data = request_raw(request).await?;
+        Ok(serde_json::from_value(data).context("Неверный тип ответа службы")?)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = command;
+        bail!("Платформа не поддерживается API zapretd. macOS заморожен до фазы 5.")
+    }
+}
+
 pub async fn request(command: &str, args: Value) -> Result<Value> {
-    tokio::time::timeout(Duration::from_secs(20), exchange(command, args))
+    request_raw(serde_json::json!({"cmd": command, "args": args})).await
+}
+
+pub async fn request_raw(message: Value) -> Result<Value> {
+    tokio::time::timeout(Duration::from_secs(20), exchange(message))
         .await
         .context("Служба не отвечает. Проверьте её установку или перезапустите компьютер.")?
 }
 
-async fn exchange(command: &str, args: Value) -> Result<Value> {
+async fn exchange(message: Value) -> Result<Value> {
     #[cfg(unix)]
     let stream = tokio::net::UnixStream::connect(crate::MAC_SOCKET)
         .await
@@ -27,7 +49,7 @@ async fn exchange(command: &str, args: Value) -> Result<Value> {
     #[cfg(windows)]
     verify_windows_server(&stream)?;
     let mut stream = BufReader::new(stream);
-    let mut message = serde_json::to_vec(&serde_json::json!({"cmd": command, "args": args}))?;
+    let mut message = serde_json::to_vec(&message)?;
     message.push(b'\n');
     stream.get_mut().write_all(&message).await?;
     let mut line = Vec::new();

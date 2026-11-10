@@ -5245,6 +5245,7 @@ dependencies = [
  "anyhow",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "windows-service",
  "windows-sys 0.59.0",
