@@ -21,16 +21,18 @@ async fn snapshot() -> ApiResult<Snapshot> {
         }))
 }
 #[tauri::command]
-async fn control(action: String, strategy_id: Option<String>) -> ApiResult<()> {
-    let command = match action.as_str() {
-        "enable" => DaemonCommand::Enable,
-        "disable" => DaemonCommand::Disable,
-        "strategy" => DaemonCommand::SetStrategy {
-            strategy_id: strategy_id.ok_or("Стратегия не выбрана")?,
-        },
-        _ => return Err("Неизвестная команда".into()),
-    };
-    request_command(command).await.map_err(msg)
+async fn enable() -> ApiResult<()> {
+    request_command(DaemonCommand::Enable).await.map_err(msg)
+}
+#[tauri::command]
+async fn disable() -> ApiResult<()> {
+    request_command(DaemonCommand::Disable).await.map_err(msg)
+}
+#[tauri::command(rename_all = "snake_case")]
+async fn set_strategy(strategy_id: String) -> ApiResult<()> {
+    request_command(DaemonCommand::SetStrategy { strategy_id })
+        .await
+        .map_err(msg)
 }
 #[tauri::command]
 async fn diagnose() -> ApiResult<()> {
@@ -61,6 +63,10 @@ async fn doctor() -> ApiResult<DoctorResult> {
 #[tauri::command]
 async fn logs() -> ApiResult<Vec<String>> {
     request_command(DaemonCommand::Logs).await.map_err(msg)
+}
+#[tauri::command]
+async fn report() -> ApiResult<Report> {
+    request_command(DaemonCommand::Report).await.map_err(msg)
 }
 #[tauri::command]
 async fn export_report(path: PathBuf) -> ApiResult<()> {
@@ -118,13 +124,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             snapshot,
-            control,
+            enable,
+            disable,
+            set_strategy,
             diagnose,
             select_strategy,
             cancel_operation,
             add_domain,
             doctor,
             logs,
+            report,
             install_service,
             export_report
         ])

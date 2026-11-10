@@ -1,6 +1,6 @@
 import { save } from '@tauri-apps/plugin-dialog';
-import { api, native } from './api';
-import type { DoctorCheck, Snapshot } from './types';
+import { api, native, type Command } from './api';
+import type { DoctorCheck, DoctorResult, Snapshot } from './types';
 
 export type Page = 'overview' | 'checks' | 'settings';
 
@@ -51,7 +51,7 @@ class AppState {
     }
   };
 
-  async #run(command: string, args: Record<string, unknown> | undefined, pending: Pending) {
+  async #run(command: Command, args: Record<string, unknown> | undefined, pending: Pending) {
     this.pending = pending;
     this.error = '';
     this.notice = '';
@@ -69,9 +69,9 @@ class AppState {
 
   toggle = () => {
     const action = this.running ? 'disable' : 'enable';
-    return this.#run('control', { action }, action);
+    return this.#run(action, undefined, action);
   };
-  setStrategy = (strategyId: string) => this.#run('control', { action: 'strategy', strategyId }, 'strategy');
+  setStrategy = (strategyId: string) => this.#run('set_strategy', { strategy_id: strategyId }, 'strategy');
   installService = () => this.#run('install_service', undefined, 'install');
   diagnose = () => this.#run('diagnose', undefined, 'diagnose');
   selectStrategy = () => {
@@ -100,7 +100,7 @@ class AppState {
     this.pending = 'doctor';
     this.error = '';
     try {
-      const r = await api<{ checks?: DoctorCheck[] }>('doctor');
+      const r = await api<DoctorResult>('doctor');
       this.doctorChecks = r.checks || [];
       this.doctorRan = true;
     } catch (e) {
