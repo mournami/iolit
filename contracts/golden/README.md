@@ -19,5 +19,6 @@ The Rust golden test checks input hashes, the importer hash, catalog loading,
 payload-path resolution (including spaces), user-list substitution and final argv.
 It creates empty temporary payload files; it does not run winws or a batch parser.
 The Python importer itself remains phase-0 build tooling. CI reruns it and compares
-the resulting JSON byte-for-byte with this snapshot. Replacing it with the single
+the resulting JSON with this snapshot after CRLF-to-LF normalization (Python
+`write_text` uses native line endings). Replacing it with the single
 Rust batch compiler and zbuild belongs to phase 1.
