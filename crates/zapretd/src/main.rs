@@ -1,8 +1,6 @@
 #[cfg(windows)]
-mod service;
-#[cfg(windows)]
 fn main() -> anyhow::Result<()> {
-    service::entry()
+    zapretd::platform::windows::entry()
 }
 #[cfg(not(windows))]
 fn main() -> anyhow::Result<()> {
