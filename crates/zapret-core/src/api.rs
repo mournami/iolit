@@ -1,0 +1,166 @@
+//! Shared daemon wire types. Field names are also the desktop UI contract.
+use serde::{Deserialize, Serialize};
+
+/// Commands are fixed; no executable or filesystem path is accepted over IPC.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    tag = "cmd",
+    content = "args",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum DaemonCommand {
+    Snapshot,
+    Enable,
+    Disable,
+    SetStrategy { strategy_id: String },
+    Diagnose,
+    SelectStrategy,
+    CancelOperation,
+    Doctor,
+    AddDomain { domain: String },
+    Logs,
+    Report,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DaemonResponse {
+    Snapshot(Snapshot),
+    Doctor(DoctorResult),
+    Logs(Vec<String>),
+    Report(Report),
+    Empty(()),
+}
+
+/// Retain the existing local IPC success/error envelope.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiResponse {
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<DaemonResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DoctorCheck {
+    pub name: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DoctorResult {
+    pub checks: Vec<DoctorCheck>,
+}
+
+/// Deliberate allowlist: no logs, domains, warnings or address-bearing probe details.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Report {
+    pub app_version: String,
+    pub platform: String,
+    pub engine: String,
+    pub running: bool,
+    pub strategy: String,
+    pub capabilities: Capabilities,
+    pub packets: u64,
+    pub errors: u64,
+    pub checks: Vec<ReportCheck>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportCheck {
+    pub service: String,
+    pub protocol: String,
+    pub ok: bool,
+    pub latency_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Strategy {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    #[serde(default)]
+    pub supported: bool,
+    #[serde(default)]
+    pub arguments: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Capabilities {
+    pub tcp: bool,
+    pub udp: bool,
+    pub ipv6: bool,
+    pub packet_injection: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceStatus {
+    pub installed: bool,
+    pub running: bool,
+    pub platform: String,
+    pub engine: String,
+    pub strategy: String,
+    pub uptime_secs: u64,
+    pub capabilities: Capabilities,
+    pub warnings: Vec<String>,
+    pub packets: u64,
+    pub modified_packets: u64,
+    pub errors: u64,
+}
+
+impl ServiceStatus {
+    pub fn unavailable(reason: String) -> Self {
+        Self {
+            installed: false,
+            running: false,
+            platform: std::env::consts::OS.into(),
+            engine: if cfg!(target_os = "macos") {
+                "PF / BPF"
+            } else {
+                "WinDivert"
+            }
+            .into(),
+            strategy: String::new(),
+            uptime_secs: 0,
+            capabilities: Capabilities::default(),
+            warnings: vec![reason],
+            packets: 0,
+            modified_packets: 0,
+            errors: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProbeResult {
+    pub id: String,
+    pub name: String,
+    pub protocol: String,
+    pub ok: bool,
+    pub latency_ms: u64,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Operation {
+    pub busy: bool,
+    pub stage: String,
+    pub current: usize,
+    pub total: usize,
+    pub results: Vec<ProbeResult>,
+    pub error: Option<String>,
+    pub winner: Option<String>,
+    pub notice: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Snapshot {
+    pub version: String,
+    pub service: ServiceStatus,
+    pub strategies: Vec<Strategy>,
+    pub operation: Operation,
+}
