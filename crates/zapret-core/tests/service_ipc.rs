@@ -1,48 +1,63 @@
 #![cfg(windows)]
 //! Run explicitly on Windows after installing the generated development package.
 use serde_json::json;
-use zapret_core::ipc::request;
+use zapret_core::{
+    DaemonCommand, Report, Snapshot,
+    ipc::{request_command, request_raw},
+};
+
+async fn snapshot() -> Snapshot {
+    request_command(DaemonCommand::Snapshot)
+        .await
+        .expect("installed service must respond")
+}
 
 #[tokio::test]
 #[ignore = "requires the installed Windows service"]
 async fn service_rejects_invalid_commands_without_changing_state() {
-    let before = request("status", json!({}))
-        .await
-        .expect("installed service must respond");
-    assert_eq!(before["installed"], true);
-    assert_eq!(
-        before["running"], false,
+    let before = snapshot().await;
+    assert!(before.service.installed);
+    assert!(
+        !before.service.running,
         "clean installation must not enable interception"
     );
-    let list = request("list", json!({})).await.unwrap();
-    assert!(!list.as_array().unwrap().is_empty());
+    assert!(!before.strategies.is_empty());
     assert!(
-        request("use", json!({"name":"../../arbitrary.exe"}))
+        request_command::<()>(DaemonCommand::SetStrategy {
+            strategy_id: "../../arbitrary.exe".into()
+        })
+        .await
+        .is_err()
+    );
+    assert!(
+        request_command::<()>(DaemonCommand::AddDomain {
+            domain: "example.com\n--debug".into()
+        })
+        .await
+        .is_err()
+    );
+    assert!(
+        request_raw(json!({"cmd":"execute", "args":{"command":"anything"}}))
             .await
             .is_err()
     );
     assert!(
-        request("add-domain", json!({"domain":"example.com\n--debug"}))
+        request_raw(json!({"cmd":"enable", "executable":"arbitrary.exe"}))
             .await
             .is_err()
     );
-    assert!(
-        request("execute", json!({"command":"anything"}))
-            .await
-            .is_err()
-    );
-    let after = request("status", json!({})).await.unwrap();
-    assert_eq!(after["strategy"], before["strategy"]);
-    assert_eq!(after["running"], false);
+    let after = snapshot().await;
+    assert_eq!(after.service.strategy, before.service.strategy);
+    assert!(!after.service.running);
     // Exercise the real signed WinDivert driver in this disposable Windows VM.
     // Stop is attempted before asserting, so an unsupported driver cannot leave it enabled.
-    let started = request("start", json!({})).await;
-    let running = request("status", json!({})).await;
-    let stopped = request("stop", json!({})).await;
+    let started = request_command::<()>(DaemonCommand::Enable).await;
+    let running = snapshot().await;
+    let stopped = request_command::<()>(DaemonCommand::Disable).await;
     if started.is_err() {
         eprintln!(
             "engine startup log: {:?}",
-            request("logtail", json!({})).await
+            request_command::<Vec<String>>(DaemonCommand::Logs).await
         );
     }
     assert!(stopped.is_ok(), "must restore disabled state: {stopped:?}");
@@ -50,9 +65,9 @@ async fn service_rejects_invalid_commands_without_changing_state() {
         started.is_ok(),
         "actual engine/driver start failed: {started:?}"
     );
-    assert_eq!(running.unwrap()["running"], true);
-    assert_eq!(
-        request("status", json!({})).await.unwrap()["running"],
-        false
-    );
+    assert!(running.service.running);
+    assert!(!snapshot().await.service.running);
+    let report: Report = request_command(DaemonCommand::Report).await.unwrap();
+    assert_eq!(report.strategy, before.service.strategy);
+    assert!(!report.running);
 }
