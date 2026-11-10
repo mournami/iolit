@@ -1,0 +1,581 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DaemonApi",
+  "description": "Schema root describes both directions of the daemon transport.",
+  "type": "object",
+  "properties": {
+    "request": {
+      "$ref": "#/$defs/DaemonCommand"
+    },
+    "response": {
+      "$ref": "#/$defs/ApiResponse"
+    }
+  },
+  "required": [
+    "request",
+    "response"
+  ],
+  "$defs": {
+    "ApiResponse": {
+      "description": "Retain the existing local IPC success/error envelope.",
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DaemonResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ]
+    },
+    "Capabilities": {
+      "type": "object",
+      "properties": {
+        "ipv6": {
+          "type": "boolean"
+        },
+        "packet_injection": {
+          "type": "boolean"
+        },
+        "tcp": {
+          "type": "boolean"
+        },
+        "udp": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tcp",
+        "udp",
+        "ipv6",
+        "packet_injection"
+      ]
+    },
+    "DaemonCommand": {
+      "description": "Commands are fixed; no executable or filesystem path is accepted over IPC.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "snapshot"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "enable"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "disable"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "args": {
+              "type": "object",
+              "properties": {
+                "strategy_id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "strategy_id"
+              ]
+            },
+            "cmd": {
+              "type": "string",
+              "const": "set_strategy"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd",
+            "args"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "diagnose"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "select_strategy"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "cancel_operation"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "doctor"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "args": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "domain"
+              ]
+            },
+            "cmd": {
+              "type": "string",
+              "const": "add_domain"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd",
+            "args"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "logs"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "report"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        }
+      ]
+    },
+    "DaemonResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Snapshot"
+        },
+        {
+          "$ref": "#/$defs/DoctorResult"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "$ref": "#/$defs/Report"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "DoctorCheck": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "ok"
+      ]
+    },
+    "DoctorResult": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DoctorCheck"
+          }
+        }
+      },
+      "required": [
+        "checks"
+      ]
+    },
+    "Operation": {
+      "type": "object",
+      "properties": {
+        "busy": {
+          "type": "boolean"
+        },
+        "current": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notice": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProbeResult"
+          }
+        },
+        "stage": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "winner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "busy",
+        "stage",
+        "current",
+        "total",
+        "results"
+      ]
+    },
+    "ProbeResult": {
+      "type": "object",
+      "properties": {
+        "detail": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "latency_ms": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "protocol": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "protocol",
+        "ok",
+        "latency_ms",
+        "detail"
+      ]
+    },
+    "Report": {
+      "description": "Deliberate allowlist: no logs, domains, warnings or address-bearing probe details.",
+      "type": "object",
+      "properties": {
+        "app_version": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/Capabilities"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportCheck"
+          }
+        },
+        "engine": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "packets": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "platform": {
+          "type": "string"
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "strategy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "app_version",
+        "platform",
+        "engine",
+        "running",
+        "strategy",
+        "capabilities",
+        "packets",
+        "errors",
+        "checks"
+      ]
+    },
+    "ReportCheck": {
+      "type": "object",
+      "properties": {
+        "latency_ms": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "service",
+        "protocol",
+        "ok",
+        "latency_ms"
+      ]
+    },
+    "ServiceStatus": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "$ref": "#/$defs/Capabilities"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "installed": {
+          "type": "boolean"
+        },
+        "modified_packets": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "packets": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "platform": {
+          "type": "string"
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "strategy": {
+          "type": "string"
+        },
+        "uptime_secs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "installed",
+        "running",
+        "platform",
+        "engine",
+        "strategy",
+        "uptime_secs",
+        "capabilities",
+        "warnings",
+        "packets",
+        "modified_packets",
+        "errors"
+      ]
+    },
+    "Snapshot": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "service": {
+          "$ref": "#/$defs/ServiceStatus"
+        },
+        "strategies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Strategy"
+          }
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "service",
+        "strategies",
+        "operation"
+      ]
+    },
+    "Strategy": {
+      "type": "object",
+      "properties": {
+        "arguments": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "supported": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ]
+    }
+  }
+}
