@@ -1,14 +1,14 @@
 # Release state — 2026-11-10
 
-**Phase 0 implementation is local. Its Windows CI exit gate is not verified.**
-**This is not a production release. No push was performed in this session.**
+**The required phase-0 Windows CI job passed on 2026-11-10.**
+**This is a development build; manual Windows acceptance remains unverified.**
 
 ## Current scope and checkout
 
 - Source of truth: `docs/ARCHITECTURE.md`, architecture v2, phase 0 only.
 - Project: `/Users/macbook/Desktop/проекты/zapret`, branch `codex/desktop-app`.
 - Repository: `mournami/zapret13231` (private), source open for now.
-- The session started on local main `05340c4`; the existing desktop branch was
+- The initial phase-0 session started on local main `05340c4`; the existing desktop branch was
   advanced to that commit with a local fast-forward, preserving previous work.
 - Owner-supplied AGENTS.md and ARCHITECTURE.md were adopted unchanged in the first
   session commit, `83a3f65` (`Adopt architecture v2 and phase plan`).
@@ -57,9 +57,10 @@
 ## Actual local validation
 
 Host: Apple Silicon macOS; rustc/cargo 1.96.0, Node 26.13.0, npm 11.20.0.
-CI is configured for Node 24 and native Windows; that environment was not run.
+The initial local evidence below predates native Windows CI. The follow-up
+section records the successful Node 24 / Windows Server 2022 run.
 
-Before every session commit the applicable AGENTS.md checks were run locally:
+Before each initial phase-0 commit the applicable AGENTS.md checks were run locally:
 
 ```sh
 cargo fmt --all --check
@@ -122,17 +123,18 @@ npm run build
   work resumes in phase 5; no TCP-only proxy fallback exists.
 - The current UI was not opened in a native window during this phase-0 session.
   Frontend build/type checks and Rust compilation do not replace native UI tests.
-- New Windows native compilation, installer installation, real IPC/WinDivert,
-  GUI-close selection continuity and service-restart recovery were **not run on
-  Windows**. The updated required CI job is committed but has not run: the owner
-  explicitly prohibited push in this session. Phase 0's exit gate remains pending.
+- Native Windows compilation, installer installation and real IPC/WinDivert now
+  passed in the follow-up CI run below. GUI-close selection continuity and
+  service-restart recovery still require manual Windows testing; controlled unit
+  tests do not establish those physical-device results.
 - Whole-strategy behavior is covered with controlled tests, not a claim of identical
   physical Windows behavior or successful ISP circumvention after this refactor.
 - YouTube playback, Discord voice, QUIC, provider diversity, sleep/wake, conflicts,
   crash/uninstall acceptance, publisher signing and full security/license review
   remain unverified release gates. `docs/ACCEPTANCE.md` is not a completed checklist.
-- Existing `outputs/` binaries predate phase 0. They were not rebuilt or represented
-  as artifacts of this revision. No new publisher signing or automatic updater exists.
+- Local `outputs/` binaries predate phase 0 and were not rebuilt in this follow-up.
+  The current Windows installer is the Actions artifact linked below. No publisher
+  signing or automatic updater was added.
 
 ## Historical evidence (earlier source, not phase 0)
 
@@ -146,15 +148,88 @@ npm run build
   packet engine. No local Mac root packet-path validation was performed.
 - PR #1 was merged at the owner's request before this session, merge `670fd64`;
   main was then `05340c4`. These historical results do not validate the new API or
-  daemon-owned selection. There was no push, merge or release in this session.
+  daemon-owned selection. The initial local phase-0 session performed no push, merge
+  or release. The later branch-only push and CI are recorded below.
+
+## 2026-11-10 — authorized branch push and native Windows CI
+
+The owner authorized pushing only to `codex/desktop-app`, with no main push,
+merge, release or phase-1 work. The existing phase-0 commits were pushed intact.
+The required job passed on its **first attempt**. No Windows step failed, no retry
+was needed, and **no source-code or workflow fix commit was required**. Product
+behavior and the mandatory checks were not changed to obtain this result.
+
+- Run: https://github.com/mournami/zapret13231/actions/runs/42841680373
+- Tested source: `5efa2390e36ed2734faca4b0c7a8076a7fc58a77`.
+- Required job: **Windows checks and service IPC**, ID `129918256319`,
+  conclusion **success**. The workflow also completed with conclusion success.
+- Optional frozen macOS job: **skipped**, as intended for a branch push; no macOS
+  build/runtime result is claimed for this follow-up.
+
+| Native Windows check | Actual result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
+| `cargo test --workspace --locked` | 13 passed, 0 failed; installed-service test initially ignored as configured |
+| Contract generation and `git diff --exit-code` | Passed, no generated-file drift |
+| `npm ci`, `npm run check`, `npm run build` | Passed; svelte-check 0 errors / 0 warnings |
+| Pinned Flowseal import and golden comparison | Passed, 22 strategies |
+| Release service and NSIS desktop build | Passed |
+| Silent installation of the generated NSIS package | Passed |
+| Explicit installed-service test (`--ignored --test-threads=1`) | 1 passed, 0 failed, 0 ignored |
+
+The explicit integration test verified fresh-install disabled state, catalog and
+snapshot, rejection of invalid commands/domains/paths without state changes,
+actual winws/WinDivert enable, running state, disable, final stopped state and
+report retrieval. This is **14 passing Windows test executions in total** across
+the workspace and installed-service steps, not an ISP/video/voice test. Full job
+logs were inspected to confirm the integration test actually ran and was not
+merely skipped.
+
+Installer artifact: [Zapret-Desktop-Windows-x64-DEVELOPMENT](https://github.com/mournami/zapret13231/actions/runs/42841680373/artifacts/13777651209),
+artifact ID `13777651209`, archive digest reported by GitHub:
+`sha256:bca69ab4638fb3fdd0c95d5410dcfa54f38e73d0a0f76e7876c8524ceca41165`.
+It remains an unsigned development package; no release was published. Local
+installer bytes were not downloaded or independently rehashed in this follow-up.
+
+Before committing this report, the five local AGENTS.md commands listed above
+were rerun and passed (15 macOS Rust tests; frontend 0 errors / 0 warnings).
+Local logs: ignored `work/phase0/ci-followup-docs-*.log`. These local checks are
+separate from the native Windows evidence above. The follow-up change is
+restricted to this report and the manual checklist below.
+
+## Manual Windows checklist (not executed)
+
+Use the installer artifact from the successful run above. Record Windows version,
+provider, tested strategy and pass/fail for each item. These checks are not implied
+by CI success.
+
+- [ ] **Install:** on a clean Windows 10/11 x64 machine, install the development
+  NSIS package with UAC, then run the GUI as a standard user. The service is
+  available, strategies are listed, and interception starts disabled.
+- [ ] **Enable/disable:** enable and verify the GUI reports running and winws.exe
+  appears in Task Manager; disable and verify it stops. Repeat the cycle and
+  confirm ordinary internet access remains available.
+- [ ] **Selection after GUI exit:** click «Подобрать стратегию». While it is busy,
+  exit through the tray's «Выйти из приложения» and confirm the GUI process closes.
+  Reopen it during selection: progress must continue without restarting; wait for
+  a winner, baseline notice or a clear failure with the original state restored.
+  Separately cancel an active selection and check restoration. A baseline that
+  already passes may finish before the window can be closed; that alone does not
+  verify continuity of an active operation.
+- [ ] **Reboot:** test reboot with interception enabled, then with it disabled.
+  The chosen strategy and enabled/disabled preference must survive separately.
+  Also reboot during a selection and verify recovery restores the state from
+  before selection or reports an explicit recovery failure.
+- [ ] **YouTube:** with the selected strategy, play a real video for 10 minutes,
+  change quality and seek. Record stalls or playback failures.
+- [ ] **Discord:** confirm sign-in/messages, then join a real voice channel and
+  verify bidirectional audio for at least 5 minutes. A successful STUN probe alone
+  does not confirm Discord voice.
 
 ## Next step
 
-With a separate owner request permitting push, run the committed Windows job and
-resolve any native failure while preserving behavior. Do not mark phase 0 complete
-or start phase 1 until its Windows CI exit gate passes.
-
-The proposed first phase-1 task is the single Rust batch compiler and zbuild:
-reproduce the current 22 golden imports and argv, reject unknown batch syntax,
-then replace the existing importer. Per-service selection, composites, periodic
-Doctor, bundle updates and other phase-1 features have not been started.
+Run the manual Windows checklist and record the actual results. The required
+Windows CI exit criterion has passed; physical-device and commercial release
+acceptance remain pending. Phase 1 has not been started and is outside this
+session's scope. No main push, merge or release was performed.
