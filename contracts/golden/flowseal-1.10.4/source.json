@@ -1,0 +1,118 @@
+{
+  "version": "1.10.4",
+  "url": "https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.4/zapret-discord-youtube-1.10.4.tar.gz",
+  "archive_sha256": "d64ec43e562dbeb0b11f8c0325a2f6fd61a0321bfcc3c40a23f020c553f3fdb6",
+  "importer_sha256": "55dac92f6bf3a0b811e0683b56f5eda105c726e9d65aa50c75d476f0a9525c78",
+  "sources": [
+    {
+      "id": "general",
+      "file": "general.bat",
+      "sha256": "2c0723be1d3539a70392607b9cf2ef590efcceec8e6139b1a0d2984ea1da1947"
+    },
+    {
+      "id": "general-alt",
+      "file": "general (ALT).bat",
+      "sha256": "233512a3275cd934f27b20dc33cb058794f4fcc2c5ef58694651c84b07d3b538"
+    },
+    {
+      "id": "general-alt10",
+      "file": "general (ALT10).bat",
+      "sha256": "00c31ee7bc3f41a79209cbd0e9e60a04033b8b6844e1e6b8157faf2a1da0cb5f"
+    },
+    {
+      "id": "general-alt11",
+      "file": "general (ALT11).bat",
+      "sha256": "6003f63ed86e6b5d4b6a3f3a6d38d710af6a7d515325dfc7ad0ce77e85961b0d"
+    },
+    {
+      "id": "general-alt12",
+      "file": "general (ALT12).bat",
+      "sha256": "e6f24c3048bca3ad4dbf408afe23c2e1a2ef3dc6ff20ecc4c37df64022101ead"
+    },
+    {
+      "id": "general-alt13",
+      "file": "general (ALT13).bat",
+      "sha256": "0ef7279f222ced580f002c4073cc431307a368d6a70016489fc09e7a1741b0f8"
+    },
+    {
+      "id": "general-alt2",
+      "file": "general (ALT2).bat",
+      "sha256": "f928a447fd312866c02e3a06519537c892424c9133a6ec91ee741664ff17595e"
+    },
+    {
+      "id": "general-alt3",
+      "file": "general (ALT3).bat",
+      "sha256": "0229d59773af1717d54906873245e3598c00457514178b0e96500780277cea53"
+    },
+    {
+      "id": "general-alt4",
+      "file": "general (ALT4).bat",
+      "sha256": "497c19483a59f3d55a740ce5d45abb1d7429e2f6dc52e39d5e18b6941b8290cf"
+    },
+    {
+      "id": "general-alt5",
+      "file": "general (ALT5).bat",
+      "sha256": "a81c276ecae34c3c39c5d862bbf1ef841ff04864bd854485178adf5a8121f9f8"
+    },
+    {
+      "id": "general-alt6",
+      "file": "general (ALT6).bat",
+      "sha256": "ed7a09a6686191fa8a2bf733b5b4d26fefa45c92b62266e1f94bb56aeffcd079"
+    },
+    {
+      "id": "general-alt7",
+      "file": "general (ALT7).bat",
+      "sha256": "57cb714ea0e385ab3cea37543fd9ac7d591142571192217b39a6ce7c04f85f15"
+    },
+    {
+      "id": "general-alt8",
+      "file": "general (ALT8).bat",
+      "sha256": "4fa90488f6df6f6311fa75a811e1753567c454ebde0ee1484550fb2beed44204"
+    },
+    {
+      "id": "general-alt9",
+      "file": "general (ALT9).bat",
+      "sha256": "56430f0594058f6a1585509a0b52a532348d9e9913c723a4952fa8009c079d43"
+    },
+    {
+      "id": "general-exp",
+      "file": "general (EXP).bat",
+      "sha256": "e5b8eb98c6a3258969bda9274894f85551d37eec0352df806b0a1fb41b74f17b"
+    },
+    {
+      "id": "general-fake-tls-auto",
+      "file": "general (FAKE TLS AUTO).bat",
+      "sha256": "b181d1db261ba06d5b54baff123d491c6900174bbc22a2a237f9135160b7a948"
+    },
+    {
+      "id": "general-fake-tls-auto-alt",
+      "file": "general (FAKE TLS AUTO ALT).bat",
+      "sha256": "aa026f4030c17f1bf515389c903dc922992dfe29f6affff8494fa1548d1480a7"
+    },
+    {
+      "id": "general-fake-tls-auto-alt2",
+      "file": "general (FAKE TLS AUTO ALT2).bat",
+      "sha256": "0efa20276b94eb675730dc5920c42d8606e93adcaba186fc0306f978c49e8dd7"
+    },
+    {
+      "id": "general-fake-tls-auto-alt3",
+      "file": "general (FAKE TLS AUTO ALT3).bat",
+      "sha256": "604015c6716f8e52f2b95aa3b1d8690661e4dc7963b3efbbf4ab19fe5f45b4ff"
+    },
+    {
+      "id": "general-simple-fake",
+      "file": "general (SIMPLE FAKE).bat",
+      "sha256": "f6371c618951df2989db86e717beb4a8440ad9a405a592a85d2c7bffaeac0bb3"
+    },
+    {
+      "id": "general-simple-fake-alt",
+      "file": "general (SIMPLE FAKE ALT).bat",
+      "sha256": "8bffa109e32aabb0360b2dc6be055687a884945fd62fcbe8fa73bdb4f3910df5"
+    },
+    {
+      "id": "general-simple-fake-alt2",
+      "file": "general (SIMPLE FAKE ALT2).bat",
+      "sha256": "16d3f5350f24ce87cd3ec43e0639b76cbd71a53766672939df09cb9d50449fb1"
+    }
+  ]
+}

@@ -93,6 +93,21 @@ pub fn resolve_arguments(strategy: &Strategy, root: &Path) -> Result<Vec<String>
         .collect()
 }
 
+/// Existing winws overlay: writable user domains replace the imported empty list.
+pub fn resolve_winws_arguments(
+    strategy: &Strategy,
+    root: &Path,
+    user_list: &Path,
+) -> Result<Vec<String>> {
+    let mut args = resolve_arguments(strategy, root)?;
+    for arg in &mut args {
+        if arg.contains("list-general-user.txt") {
+            *arg = format!("--hostlist={}", user_list.display());
+        }
+    }
+    Ok(args)
+}
+
 fn conventional_windows_path(path: &str) -> String {
     if let Some(unc) = path.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{unc}")
