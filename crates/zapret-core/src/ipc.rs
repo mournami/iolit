@@ -14,7 +14,7 @@ pub async fn request_command<T: serde::de::DeserializeOwned>(
     {
         let request = serde_json::to_value(command)?;
         let data = request_raw(request).await?;
-        Ok(serde_json::from_value(data).context("Неверный тип ответа службы")?)
+        serde_json::from_value(data).context("Неверный тип ответа службы")
     }
     #[cfg(not(windows))]
     {
