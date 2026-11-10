@@ -1,8 +1,10 @@
 //! Shared daemon wire types. Field names are also the desktop UI contract.
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// Commands are fixed; no executable or filesystem path is accepted over IPC.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(
     tag = "cmd",
     content = "args",
@@ -23,7 +25,7 @@ pub enum DaemonCommand {
     Report,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(untagged)]
 pub enum DaemonResponse {
     Snapshot(Snapshot),
@@ -34,30 +36,33 @@ pub enum DaemonResponse {
 }
 
 /// Retain the existing local IPC success/error envelope.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct ApiResponse {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub data: Option<DaemonResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct DoctorCheck {
     pub name: String,
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub detail: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct DoctorResult {
     pub checks: Vec<DoctorCheck>,
 }
 
 /// Deliberate allowlist: no logs, domains, warnings or address-bearing probe details.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct Report {
     pub app_version: String,
     pub platform: String,
@@ -65,20 +70,23 @@ pub struct Report {
     pub running: bool,
     pub strategy: String,
     pub capabilities: Capabilities,
+    #[ts(type = "number")]
     pub packets: u64,
+    #[ts(type = "number")]
     pub errors: u64,
     pub checks: Vec<ReportCheck>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct ReportCheck {
     pub service: String,
     pub protocol: String,
     pub ok: bool,
+    #[ts(type = "number")]
     pub latency_ms: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct Strategy {
     pub id: String,
     pub name: String,
@@ -89,7 +97,7 @@ pub struct Strategy {
     pub arguments: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
 pub struct Capabilities {
     pub tcp: bool,
     pub udp: bool,
@@ -97,18 +105,22 @@ pub struct Capabilities {
     pub packet_injection: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct ServiceStatus {
     pub installed: bool,
     pub running: bool,
     pub platform: String,
     pub engine: String,
     pub strategy: String,
+    #[ts(type = "number")]
     pub uptime_secs: u64,
     pub capabilities: Capabilities,
     pub warnings: Vec<String>,
+    #[ts(type = "number")]
     pub packets: u64,
+    #[ts(type = "number")]
     pub modified_packets: u64,
+    #[ts(type = "number")]
     pub errors: u64,
 }
 
@@ -135,17 +147,18 @@ impl ServiceStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct ProbeResult {
     pub id: String,
     pub name: String,
     pub protocol: String,
     pub ok: bool,
+    #[ts(type = "number")]
     pub latency_ms: u64,
     pub detail: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
 pub struct Operation {
     pub busy: bool,
     pub stage: String,
@@ -157,10 +170,17 @@ pub struct Operation {
     pub notice: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct Snapshot {
     pub version: String,
     pub service: ServiceStatus,
     pub strategies: Vec<Strategy>,
     pub operation: Operation,
+}
+
+/// Schema root describes both directions of the daemon transport.
+#[derive(JsonSchema)]
+pub struct DaemonApi {
+    pub request: DaemonCommand,
+    pub response: ApiResponse,
 }
