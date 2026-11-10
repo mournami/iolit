@@ -1,0 +1,7 @@
+# Upstream golden inputs are byte-for-byte release evidence, including CRLF.
+contracts/golden/**/*.bat -text whitespace=-blank-at-eol
+contracts/golden/**/LICENSE-flowseal.txt -text whitespace=-blank-at-eol
+contracts/golden/**/*.json text eol=lf
+contracts/*.schema.json text eol=lf
+ui/src/generated/*.ts text eol=lf
+scripts/prepare_engines.py text eol=lf

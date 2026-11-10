@@ -128,16 +128,10 @@ impl Engine for Winws {
         if self.is_ready()?.running {
             return Ok(());
         }
-        let mut args = strategy::resolve_arguments(strategy, root)?;
         let list = data.join("user-domains.txt");
+        let args = strategy::resolve_winws_arguments(strategy, root, &list)?;
         if !list.exists() {
             std::fs::write(&list, b"")?;
-        }
-        // Imported profiles already reference the installed writable user list below.
-        for arg in &mut args {
-            if arg.contains("list-general-user.txt") {
-                *arg = format!("--hostlist={}", list.display());
-            }
         }
         let log = std::fs::OpenOptions::new()
             .create(true)
