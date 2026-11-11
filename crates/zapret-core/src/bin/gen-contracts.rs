@@ -10,6 +10,12 @@ fn main() -> Result<()> {
     fs::create_dir_all(root.join("ui/src/generated"))?;
     let schema = serde_json::to_string_pretty(&schemars::schema_for!(DaemonApi))?;
     fs::write(root.join("contracts/daemon-api.schema.json"), schema + "\n")?;
+    let schema =
+        serde_json::to_string_pretty(&schemars::schema_for!(zapret_core::bundle::BundleContract))?;
+    fs::write(
+        root.join("contracts/bundle-manifest.schema.json"),
+        schema + "\n",
+    )?;
     let config = Config::default();
     let declarations = [
         DaemonCommand::decl(&config),

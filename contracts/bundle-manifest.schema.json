@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BundleContract",
+  "description": "Root type for schema generation only.",
+  "type": "object",
+  "properties": {
+    "envelope": {
+      "$ref": "#/$defs/SignedManifest"
+    },
+    "payload": {
+      "$ref": "#/$defs/Manifest"
+    }
+  },
+  "required": [
+    "envelope",
+    "payload"
+  ],
+  "$defs": {
+    "FileHash": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Relative path with `/` separators.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "Lowercase hex SHA-256.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "Manifest": {
+      "type": "object",
+      "properties": {
+        "archive": {
+          "description": "The archive itself, checked before extraction.",
+          "$ref": "#/$defs/FileHash"
+        },
+        "files": {
+          "description": "Every file inside the archive, relative to its root.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileHash"
+          }
+        },
+        "flowseal": {
+          "description": "Flowseal release tag the strategies and lists were built from. On Windows the\nbol-van engine binaries ship inside that release; their hashes are in `files`.",
+          "type": "string"
+        },
+        "schema": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "version": {
+          "description": "Dot-separated numbers, `YYYY.MM.DD.HHMM` in UTC; compared numerically.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "version",
+        "flowseal",
+        "archive",
+        "files"
+      ]
+    },
+    "SignedManifest": {
+      "type": "object",
+      "properties": {
+        "payload": {
+          "description": "Base64 of the exact manifest JSON bytes that were signed.",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Base64 ed25519 signature over the decoded payload.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "signature"
+      ]
+    }
+  }
+}
