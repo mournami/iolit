@@ -305,7 +305,8 @@ because of the Cyrillic project path (see phase 0).
   Flowseal release and are not pinned separately; their hashes are in `files`.
 - `zbuild bundle` packs the prepared `resources/runtime/windows` and `licenses`
   into a deterministic `bundle-<version>.tar.gz` (sorted, fixed metadata) and an
-  unsigned manifest. Empty user lists are excluded so updates never replace them.
+  unsigned manifest. The empty `*-user.txt` placeholders are included because
+  strategies reference them with `=@`; real user domains stay in service data.
 - `zbuild sign` signs the exact manifest bytes with ed25519; the key comes only
   from `ZAPRET_BUNDLE_SIGNING_KEY` (base64 of a 32-byte seed). Without it the
   command fails with «нужен ключ подписи». `zbuild public-key` prints the public key.
@@ -330,7 +331,7 @@ because of the Cyrillic project path (see phase 0).
 | `cargo test --workspace --locked` | 28 passed, 0 failed (2 bundle, 7 release tests new) |
 | `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
 | `gen-contracts`, then `git status` | Only the new schema file appeared; daemon contracts unchanged |
-| Real pinned 1.10.4: `prepare-windows` → `bundle` → `sign` (throwaway local key) → `verify` | 39 files, 1.5 MB archive, verified; `strategies.json` byte-identical to golden |
+| Real pinned 1.10.4: `prepare-windows` → `bundle` → `sign` (throwaway local key) → `verify` | 39 files, 1.5 MB archive, verified (42 after keeping the list placeholders); `strategies.json` byte-identical to golden |
 | `sign` without the key | Exit 1, «нужен ключ подписи» |
 | Release-check step run locally with `gh api` replaced by `curl` | Latest 1.10.4 = pin: skipped; with force: build; GitHub digest equals the pinned SHA-256 |
 | Workflow YAML parse (Ruby) | Passed; not a GitHub Actions run |

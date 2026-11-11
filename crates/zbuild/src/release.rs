@@ -41,18 +41,14 @@ fn walk(dir: &Path, prefix: &str, out: &mut BTreeMap<String, PathBuf>) -> Result
     Ok(())
 }
 
-/// Bundle contents: the prepared Windows runtime and licenses, without the empty
-/// user lists, which belong to the user and must never be replaced by an update.
+/// Bundle contents: the prepared Windows runtime and licenses. The empty
+/// `*-user.txt` placeholders stay in: strategies reference them with `=@`, which
+/// must resolve. Real user domains live in service data and are never bundled.
 fn bundle_files(root: &Path) -> Result<BTreeMap<String, PathBuf>> {
     let runtime = root.join("resources/runtime");
     let mut files = BTreeMap::new();
     walk(&runtime.join("windows"), "windows", &mut files)?;
     walk(&runtime.join("licenses"), "licenses", &mut files)?;
-    files.retain(|path, _| {
-        !crate::USER_LISTS
-            .iter()
-            .any(|list| *path == format!("windows/lists/{list}"))
-    });
     if !files.contains_key("windows/strategies.json") {
         bail!("No prepared runtime: run `zbuild prepare-windows` first");
     }
@@ -294,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    fn bundle_is_deterministic_and_excludes_user_lists() {
+    fn bundle_is_deterministic_and_keeps_list_placeholders() {
         let project = project();
         let a = bundle(project.path(), "1", "1.10.4", &project.path().join("a")).unwrap();
         let b = bundle(project.path(), "1", "1.10.4", &project.path().join("b")).unwrap();
@@ -309,6 +305,7 @@ mod tests {
             [
                 "licenses/Flowseal-MIT.txt",
                 "windows/bin/winws.exe",
+                "windows/lists/list-general-user.txt",
                 "windows/lists/list-general.txt",
                 "windows/strategies.json",
             ]
