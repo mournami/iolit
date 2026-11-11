@@ -345,3 +345,54 @@ runs scheduled workflows and offers the manual button only for workflows on the
 default branch, so `bundle.yml` stays inactive until it reaches `main`. The owner
 must add the `BUNDLE_SIGNING_KEY` secret. Bundle download and switching in
 `zapretd` is the next task and is not started.
+
+## 2026-11-11 — phase 1: signed bundle updates in zapretd (branch `phase1/bundle-update`)
+
+Local commits on top of `phase1/zbuild-release`; not pushed, no CI run.
+Host: Apple Silicon macOS, rustc/cargo 1.96.0, Node 26.13.0.
+
+- Fix on `phase1/zbuild-release` (`85dec4a`): bundles keep the empty
+  `*-user.txt` placeholders. Strategies reference them with `=@`, so excluding them
+  would have made every updated strategy fail to start.
+- Archive packing, safe extraction, the unlisted-file check and numeric version
+  comparison moved from zbuild into `zapret_core::bundle`; zbuild and the service
+  run the same verification code.
+- `zapretd::updater`: first check 2 minutes after start, then every 6 hours or on
+  `trigger` (for Doctor, which does not exist yet). Steps: manifest from each
+  source in order → signature with the built-in key → newer than current and not
+  rejected → archive (size-limited, https only) → archive hash → extraction into a
+  staging folder → every file hash, no unlisted files → rename to
+  `bundles/<version>` → under the operation gate: probes, switch, restart, probes
+  again → if fewer probes pass, switch back and never retry that version. A bundle
+  whose engine fails to start is restored and rejected the same way.
+- Bundles live in `<install>/bundles`, not `%ProgramData%`: standard users may add
+  files to ProgramData subfolders, and winws runs as SYSTEM and loads DLLs from its
+  own folder. User domains stay in `%ProgramData%\ZapretDesktop\user-domains.txt`
+  and are never touched. The current and previous bundles are kept, older removed.
+- At startup the current bundle is verified again against its stored signed
+  manifest; on failure the installer's bundle is used and the reason is kept in the
+  bundle status.
+- The public key comes from `ZAPRET_BUNDLE_PUBLIC_KEY` at build time; Windows CI
+  passes the `BUNDLE_PUBLIC_KEY` repository variable. Without it updates are off and
+  downloaded bundles are ignored. Sources: `<install>/bundle-sources.json`
+  (https base URLs) or GitHub Releases `latest/download/`.
+- `Snapshot.bundle` (version, Flowseal tag, last check/update, error); the overview
+  shows one line under «Стратегия», e.g. «Стратегии обновлены 2 ч назад».
+
+| Check (macOS) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed (one `large_enum_variant` allow on `DaemonResponse`, with a reason) |
+| `cargo test --workspace --locked` | 39 passed, 0 failed; 10 new updater tests |
+| Updater tests (fake engine, fetcher and probes; real signatures and archives) | Update and restart, bad signature, bad archive hash, missing and truncated download, rollback on worse probes, engine start failure, tampered bundle at startup, build without key, pruning, busy gate with download reuse |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Contract regeneration | Daemon schema and `api.ts` updated with `BundleStatus` |
+
+Not verified: Windows compilation of the new `platform/windows.rs` wiring (no
+Windows SDK here; CI must check it), any real download from GitHub or a mirror,
+behaviour of Windows file locks and Defender during rename and pruning, the UI line
+in a real window, and an end-to-end update on a Windows machine. The repository is
+private, so clients cannot download from GitHub Releases until it is public or a
+mirror is configured. When the app itself is updated with a newer Flowseal, a
+previously downloaded bundle still counts as newer (the installer's bundle has no
+version yet). Network-change triggers are not implemented.
