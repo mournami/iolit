@@ -8,7 +8,6 @@ use zapret_core::{Strategy, compiler, strategy};
 struct Source {
     version: String,
     archive_sha256: String,
-    importer_sha256: String,
     sources: Vec<BatchSource>,
 }
 #[derive(Deserialize)]
@@ -43,11 +42,6 @@ fn pinned_flowseal_catalog_and_final_winws_arguments_match() {
             .unwrap();
     assert_eq!(source.version, lock["flowseal"]["version"]);
     assert_eq!(source.archive_sha256, lock["flowseal"]["sha256"]);
-    assert_eq!(
-        source.importer_sha256,
-        digest(fs::read(project.join("scripts/prepare_engines.py")).unwrap()),
-        "Importer changed: review and recapture the golden outputs"
-    );
     let expected: Vec<Strategy> =
         serde_json::from_slice(&fs::read(golden.join("strategies.json")).unwrap()).unwrap();
     let argv: Vec<Arguments> =

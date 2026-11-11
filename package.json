@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
-    "prepare:engines": "python3 scripts/prepare_engines.py",
+    "prepare:engines": "cargo run -p zbuild --locked -- prepare-windows",
+    "prepare:engines:macos": "python3 scripts/prepare_engines.py --platform macos",
     "verify:release": "python3 scripts/release_gate.py"
   },
   "dependencies": {

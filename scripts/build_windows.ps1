@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
-python scripts/prepare_engines.py --platform windows
+cargo run -p zbuild --locked -- prepare-windows
 if ($LASTEXITCODE -ne 0) { throw 'Engine preparation failed' }
 cargo build --release -p zapretd --locked
 if ($LASTEXITCODE -ne 0) { throw 'Service build failed' }
