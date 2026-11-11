@@ -7,7 +7,24 @@ export type Capabilities = { tcp: boolean, udp: boolean, ipv6: boolean, packet_i
 export type ServiceStatus = { installed: boolean, running: boolean, platform: string, engine: string, strategy: string, uptime_secs: number, capabilities: Capabilities, warnings: Array<string>, packets: number, modified_packets: number, errors: number, };
 export type ProbeResult = { id: string, name: string, protocol: string, ok: boolean, latency_ms: number, detail: string, };
 export type Operation = { busy: boolean, stage: string, current: number, total: number, results: Array<ProbeResult>, error: string | null, winner: string | null, notice: string | null, };
-export type Snapshot = { version: string, service: ServiceStatus, strategies: Array<Strategy>, operation: Operation, };
+export type BundleStatus = { 
+/**
+ * Downloaded bundle version; `None` while the installer's bundle is used.
+ */
+version: string | null, flowseal: string | null, 
+/**
+ * False when this build has no bundle public key: updates never run.
+ */
+updates_enabled: boolean, 
+/**
+ * Unix seconds.
+ */
+last_check: number | null, 
+/**
+ * Unix seconds of the last switch to a new bundle.
+ */
+last_update: number | null, error: string | null, };
+export type Snapshot = { version: string, service: ServiceStatus, strategies: Array<Strategy>, operation: Operation, bundle: BundleStatus, };
 export type DoctorCheck = { name: string, ok: boolean, detail?: string, };
 export type DoctorResult = { checks: Array<DoctorCheck>, };
 export type Report = { app_version: string, platform: string, engine: string, running: boolean, strategy: string, capabilities: Capabilities, packets: number, errors: number, checks: Array<ReportCheck>, };

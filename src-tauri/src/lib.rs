@@ -18,6 +18,7 @@ async fn snapshot() -> ApiResult<Snapshot> {
             service: ServiceStatus::unavailable(e.to_string()),
             strategies: vec![],
             operation: Operation::default(),
+            bundle: BundleStatus::default(),
         }))
 }
 #[tauri::command]

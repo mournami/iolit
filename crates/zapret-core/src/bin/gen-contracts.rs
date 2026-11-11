@@ -26,6 +26,7 @@ fn main() -> Result<()> {
         ServiceStatus::decl(&config),
         ProbeResult::decl(&config),
         Operation::decl(&config),
+        BundleStatus::decl(&config),
         Snapshot::decl(&config),
         DoctorCheck::decl(&config),
         DoctorResult::decl(&config),

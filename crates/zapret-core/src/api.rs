@@ -25,6 +25,8 @@ pub enum DaemonCommand {
     Report,
 }
 
+// One short-lived value per request; boxing the snapshot would buy nothing.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(untagged)]
 pub enum DaemonResponse {
@@ -170,12 +172,31 @@ pub struct Operation {
     pub notice: Option<String>,
 }
 
+/// Strategy bundle in use and the state of signed bundle updates.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
+pub struct BundleStatus {
+    /// Downloaded bundle version; `None` while the installer's bundle is used.
+    pub version: Option<String>,
+    pub flowseal: Option<String>,
+    /// False when this build has no bundle public key: updates never run.
+    pub updates_enabled: bool,
+    /// Unix seconds.
+    #[ts(type = "number | null")]
+    pub last_check: Option<u64>,
+    /// Unix seconds of the last switch to a new bundle.
+    #[ts(type = "number | null")]
+    pub last_update: Option<u64>,
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub struct Snapshot {
     pub version: String,
     pub service: ServiceStatus,
     pub strategies: Vec<Strategy>,
     pub operation: Operation,
+    #[serde(default)]
+    pub bundle: BundleStatus,
 }
 
 /// Schema root describes both directions of the daemon transport.

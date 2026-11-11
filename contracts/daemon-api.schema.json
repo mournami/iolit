@@ -44,6 +44,56 @@
         "ok"
       ]
     },
+    "BundleStatus": {
+      "description": "Strategy bundle in use and the state of signed bundle updates.",
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "flowseal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "last_check": {
+          "description": "Unix seconds.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "last_update": {
+          "description": "Unix seconds of the last switch to a new bundle.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "updates_enabled": {
+          "description": "False when this build has no bundle public key: updates never run.",
+          "type": "boolean"
+        },
+        "version": {
+          "description": "Downloaded bundle version; `None` while the installer's bundle is used.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "updates_enabled"
+      ]
+    },
     "Capabilities": {
       "type": "object",
       "properties": {
@@ -524,6 +574,17 @@
     "Snapshot": {
       "type": "object",
       "properties": {
+        "bundle": {
+          "$ref": "#/$defs/BundleStatus",
+          "default": {
+            "error": null,
+            "flowseal": null,
+            "last_check": null,
+            "last_update": null,
+            "updates_enabled": false,
+            "version": null
+          }
+        },
         "operation": {
           "$ref": "#/$defs/Operation"
         },

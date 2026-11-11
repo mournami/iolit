@@ -10,6 +10,8 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 zapret-core = { workspace = true, features = ["network"] }
+reqwest.workspace = true
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.8"
@@ -17,3 +19,4 @@ windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Securit
 
 [dev-dependencies]
 tempfile = "3"
+ed25519-dalek = "2"

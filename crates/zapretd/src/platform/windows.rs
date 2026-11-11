@@ -2,7 +2,9 @@
 use crate::{
     engine::winws::Winws,
     operation::OperationManager,
+    selector::NetworkProbes,
     service::{Controller, Daemon},
+    updater::{self, HttpFetch, Store, Updater},
 };
 use anyhow::{Context, Result, bail};
 use std::{ffi::OsString, path::PathBuf, sync::Arc, time::Duration};
@@ -131,13 +133,30 @@ impl Drop for Security {
 
 async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
     // Executable paths come only from the installed service location.
-    let root = std::env::current_exe()?
+    let install = std::env::current_exe()?
         .parent()
         .context("Нет каталога службы")?
-        .join("windows");
+        .to_path_buf();
     let data = PathBuf::from(std::env::var_os("ProgramData").context("Нет ProgramData")?)
         .join("ZapretDesktop");
-    let controller = Controller::new(root, data, Winws::default())?;
+    // Downloaded bundles stay under the admin-only install folder (see updater).
+    let key = updater::public_key();
+    let store = Store::new(install.join("bundles"), install.join("windows"));
+    let (root, bundle, warning) = store.startup(key.as_ref());
+    let mut controller = match Controller::new(root, data.clone(), Winws::default()) {
+        Ok(controller) => controller,
+        Err(e) => {
+            let mut controller = Controller::new(install.join("windows"), data, Winws::default())?;
+            controller.warning = Some(format!(
+                "Скачанный набор стратегий не загрузился, используется встроенный: {e:#}"
+            ));
+            controller
+        }
+    };
+    controller.bundle = bundle;
+    if controller.warning.is_none() {
+        controller.warning = warning;
+    }
     let operations = Arc::new(OperationManager::new(controller.data.clone()));
     let controller = Arc::new(Mutex::new(controller));
     match operations.recover(&controller).await {
@@ -152,6 +171,26 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
         }
         Ok(true) => {}
         Err(_) => {} // Recovery failure is visible in snapshot; never enable a half-selected state.
+    }
+    if let Some(key) = key {
+        match (HttpFetch::new(), updater::load_sources(&install)) {
+            (Ok(fetch), Ok(sources)) => {
+                let updater = Arc::new(Updater::new(
+                    controller.clone(),
+                    operations.clone(),
+                    store,
+                    fetch,
+                    Arc::new(NetworkProbes),
+                    key,
+                    sources,
+                ));
+                tokio::spawn(updater.run());
+            }
+            (fetch, sources) => {
+                let error = fetch.err().or(sources.err()).map(|e| format!("{e:#}"));
+                controller.lock().await.bundle.error = error;
+            }
+        }
     }
     let daemon = Arc::new(Daemon {
         controller: controller.clone(),
