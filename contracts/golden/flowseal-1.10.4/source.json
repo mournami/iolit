@@ -2,7 +2,6 @@
   "version": "1.10.4",
   "url": "https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.4/zapret-discord-youtube-1.10.4.tar.gz",
   "archive_sha256": "d64ec43e562dbeb0b11f8c0325a2f6fd61a0321bfcc3c40a23f020c553f3fdb6",
-  "importer_sha256": "55dac92f6bf3a0b811e0683b56f5eda105c726e9d65aa50c75d476f0a9525c78",
   "sources": [
     {
       "id": "general",

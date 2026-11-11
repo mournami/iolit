@@ -50,7 +50,7 @@ the publisher's real Apple Developer account. No signing secrets are stored here
 
 ## Windows build
 
-Run in Windows 10/11 x64 with Rust MSVC, Node, Python and Visual Studio Build Tools:
+Run in Windows 10/11 x64 with Rust MSVC, Node and Visual Studio Build Tools:
 
 ```powershell
 ./scripts/build_windows.ps1
@@ -58,7 +58,8 @@ Run in Windows 10/11 x64 with Rust MSVC, Node, Python and Visual Studio Build To
 
 The NSIS installer installs a per-machine Windows service; the GUI itself is not
 elevated. Installation requests UAC. Source profiles are imported without running
-upstream batch scripts. Windows on ARM is not supported by this WinDivert build.
+upstream batch scripts: `zbuild` compiles the pinned Flowseal `.bat` files
+with the Rust strategy compiler. Windows on ARM is not supported by this WinDivert build.
 
 ## Checks
 

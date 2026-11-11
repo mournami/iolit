@@ -31,9 +31,6 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ runner.arch }}-phase0-rust-${{ hashFiles('Cargo.lock') }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - run: cargo fmt --all --check
       - run: npm ci
       - run: npm run check
@@ -41,12 +38,12 @@ jobs:
       - name: Prepare pinned engine and compare golden import
         shell: pwsh
         run: |
-          python scripts/prepare_engines.py --platform windows
+          cargo run -p zbuild --locked -- prepare-windows
           if ($LASTEXITCODE -ne 0) { throw 'Engine preparation failed' }
-          # Python write_text uses native line endings; compare canonical LF text.
-          $actual = [IO.File]::ReadAllText('resources/runtime/windows/strategies.json').Replace("`r`n", "`n")
-          $expected = [IO.File]::ReadAllText('contracts/golden/flowseal-1.10.4/strategies.json').Replace("`r`n", "`n")
-          if ($actual -cne $expected) { throw 'Pinned Flowseal golden import changed' }
+          # zbuild writes LF on every OS, so the bytes must match the golden snapshot.
+          $actual = [IO.File]::ReadAllBytes('resources/runtime/windows/strategies.json')
+          $expected = [IO.File]::ReadAllBytes('contracts/golden/flowseal-1.10.4/strategies.json')
+          if ([Convert]::ToBase64String($actual) -cne [Convert]::ToBase64String($expected)) { throw 'Pinned Flowseal golden import changed' }
       - name: Build service resource for the desktop workspace
         shell: pwsh
         run: |
