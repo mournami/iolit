@@ -1,0 +1,126 @@
+name: Strategy bundle
+# Builds a signed strategy bundle when Flowseal publishes a release newer than the
+# pinned one, and leaves it as a DRAFT release for the owner to review and publish.
+# GitHub runs scheduled workflows only from the default branch.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if the release is not newer than the pin or already has a bundle
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: strategy-bundle
+  cancel-in-progress: false
+jobs:
+  bundle:
+    name: Check Flowseal and build a draft bundle
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find the latest Flowseal release
+        id: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          release=$(gh api repos/Flowseal/zapret-discord-youtube/releases/latest)
+          tag=$(jq -r .tag_name <<<"$release")
+          name="zapret-discord-youtube-$tag.tar.gz"
+          asset=$(jq -c --arg n "$name" '.assets[] | select(.name == $n)' <<<"$release")
+          if [ -z "$asset" ]; then echo "::error::Flowseal $tag has no $name asset"; exit 1; fi
+          digest=$(jq -r '.digest // ""' <<<"$asset")
+          if [[ "$digest" != sha256:* ]]; then echo "::error::GitHub reports no SHA-256 for $name"; exit 1; fi
+          pinned=$(jq -r .flowseal.version resources/upstream.lock.json)
+          newest=$(printf '%s\n%s\n' "$pinned" "$tag" | sort -V | tail -n1)
+          existing=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json name --jq '.[].name' \
+            | grep -cF "(flowseal $tag)" || true)
+          build=false
+          if [ "${{ inputs.force }}" = "true" ]; then build=true
+          elif [ "$tag" != "$pinned" ] && [ "$newest" = "$tag" ] && [ "$existing" = "0" ]; then build=true
+          fi
+          echo "Flowseal latest $tag, pinned $pinned, existing bundles $existing, build $build"
+          {
+            echo "tag=$tag"
+            echo "url=$(jq -r .browser_download_url <<<"$asset")"
+            echo "sha256=${digest#sha256:}"
+            echo "build=$build"
+          } >> "$GITHUB_OUTPUT"
+      - name: Require the signing key
+        if: steps.upstream.outputs.build == 'true'
+        env:
+          KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::Нужен ключ подписи: добавьте секрет репозитория BUNDLE_SIGNING_KEY (base64 от 32 случайных байт). Тестовым ключом не подписываем."
+            exit 1
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.upstream.outputs.build == 'true'
+      - uses: actions/cache@v4
+        if: steps.upstream.outputs.build == 'true'
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-bundle-rust-${{ hashFiles('Cargo.lock') }}
+      - name: Golden tests on the pinned release
+        if: steps.upstream.outputs.build == 'true'
+        run: cargo test -p zapret-core -p zbuild --locked
+      - name: Prepare pinned and new runtimes
+        if: steps.upstream.outputs.build == 'true'
+        # Upstream values reach the shell only through env, never through expressions inside the script.
+        env:
+          FLOWSEAL_URL: ${{ steps.upstream.outputs.url }}
+          FLOWSEAL_SHA256: ${{ steps.upstream.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          cargo build -p zbuild --locked
+          target/debug/zbuild prepare-windows
+          cmp resources/runtime/windows/strategies.json contracts/golden/flowseal-1.10.4/strategies.json
+          rm -rf work/base-windows && cp -r resources/runtime/windows work/base-windows
+          # Fails with the compiler's error if any new .bat cannot be parsed or a payload is missing.
+          target/debug/zbuild prepare-windows \
+            --flowseal-url "$FLOWSEAL_URL" --flowseal-sha256 "$FLOWSEAL_SHA256"
+      - name: Build, sign and verify the bundle
+        if: steps.upstream.outputs.build == 'true'
+        id: bundle
+        env:
+          ZAPRET_BUNDLE_SIGNING_KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
+          TAG: ${{ steps.upstream.outputs.tag }}
+        run: |
+          set -euo pipefail
+          version=$(date -u +%Y.%m.%d.%H%M)
+          tag="$TAG"
+          out=work/bundle
+          rm -rf "$out"
+          target/debug/zbuild bundle --version "$version" --flowseal "$tag" --out "$out"
+          target/debug/zbuild sign --manifest "$out/manifest.unsigned.json" --out "$out/manifest.json"
+          target/debug/zbuild verify --manifest "$out/manifest.json" \
+            --archive "$out/bundle-$version.tar.gz" --public-key "$(target/debug/zbuild public-key)"
+          {
+            echo "Черновик бандла из Flowseal $tag. Проверьте изменения и опубликуйте вручную."
+            echo
+            echo "Сравнение с закреплённой версией из resources/upstream.lock.json:"
+            echo
+            target/debug/zbuild changes --base work/base-windows --new resources/runtime/windows
+          } > "$out/notes.md"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Create the draft release
+        if: steps.upstream.outputs.build == 'true'
+        env:
+          TAG: ${{ steps.upstream.outputs.tag }}
+          VERSION: ${{ steps.bundle.outputs.version }}
+        run: |
+          set -euo pipefail
+          version="$VERSION"
+          gh release create "bundle-$version" --draft --target "$GITHUB_SHA" \
+            --title "Bundle $version (flowseal $TAG)" \
+            --notes-file work/bundle/notes.md \
+            "work/bundle/bundle-$version.tar.gz" work/bundle/manifest.json
