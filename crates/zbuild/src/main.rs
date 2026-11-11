@@ -1,15 +1,24 @@
 //! Build-time bundle preparation. Replaces the Windows part of
 //! `scripts/prepare_engines.py`; never executes batch files or upstream installers.
+mod release;
+
 use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::HashMap,
     fs,
     io::Read,
     path::{Component, Path, PathBuf},
 };
 use zapret_core::compiler;
 
-const USAGE: &str = "usage: zbuild prepare-windows [--root <project dir>]";
+const USAGE: &str = "usage:
+  zbuild prepare-windows [--root DIR] [--flowseal-url URL --flowseal-sha256 HEX]
+  zbuild bundle --version V --flowseal TAG [--root DIR] [--out DIR]
+  zbuild sign --manifest FILE --out FILE       (key from ZAPRET_BUNDLE_SIGNING_KEY)
+  zbuild public-key                            (key from ZAPRET_BUNDLE_SIGNING_KEY)
+  zbuild verify --manifest FILE --archive FILE --public-key BASE64
+  zbuild changes --base DIR --new DIR";
 /// service.bat creates these at first launch; we never run batch files.
 const USER_LISTS: [&str; 3] = [
     "list-general-user.txt",
@@ -17,37 +26,132 @@ const USER_LISTS: [&str; 3] = [
     "ipset-exclude-user.txt",
 ];
 
+struct Options(HashMap<String, String>);
+
+impl Options {
+    fn parse(mut args: impl Iterator<Item = String>) -> Result<Self> {
+        let mut map = HashMap::new();
+        while let Some(flag) = args.next() {
+            let key = flag.strip_prefix("--").context(USAGE)?;
+            let value = args.next().context(USAGE)?;
+            if map.insert(key.to_owned(), value).is_some() {
+                bail!("--{key} given twice");
+            }
+        }
+        Ok(Self(map))
+    }
+    fn only(&self, allowed: &[&str]) -> Result<()> {
+        match self.0.keys().find(|k| !allowed.contains(&k.as_str())) {
+            Some(key) => bail!("Unknown option --{key}\n{USAGE}"),
+            None => Ok(()),
+        }
+    }
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).map(String::as_str)
+    }
+    fn required(&self, key: &str) -> Result<&str> {
+        self.get(key)
+            .with_context(|| format!("Missing --{key}\n{USAGE}"))
+    }
+    fn root(&self) -> Result<PathBuf> {
+        Ok(match self.get("root") {
+            Some(root) => root.into(),
+            None => std::env::current_dir()?,
+        })
+    }
+}
+
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let command = args.next().context(USAGE)?;
-    let mut root = std::env::current_dir()?;
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--root" => root = args.next().context(USAGE)?.into(),
-            _ => bail!("{USAGE}"),
-        }
-    }
+    let opts = Options::parse(args)?;
     match command.as_str() {
-        "prepare-windows" => prepare_windows(&root),
+        "prepare-windows" => {
+            opts.only(&["root", "flowseal-url", "flowseal-sha256"])?;
+            let source = match (opts.get("flowseal-url"), opts.get("flowseal-sha256")) {
+                (Some(url), Some(sha)) => Some((url, sha)),
+                (None, None) => None,
+                _ => bail!("--flowseal-url and --flowseal-sha256 go together"),
+            };
+            prepare_windows(&opts.root()?, source)
+        }
+        "bundle" => {
+            opts.only(&["root", "version", "flowseal", "out"])?;
+            let root = opts.root()?;
+            let out = opts
+                .get("out")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| root.join("work/bundle"));
+            release::bundle(
+                &root,
+                opts.required("version")?,
+                opts.required("flowseal")?,
+                &out,
+            )
+            .map(drop)
+        }
+        "sign" => {
+            opts.only(&["manifest", "out"])?;
+            let key = release::signing_key_from_env()?;
+            release::sign_file(
+                Path::new(opts.required("manifest")?),
+                Path::new(opts.required("out")?),
+                &key,
+            )
+        }
+        "public-key" => {
+            opts.only(&[])?;
+            println!("{}", release::public_key(&release::signing_key_from_env()?));
+            Ok(())
+        }
+        "verify" => {
+            opts.only(&["manifest", "archive", "public-key"])?;
+            release::verify_files_cli(
+                Path::new(opts.required("manifest")?),
+                Path::new(opts.required("archive")?),
+                opts.required("public-key")?,
+            )
+        }
+        "changes" => {
+            opts.only(&["base", "new"])?;
+            let notes = release::changes(
+                Path::new(opts.required("base")?),
+                Path::new(opts.required("new")?),
+            )?;
+            print!("{notes}");
+            Ok(())
+        }
         _ => bail!("{USAGE}"),
     }
 }
 
-fn prepare_windows(root: &Path) -> Result<()> {
+/// Imports the pinned Flowseal release, or `source` (URL and SHA-256) when the
+/// bundle workflow checks a newer one. The target folder is rebuilt from scratch.
+fn prepare_windows(root: &Path, source: Option<(&str, &str)>) -> Result<()> {
     let lock: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("resources/upstream.lock.json"))?)?;
-    let url = lock["flowseal"]["url"]
-        .as_str()
-        .context("lock: flowseal.url")?;
-    let digest = lock["flowseal"]["sha256"]
-        .as_str()
-        .context("lock: flowseal.sha256")?;
+    let (url, digest) = match source {
+        Some(source) => source,
+        None => (
+            lock["flowseal"]["url"]
+                .as_str()
+                .context("lock: flowseal.url")?,
+            lock["flowseal"]["sha256"]
+                .as_str()
+                .context("lock: flowseal.sha256")?,
+        ),
+    };
+    let digest = digest.to_ascii_lowercase();
+    if digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()) {
+        bail!("Flowseal SHA-256 must be 64 hex characters");
+    }
     let work = root.join("work");
     let runtime = root.join("resources/runtime");
     let target = runtime.join("windows");
 
-    let archive = work.join("flowseal.tar.gz");
-    download(url, &archive, digest)?;
+    // One cache file per archive digest, so a pinned and a newer release never collide.
+    let archive = work.join(format!("flowseal-{}.tar.gz", &digest[..16]));
+    download(url, &archive, &digest)?;
     let extracted = work.join("flowseal");
     if extracted.exists() {
         fs::remove_dir_all(&extracted)?;
@@ -55,6 +159,10 @@ fn prepare_windows(root: &Path) -> Result<()> {
     extract_tar_gz(&fs::read(&archive)?, &extracted)?;
     let source = single_release_root(&extracted)?;
 
+    // Files from an earlier import must not leak into a newer bundle.
+    if target.exists() {
+        fs::remove_dir_all(&target)?;
+    }
     fs::create_dir_all(&target)?;
     for name in ["bin", "lists"] {
         copy_tree(&source.join(name), &target.join(name))?;
