@@ -238,3 +238,36 @@ Run the manual Windows checklist and record the actual results. The required
 Windows CI exit criterion has passed; physical-device and commercial release
 acceptance remain pending. Phase 1 has not been started and is outside this
 session's scope. No main push, merge or release was performed.
+
+## 2026-11-11 — phase 1 start: Rust strategy compiler and zbuild (local only)
+
+Requested by the user as the first phase-1 task. Not pushed; no CI run exists for
+these commits. Host: Arch Linux x86_64, rustc/cargo 1.95.0, Node 22.22.2.
+
+- `754c7d1` `zapret_core::compiler`: the single `.bat` parser. Reads the one
+  `start ... winws.exe` line as text, never executes it. Rejects syntax the Python
+  importer tolerated: several winws launches, unclosed quotes, empty `--new`
+  profiles, duplicate ids, non-UTF-8 input.
+- `a43f643` `crates/zbuild` (`prepare-windows`): ports the Windows part of
+  `scripts/prepare_engines.py`. Extraction accepts only regular files and
+  directories inside the destination; `work/flowseal` is emptied first.
+- `48df320` `build_windows.ps1`, `npm run prepare:engines` and the Windows CI job use
+  zbuild; Python is kept only for the frozen macOS build. The golden fixtures no
+  longer pin the Python importer hash.
+
+| Check (Linux) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
+| `cargo test --workspace --locked` | 20 passed, 0 failed (3 compiler, 2 zbuild tests new) |
+| Golden test: compile all 22 pinned `.bat`, compare with `strategies.json` | Byte-identical |
+| `zbuild prepare-windows` on the real pinned 1.10.4 archive | 22 strategies; `strategies.json` byte-identical to golden |
+| `diff -r` of `resources/runtime` from Python importer vs zbuild | Identical |
+| `npm run prepare:engines` (now zbuild) | Passed, output matches golden |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Workflow YAML parse (PyYAML) | Passed; not a GitHub Actions run |
+
+Not verified: the Windows CI job with these changes (needs a push), zbuild on
+Windows (path handling, CRLF checkout of the golden JSON is pinned to LF by
+`.gitattributes`), installer build and installed-service test after the switch.
+Phase-0 unverified gates listed above are unchanged.
