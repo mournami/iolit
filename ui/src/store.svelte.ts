@@ -1,6 +1,6 @@
 import { save } from '@tauri-apps/plugin-dialog';
 import { api, native, type Command } from './api';
-import type { DoctorCheck, DoctorResult, Snapshot } from './types';
+import type { BundleStatus, DoctorCheck, DoctorResult, Snapshot } from './types';
 
 export type Page = 'overview' | 'checks' | 'settings';
 
@@ -27,6 +27,9 @@ class AppState {
   }
   get operation() {
     return this.data?.operation;
+  }
+  get bundle() {
+    return this.data?.bundle;
   }
   get installed() {
     return !!this.data?.service.installed;
@@ -149,6 +152,21 @@ export function formatUptime(secs: number) {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   return h ? `${h} ч ${m} мин` : `${m} мин`;
+}
+
+/** One line about the strategy bundle in use, e.g. «Стратегии обновлены 2 ч назад». */
+export function bundleLine(bundle: BundleStatus | undefined, now = Date.now() / 1000) {
+  if (!bundle) return '';
+  if (bundle.error) return 'Проблема с обновлением стратегий';
+  if (bundle.version && bundle.last_update) return `Стратегии обновлены ${formatAgo(now - bundle.last_update)}`;
+  return bundle.updates_enabled ? 'Стратегии из установщика' : 'Стратегии из установщика, обновления выключены';
+}
+
+function formatAgo(secs: number) {
+  if (secs < 60) return 'только что';
+  if (secs < 3600) return `${Math.floor(secs / 60)} мин назад`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)} ч назад`;
+  return `${Math.floor(secs / 86400)} дн. назад`;
 }
 
 export const formatCount = (n: number) => n.toLocaleString('ru-RU');

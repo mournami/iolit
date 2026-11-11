@@ -1,7 +1,7 @@
 <script lang="ts">
   import { native } from '../api';
   import Icon from '../Icon.svelte';
-  import { app, deviceName, formatCount, formatUptime } from '../store.svelte';
+  import { app, bundleLine, deviceName, formatCount, formatUptime } from '../store.svelte';
   import RouteMap from './RouteMap.svelte';
 
   const service = $derived(app.service);
@@ -120,6 +120,11 @@
       <span class="value">{service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span>
       {#if app.installed && service?.strategy}
         <button class="link" disabled={app.busy} onclick={app.selectStrategy}>Подобрать заново</button>
+      {/if}
+      {#if app.installed && app.bundle}
+        <span class="sub" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}>
+          {bundleLine(app.bundle)}
+        </span>
       {/if}
     </dd>
   </div>
