@@ -7,10 +7,9 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     fs,
-    io::Read,
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
 };
-use zapret_core::compiler;
+use zapret_core::{bundle::extract_tar_gz, compiler};
 
 const USAGE: &str = "usage:
   zbuild prepare-windows [--root DIR] [--flowseal-url URL --flowseal-sha256 HEX]
@@ -225,36 +224,6 @@ fn download(url: &str, path: &Path, digest: &str) -> Result<()> {
     let actual = hex::encode(Sha256::digest(fs::read(path)?));
     if actual != digest {
         bail!("SHA256 mismatch: {}", path.display());
-    }
-    Ok(())
-}
-
-/// Extract only regular files and directories that stay inside `dest`.
-fn extract_tar_gz(bytes: &[u8], dest: &Path) -> Result<()> {
-    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(bytes));
-    for entry in archive.entries()? {
-        let mut entry = entry?;
-        let path = entry.path()?.into_owned();
-        if path.as_os_str().is_empty()
-            || path
-                .components()
-                .any(|c| !matches!(c, Component::Normal(_) | Component::CurDir))
-        {
-            bail!("Unsafe archive path: {}", path.display());
-        }
-        let out = dest.join(&path);
-        match entry.header().entry_type() {
-            tar::EntryType::Directory => fs::create_dir_all(&out)?,
-            tar::EntryType::Regular => {
-                fs::create_dir_all(out.parent().context("archive file parent")?)?;
-                let mut data = Vec::new();
-                entry.read_to_end(&mut data)?;
-                fs::write(&out, data)?;
-            }
-            // pax/GNU metadata headers carry no files of their own.
-            tar::EntryType::XGlobalHeader | tar::EntryType::XHeader => {}
-            other => bail!("Unsupported archive entry {other:?}: {}", path.display()),
-        }
     }
     Ok(())
 }

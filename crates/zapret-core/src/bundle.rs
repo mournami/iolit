@@ -10,8 +10,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
-    path::{Component, Path},
+    cmp::Ordering,
+    collections::{BTreeMap, HashSet},
+    fs,
+    io::Read,
+    path::{Component, Path, PathBuf},
 };
 
 pub const MANIFEST_SCHEMA: u32 = 1;
@@ -66,6 +69,16 @@ pub fn valid_version(version: &str) -> bool {
         && parts
             .iter()
             .all(|p| (1..=8).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Numeric, part by part; missing parts count as zero. Callers validate first.
+pub fn compare_versions(a: &str, b: &str) -> Ordering {
+    let parse = |v: &str| -> Vec<u64> { v.split('.').map(|p| p.parse().unwrap_or(0)).collect() };
+    let (a, b) = (parse(a), parse(b));
+    (0..a.len().max(b.len()))
+        .map(|i| a.get(i).unwrap_or(&0).cmp(b.get(i).unwrap_or(&0)))
+        .find(|o| o.is_ne())
+        .unwrap_or(Ordering::Equal)
 }
 
 fn valid_relative_path(path: &str) -> bool {
@@ -145,6 +158,115 @@ pub fn verify_files(manifest: &Manifest, root: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Files under `dir`, keyed by `prefix/relative/path` with `/` separators.
+pub fn walk(dir: &Path, prefix: &str, out: &mut BTreeMap<String, PathBuf>) -> Result<()> {
+    for entry in fs::read_dir(dir).with_context(|| dir.display().to_string())? {
+        let entry = entry?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|n| anyhow::anyhow!("Non-UTF-8 file name: {n:?}"))?;
+        let path = if prefix.is_empty() {
+            name
+        } else {
+            format!("{prefix}/{name}")
+        };
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            walk(&entry.path(), &path, out)?;
+        } else if kind.is_file() {
+            out.insert(path, entry.path());
+        } else {
+            bail!("Unsupported file type: {}", entry.path().display());
+        }
+    }
+    Ok(())
+}
+
+/// [`verify_files`] plus: nothing under `root` that the manifest does not list.
+pub fn verify_tree(manifest: &Manifest, root: &Path) -> Result<()> {
+    verify_files(manifest, root)?;
+    let mut found = BTreeMap::new();
+    walk(root, "", &mut found)?;
+    if found.len() != manifest.files.len() {
+        bail!("В наборе есть файлы, которых нет в манифесте");
+    }
+    Ok(())
+}
+
+/// Deterministic `.tar.gz`: given order, fixed metadata, no directory entries.
+pub fn pack_archive<'a>(entries: impl IntoIterator<Item = (&'a str, &'a [u8])>) -> Result<Vec<u8>> {
+    let mut builder = tar::Builder::new(Vec::new());
+    for (path, data) in entries {
+        let mut header = tar::Header::new_gnu();
+        header.set_entry_type(tar::EntryType::Regular);
+        header.set_size(data.len() as u64);
+        header.set_mode(0o644);
+        header.set_mtime(0);
+        header.set_uid(0);
+        header.set_gid(0);
+        builder.append_data(&mut header, path, data)?;
+    }
+    let tar = builder.into_inner()?;
+    let mut gz = flate2::GzBuilder::new()
+        .mtime(0)
+        .write(Vec::new(), flate2::Compression::best());
+    std::io::Write::write_all(&mut gz, &tar)?;
+    Ok(gz.finish()?)
+}
+
+/// Extract only regular files and directories that stay inside `dest`.
+pub fn extract_tar_gz(bytes: &[u8], dest: &Path) -> Result<()> {
+    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(bytes));
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        let path = entry.path()?.into_owned();
+        if path.as_os_str().is_empty()
+            || path
+                .components()
+                .any(|c| !matches!(c, Component::Normal(_) | Component::CurDir))
+        {
+            bail!("Unsafe archive path: {}", path.display());
+        }
+        let out = dest.join(&path);
+        match entry.header().entry_type() {
+            tar::EntryType::Directory => fs::create_dir_all(&out)?,
+            tar::EntryType::Regular => {
+                fs::create_dir_all(out.parent().context("archive file parent")?)?;
+                let mut data = Vec::new();
+                entry.read_to_end(&mut data)?;
+                fs::write(&out, data)?;
+            }
+            // pax/GNU metadata headers carry no files of their own.
+            tar::EntryType::XGlobalHeader | tar::EntryType::XHeader => {}
+            other => bail!("Unsupported archive entry {other:?}: {}", path.display()),
+        }
+    }
+    Ok(())
+}
+
+/// The full client check: signature, archive hash, extraction into an emptied
+/// `dest`, every file hash and no unlisted files. `dest` is removed on failure.
+pub fn unpack_verified(
+    envelope: &[u8],
+    key: &[u8; 32],
+    archive: &[u8],
+    dest: &Path,
+) -> Result<Manifest> {
+    let envelope: SignedManifest =
+        serde_json::from_slice(envelope).context("Манифест повреждён")?;
+    let manifest = verify_signature(&envelope, key)?;
+    manifest.verify_archive(archive)?;
+    if dest.exists() {
+        fs::remove_dir_all(dest)?;
+    }
+    let result = extract_tar_gz(archive, dest).and_then(|()| verify_tree(&manifest, dest));
+    if result.is_err() {
+        let _ = fs::remove_dir_all(dest);
+    }
+    result.map(|()| manifest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,5 +328,19 @@ mod tests {
         assert!(manifest().verify_archive(b"other").is_err());
         let extra = r#"{"schema":1,"version":"1","flowseal":"x","archive":{"path":"a","sha256":"00"},"files":[],"extra":1}"#;
         assert!(serde_json::from_str::<Manifest>(extra).is_err());
+    }
+
+    #[test]
+    fn versions_compare_numerically() {
+        assert_eq!(
+            compare_versions("2026.11.11.900", "2026.11.11.1200"),
+            Ordering::Less
+        );
+        assert_eq!(
+            compare_versions("2026.11.12", "2026.11.11.2359"),
+            Ordering::Greater
+        );
+        assert_eq!(compare_versions("1.0", "1"), Ordering::Equal);
+        assert_eq!(compare_versions("0", "2026.1.1.0"), Ordering::Less);
     }
 }
