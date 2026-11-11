@@ -1,4 +1,5 @@
 pub mod bundle;
+pub mod compiler;
 pub mod ipc;
 #[cfg(feature = "network")]
 pub mod probe;
