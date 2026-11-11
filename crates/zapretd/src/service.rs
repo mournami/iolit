@@ -17,6 +17,7 @@ pub struct Controller<E: Engine> {
     active: String,
     engine: E,
     pub(crate) warning: Option<String>,
+    pub bundle: BundleStatus,
 }
 impl<E: Engine> Controller<E> {
     pub fn new(root: PathBuf, data: PathBuf, engine: E) -> Result<Self> {
@@ -37,9 +38,43 @@ impl<E: Engine> Controller<E> {
             active,
             engine,
             warning: None,
+            bundle: BundleStatus::default(),
         })
     }
-    fn status(&mut self) -> Result<ServiceStatus> {
+    pub fn root(&self) -> &std::path::Path {
+        &self.root
+    }
+    /// Use the strategy bundle at `root`. The catalog is loaded before anything is
+    /// stopped; if the engine was running and fails to start from the new bundle,
+    /// the previous bundle, strategy and engine state are restored.
+    pub(crate) async fn switch_root(&mut self, root: PathBuf) -> Result<()> {
+        let catalog = strategy::load_catalog(&root)?;
+        let active = catalog
+            .iter()
+            .find(|s| s.id == self.active)
+            .or_else(|| catalog.first())
+            .context("Нет стратегий")?
+            .id
+            .clone();
+        let running = self.engine.is_ready()?.running;
+        self.stop()?;
+        let old_root = std::mem::replace(&mut self.root, root);
+        let old_catalog = std::mem::replace(&mut self.catalog, catalog);
+        let old_active = std::mem::replace(&mut self.active, active);
+        if running && let Err(e) = self.start().await {
+            let _ = self.stop();
+            self.root = old_root;
+            self.catalog = old_catalog;
+            self.active = old_active;
+            let _ = self.start().await;
+            return Err(e.context("Новый набор стратегий не запустился"));
+        }
+        if self.active != old_active {
+            std::fs::write(self.data.join("strategy"), &self.active)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn status(&mut self) -> Result<ServiceStatus> {
         let state = self.engine.is_ready()?;
         let mut warnings = state.warnings;
         warnings.extend(self.warning.clone());
@@ -179,6 +214,7 @@ impl<E: Engine + 'static> Daemon<E> {
                     service: controller.status()?,
                     strategies: controller.catalog.clone(),
                     operation: self.operations.operation.lock().await.clone(),
+                    bundle: controller.bundle.clone(),
                 }))
             }
             DaemonCommand::Diagnose | DaemonCommand::SelectStrategy => {

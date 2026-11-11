@@ -15,6 +15,10 @@ jobs:
   windows:
     name: Windows checks and service IPC
     runs-on: windows-2022
+    env:
+      # Public half of the bundle signing key (repository variable). Empty until the
+      # owner creates the key; such builds never install downloaded bundles.
+      ZAPRET_BUNDLE_PUBLIC_KEY: ${{ vars.BUNDLE_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
