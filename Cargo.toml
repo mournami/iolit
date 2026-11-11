@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/zapret-core", "crates/zapretd", "src-tauri"]
+members = ["crates/zapret-core", "crates/zapretd", "crates/zbuild", "src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
