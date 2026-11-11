@@ -2,7 +2,8 @@
 
 ## Source of truth
 - Target architecture and phase plan: `docs/ARCHITECTURE.md`. Follow it. If a task conflicts with it, stop and ask the owner before writing code.
-- Current phase: **0 (cleanup)**. Do not start work that belongs to a later phase unless the owner asks for it.
+- Current phase: **1 (Windows MVP)**. Do not start work that belongs to a later phase unless the owner asks for it.
+- Bypass checks in Russia are pending external testers; technical acceptance is done by the owner.
 
 ## Architecture rules
 - All backend logic is Rust: `crates/zapret-core` (no OS calls), `crates/zapretd` (privileged daemon), `crates/zbuild` (CI bundle builder). Do not add new Go or Python to the product. `engines/macos/` is frozen until phase 5: keep it, do not extend it.

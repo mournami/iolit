@@ -198,11 +198,18 @@ Local logs: ignored `work/phase0/ci-followup-docs-*.log`. These local checks are
 separate from the native Windows evidence above. The follow-up change is
 restricted to this report and the manual checklist below.
 
-## Manual Windows checklist (not executed)
+## Manual Windows acceptance (not executed)
 
-Use the installer artifact from the successful run above. Record Windows version,
-provider, tested strategy and pass/fail for each item. These checks are not implied
-by CI success.
+Acceptance is split in two. The owner has no Russian ISP connection and runs the
+technical part on their own Windows machine; ISP bypass can only be checked on a home or mobile
+connection inside Russia (datacenter VPN/VPS addresses do not pass through TSPU the
+same way). Russian checks stay open until external testers report; they are never
+marked passed on the basis of technical or CI results.
+
+Use the installer artifact from the latest successful Windows CI run. Record Windows
+version, build/commit, tested strategy and pass/fail for each item.
+
+### Technical (no Russian ISP needed; done by the owner)
 
 - [ ] **Install:** on a clean Windows 10/11 x64 machine, install the development
   NSIS package with UAC, then run the GUI as a standard user. The service is
@@ -210,22 +217,31 @@ by CI success.
 - [ ] **Enable/disable:** enable and verify the GUI reports running and winws.exe
   appears in Task Manager; disable and verify it stops. Repeat the cycle and
   confirm ordinary internet access remains available.
-- [ ] **Selection after GUI exit:** click «Подобрать стратегию». While it is busy,
-  exit through the tray's «Выйти из приложения» and confirm the GUI process closes.
-  Reopen it during selection: progress must continue without restarting; wait for
-  a winner, baseline notice or a clear failure with the original state restored.
-  Separately cancel an active selection and check restoration. A baseline that
-  already passes may finish before the window can be closed; that alone does not
-  verify continuity of an active operation.
-- [ ] **Reboot:** test reboot with interception enabled, then with it disabled.
-  The chosen strategy and enabled/disabled preference must survive separately.
-  Also reboot during a selection and verify recovery restores the state from
-  before selection or reports an explicit recovery failure.
+- [ ] **Selection after GUI exit:** outside Russia the unbypassed baseline usually
+  passes, so selection ends immediately. To keep it busy, temporarily add
+  `0.0.0.0 www.youtube.com` to `C:\Windows\System32\drivers\etc\hosts`: every
+  candidate then fails and selection walks the whole list. Click «Подобрать
+  стратегию», exit through the tray's «Выйти из приложения» while it is busy and
+  confirm the GUI process closes. Reopen it: progress must continue without
+  restarting and end with a clear failure and the original state restored.
+- [ ] **Cancel:** with the same hosts entry, start selection and cancel it; the
+  previous strategy and enabled/disabled state must be restored.
+- [ ] **Reboot:** reboot with interception enabled, then with it disabled. The
+  chosen strategy and enabled/disabled preference must survive separately. Also
+  reboot during a selection (hosts entry still present) and verify recovery restores
+  the state from before selection or reports an explicit recovery failure.
+- [ ] Remove the hosts entry afterwards and confirm YouTube opens normally.
+
+### Russian ISP only (pending external testers)
+
 - [ ] **YouTube:** with the selected strategy, play a real video for 10 minutes,
   change quality and seek. Record stalls or playback failures.
 - [ ] **Discord:** confirm sign-in/messages, then join a real voice channel and
   verify bidirectional audio for at least 5 minutes. A successful STUN probe alone
   does not confirm Discord voice.
+- [ ] **QUIC:** YouTube over QUIC/HTTP3 works with the selected strategy.
+- [ ] **Providers:** the above on 3+ different Russian providers, including at
+  least one mobile network. This is the phase-1 exit criterion.
 
 ## Next step
 
@@ -241,8 +257,10 @@ session's scope. No main push, merge or release was performed.
 
 ## 2026-11-11 — phase 1 start: Rust strategy compiler and zbuild (local only)
 
-Requested by the user as the first phase-1 task. Not pushed; no CI run exists for
-these commits. Host: Arch Linux x86_64, rustc/cargo 1.95.0, Node 22.22.2.
+Requested by the user as the first phase-1 task. Pushed to `codex/desktop-app` by
+the collaborator on 2026-11-11 (head `7500872`). The Windows CI result for `7500872`
+is **not confirmed**: the follow-up session had no GitHub Actions access (no `gh`,
+no signed-in browser). Check the Actions tab for that commit before relying on it. Host: Arch Linux x86_64, rustc/cargo 1.95.0, Node 22.22.2.
 
 - `754c7d1` `zapret_core::compiler`: the single `.bat` parser. Reads the one
   `start ... winws.exe` line as text, never executes it. Rejects syntax the Python
