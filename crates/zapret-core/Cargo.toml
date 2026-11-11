@@ -18,6 +18,8 @@ ed25519-dalek = "2"
 getrandom = { version = "0.3", optional = true }
 schemars = "1"
 ts-rs = "12"
+tar = "0.4"
+flate2 = "1"
 
 [features]
 default = ["network"]

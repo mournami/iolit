@@ -16,65 +16,26 @@ use zapret_core::{
 pub const KEY_ENV: &str = "ZAPRET_BUNDLE_SIGNING_KEY";
 pub const UNSIGNED_MANIFEST: &str = "manifest.unsigned.json";
 
-/// Files under `dir`, keyed by `prefix/relative/path` with `/` separators.
-fn walk(dir: &Path, prefix: &str, out: &mut BTreeMap<String, PathBuf>) -> Result<()> {
-    for entry in fs::read_dir(dir).with_context(|| dir.display().to_string())? {
-        let entry = entry?;
-        let name = entry
-            .file_name()
-            .into_string()
-            .map_err(|n| anyhow::anyhow!("Non-UTF-8 file name: {n:?}"))?;
-        let path = if prefix.is_empty() {
-            name
-        } else {
-            format!("{prefix}/{name}")
-        };
-        let kind = entry.file_type()?;
-        if kind.is_dir() {
-            walk(&entry.path(), &path, out)?;
-        } else if kind.is_file() {
-            out.insert(path, entry.path());
-        } else {
-            bail!("Unsupported file type: {}", entry.path().display());
-        }
-    }
-    Ok(())
-}
-
 /// Bundle contents: the prepared Windows runtime and licenses. The empty
 /// `*-user.txt` placeholders stay in: strategies reference them with `=@`, which
 /// must resolve. Real user domains live in service data and are never bundled.
 fn bundle_files(root: &Path) -> Result<BTreeMap<String, PathBuf>> {
     let runtime = root.join("resources/runtime");
     let mut files = BTreeMap::new();
-    walk(&runtime.join("windows"), "windows", &mut files)?;
-    walk(&runtime.join("licenses"), "licenses", &mut files)?;
+    bundle::walk(&runtime.join("windows"), "windows", &mut files)?;
+    bundle::walk(&runtime.join("licenses"), "licenses", &mut files)?;
     if !files.contains_key("windows/strategies.json") {
         bail!("No prepared runtime: run `zbuild prepare-windows` first");
     }
     Ok(files)
 }
 
-/// Deterministic archive: sorted paths, fixed metadata, no directory entries.
 fn archive(files: &BTreeMap<String, PathBuf>) -> Result<Vec<u8>> {
-    let mut builder = tar::Builder::new(Vec::new());
+    let mut entries = Vec::new();
     for (path, source) in files {
-        let data = fs::read(source)?;
-        let mut header = tar::Header::new_gnu();
-        header.set_entry_type(tar::EntryType::Regular);
-        header.set_size(data.len() as u64);
-        header.set_mode(0o644);
-        header.set_mtime(0);
-        header.set_uid(0);
-        header.set_gid(0);
-        builder.append_data(&mut header, path, data.as_slice())?;
+        entries.push((path.as_str(), fs::read(source)?));
     }
-    let tar = builder.into_inner()?;
-    let mut gz = flate2::GzBuilder::new()
-        .mtime(0)
-        .write(Vec::new(), flate2::Compression::best());
-    std::io::Write::write_all(&mut gz, &tar)?;
-    Ok(gz.finish()?)
+    bundle::pack_archive(entries.iter().map(|(p, d)| (*p, d.as_slice())))
 }
 
 /// Writes `bundle-<version>.tar.gz` and the unsigned manifest into `out`.
@@ -155,28 +116,14 @@ pub fn sign_file(manifest: &Path, out: &Path, key: &SigningKey) -> Result<()> {
     Ok(())
 }
 
-/// Client-side check: signature, archive hash, extraction into `dest`, then every
-/// file hash. Files that the manifest does not list are rejected too.
+/// Client-side check, the same code the service runs before switching bundles.
 pub fn verify(envelope: &[u8], public_key: &str, archive: &[u8], dest: &Path) -> Result<Manifest> {
-    let envelope: SignedManifest = serde_json::from_slice(envelope)?;
     let key: [u8; 32] = STANDARD
         .decode(public_key.trim())
         .ok()
         .and_then(|bytes| bytes.try_into().ok())
         .context("Public key must be base64 of exactly 32 bytes")?;
-    let manifest = bundle::verify_signature(&envelope, &key)?;
-    manifest.verify_archive(archive)?;
-    if dest.exists() {
-        fs::remove_dir_all(dest)?;
-    }
-    crate::extract_tar_gz(archive, dest)?;
-    bundle::verify_files(&manifest, dest)?;
-    let mut extracted = BTreeMap::new();
-    walk(dest, "", &mut extracted)?;
-    if extracted.len() != manifest.files.len() {
-        bail!("Archive contains files that are not in the manifest");
-    }
-    Ok(manifest)
+    bundle::unpack_verified(envelope, &key, archive, dest)
 }
 
 pub fn verify_files_cli(manifest: &Path, archive: &Path, public_key: &str) -> Result<()> {
@@ -201,7 +148,7 @@ pub fn changes(base: &Path, new: &Path) -> Result<String> {
     }
     fn hashes(dir: &Path) -> Result<BTreeMap<String, String>> {
         let mut files = BTreeMap::new();
-        walk(dir, "", &mut files)?;
+        bundle::walk(dir, "", &mut files)?;
         files
             .into_iter()
             .filter(|(path, _)| path != "strategies.json")
@@ -348,7 +295,7 @@ mod tests {
         assert!(verify(&envelope, &key, &swapped, &dest).is_err());
         // A file replaced after extraction.
         fs::create_dir_all(&dest).unwrap();
-        crate::extract_tar_gz(&swapped, &dest).unwrap();
+        bundle::extract_tar_gz(&swapped, &dest).unwrap();
         assert!(bundle::verify_files(&manifest, &dest).is_err());
     }
 
