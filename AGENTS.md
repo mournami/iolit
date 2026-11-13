@@ -11,7 +11,7 @@
 - The daemon API is defined by Rust types. `contracts/*.schema.json` and `ui/src/generated/*` are generated from them and never edited by hand.
 - `.bat` files are parsed in exactly one place, the Rust strategy compiler. Never execute imported `.bat` scripts. Reject unknown importer syntax.
 - Services accept fixed commands, never arbitrary executable paths or shell commands. The daemon never writes to user-chosen paths. Preserve other applications' firewall state.
-- UI: keep the current design (route diagram, top tabs) and Russian UI strings. Talk to the daemon only through `ui/src/api.ts` and the transport layer.
+- UI: the design may be changed only with the agreement of both developers; keep Russian UI strings. Talk to the daemon only through `ui/src/api.ts` and the transport layer.
 
 ## Platforms
 - Release order: Windows, then routers (OpenWrt, Keenetic) and Linux, then Android, then macOS. iOS and tvOS are out of scope.
