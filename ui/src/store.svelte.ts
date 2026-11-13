@@ -25,6 +25,8 @@ class AppState {
   doctorRan = $state(false);
   logLines = $state<string[]>([]);
   showLogs = $state(false);
+  /** When this window saw the last check finish; the service does not report it. */
+  checkedAt = $state<Date | null>(null);
   #refreshing = false;
 
   get service() {
@@ -50,7 +52,9 @@ class AppState {
     if (this.#refreshing || !native) return;
     this.#refreshing = true;
     try {
+      const wasBusy = !!this.data?.operation.busy;
       this.data = await api<Snapshot>('snapshot');
+      if (wasBusy && !this.data.operation.busy && this.data.operation.results.length) this.checkedAt = new Date();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -211,5 +215,8 @@ function formatAgo(secs: number) {
   if (secs < 86400) return `${Math.floor(secs / 3600)} ч назад`;
   return `${Math.floor(secs / 86400)} дн. назад`;
 }
+
+/** «23:21» for a check finished today. */
+export const formatClock = (d: Date) => d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
 export const formatCount = (n: number) => n.toLocaleString('ru-RU');
