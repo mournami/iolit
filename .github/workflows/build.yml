@@ -93,6 +93,10 @@ jobs:
           # WinDivert64.sys busy, as on the first tester's PC.
           Invoke-Setup $setup '--quiet'
           Test-Service
+          # The one-button stop ends winws and unloads and unregisters WinDivert.
+          Invoke-Setup (Join-Path $folder 'uninstall.exe') '--stop-windivert --quiet'
+          sc.exe query WinDivert | Out-Null
+          if ($LASTEXITCODE -ne 1060) { throw "WinDivert still registered after --stop-windivert ($LASTEXITCODE)" }
           Invoke-Setup (Join-Path $folder 'uninstall.exe') '--uninstall --quiet'
           foreach ($i in 1..20) {
             if (-not (Get-Service ZapretDesktop -ErrorAction SilentlyContinue)) { break }
