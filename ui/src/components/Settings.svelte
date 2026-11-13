@@ -1,10 +1,16 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
-  import { app } from '../store.svelte';
+  import { app, plural } from '../store.svelte';
   import Mark from './Mark.svelte';
 
   let selected = $state('');
   let domain = $state('');
+
+  // Load the list once the service answers, not on every refresh.
+  const installed = $derived(app.installed);
+  $effect(() => {
+    if (installed) app.loadDomains();
+  });
 
   // Follow the strategy the service reports; a failed change snaps back on the next refresh.
   $effect(() => {
@@ -63,7 +69,10 @@
 <section class="panel" aria-labelledby="domains-title">
   <div class="row-text">
     <h2 id="domains-title">Свои домены</h2>
-    <p>Добавьте сайт, который не открывается. Он попадёт в ваш отдельный список, общий список не меняется.</p>
+    <p>
+      Добавьте сайт, который не открывается. Он попадёт в ваш отдельный список, общий список не меняется. Поддомены
+      входят сами: example.com включает www.example.com.
+    </p>
   </div>
   <form class="domain-form" onsubmit={submitDomain}>
     <input
@@ -79,6 +88,39 @@
       <Icon name="plus" size={16} />Добавить
     </button>
   </form>
+  <button
+    class="disclosure"
+    type="button"
+    aria-expanded={app.showDomains}
+    aria-controls="domain-list"
+    disabled={!app.domains.length}
+    onclick={() => (app.showDomains = !app.showDomains)}
+  >
+    <span class="chevron" class:open={app.showDomains && app.domains.length > 0} aria-hidden="true"></span>
+    {app.domains.length
+      ? `Ваш список: ${app.domains.length} ${plural(app.domains.length, 'домен', 'домена', 'доменов')}`
+      : 'Ваш список пока пуст'}
+  </button>
+  {#if app.showDomains && app.domains.length}
+    <ul id="domain-list" class="domain-list">
+      {#each app.domains as d (d)}
+        <li class:fresh={d === app.lastDomain}>
+          <span class="domain-name">{d}</span>
+          {#if d === app.lastDomain}<span class="fresh-tag">добавлен</span>{/if}
+          <button
+            class="icon-btn"
+            type="button"
+            aria-label={`Удалить ${d}`}
+            title="Удалить из списка"
+            disabled={app.busy || app.domainBusy}
+            onclick={() => app.removeDomain(d)}
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </section>
 
 <section class="panel" aria-labelledby="log-title">
@@ -166,6 +208,70 @@
     flex: 1;
     min-width: 0;
     max-width: 420px;
+  }
+
+  .disclosure {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .disclosure:hover:not(:disabled) {
+    color: var(--ink);
+  }
+  .disclosure:disabled {
+    color: var(--ink-3);
+    cursor: default;
+  }
+  .chevron {
+    width: 7px;
+    height: 7px;
+    border-right: 1.75px solid currentColor;
+    border-bottom: 1.75px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.15s ease;
+  }
+  .chevron.open {
+    transform: translateY(-2px) rotate(45deg);
+  }
+  .domain-list {
+    margin: 8px 0 0;
+    padding: 0;
+    max-width: 520px;
+    max-height: 280px;
+    overflow: auto;
+    list-style: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+  }
+  .domain-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 6px 12px;
+    font-size: 13px;
+  }
+  .domain-list li + li {
+    border-top: 1px solid var(--line);
+  }
+  .domain-list li.fresh {
+    background: var(--signal-wash);
+  }
+  .domain-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+  }
+  .fresh-tag {
+    color: var(--signal-ink);
+    font-size: 12px;
   }
 
   .log {
