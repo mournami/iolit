@@ -34,3 +34,11 @@ in the redistribution review. Do not treat the complete Windows bundle as MIT.
 Exact package versions in Cargo.lock, package-lock.json and engines/macos/go.sum.
 Generate their full notices for each production artifact. No third-party license
 is replaced by the application's own MIT license.
+
+## Interface fonts and icons
+
+Bundled into the desktop interface, nothing is loaded at runtime:
+
+- Inter (`@fontsource-variable/inter`), SIL Open Font License 1.1: `Inter-OFL.txt`.
+- Geist Mono (`@fontsource/geist-mono`), SIL Open Font License 1.1: `GeistMono-OFL.txt`.
+- Lucide icon paths, inlined in `ui/src/Icon.svelte`, ISC: `Lucide-ISC.txt`.

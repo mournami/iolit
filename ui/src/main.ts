@@ -1,4 +1,7 @@
+import '@fontsource-variable/inter';
+import '@fontsource/geist-mono/400.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
 import './style.css';
-mount(App,{target:document.getElementById('app')!});
+import './theme.svelte';
+mount(App, { target: document.getElementById('app')! });
