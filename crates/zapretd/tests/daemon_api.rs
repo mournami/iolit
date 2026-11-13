@@ -172,3 +172,120 @@ async fn unsupported_platform_never_reports_engine_success() {
             .is_err()
     );
 }
+
+/// Counts engine starts so tests can tell an engine restart apart.
+struct CountingEngine {
+    running: bool,
+    starts: Arc<std::sync::atomic::AtomicUsize>,
+}
+impl Engine for CountingEngine {
+    const PLATFORM: &'static str = "test";
+    const NAME: &'static str = "counting engine";
+    const CAPABILITIES: Capabilities = Capabilities {
+        tcp: true,
+        udp: true,
+        ipv6: false,
+        packet_injection: false,
+    };
+    async fn start(&mut self, _: &Strategy, _: &Path, _: &Path) -> Result<()> {
+        self.starts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.running = true;
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<()> {
+        self.running = false;
+        Ok(())
+    }
+    fn is_ready(&mut self) -> Result<EngineState> {
+        Ok(EngineState {
+            running: self.running,
+            uptime_secs: 0,
+            warnings: vec![],
+        })
+    }
+    fn cleanup(&mut self) -> Result<()> {
+        self.stop()
+    }
+}
+
+#[tokio::test]
+async fn user_domains_are_listed_removed_and_applied_without_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("bundle");
+    let data = dir.path().join("data");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("strategies.json"),
+        serde_json::to_vec(&vec![Strategy {
+            id: "general".into(),
+            name: "General".into(),
+            description: String::new(),
+            supported: true,
+            arguments: vec!["--test".into()],
+        }])
+        .unwrap(),
+    )
+    .unwrap();
+    let starts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let engine = CountingEngine {
+        running: false,
+        starts: starts.clone(),
+    };
+    let daemon = Daemon {
+        controller: Arc::new(Mutex::new(
+            Controller::new(root, data.clone(), engine).unwrap(),
+        )),
+        operations: Arc::new(OperationManager::new(data.clone())),
+    };
+    let domains = || async {
+        match daemon.dispatch(DaemonCommand::Domains).await.unwrap() {
+            DaemonResponse::Domains(list) => list,
+            other => panic!("{other:?}"),
+        }
+    };
+    assert!(domains().await.is_empty());
+    daemon.dispatch(DaemonCommand::Enable).await.unwrap();
+    for domain in ["Example.com", "пример.рф", "example.com."] {
+        daemon
+            .dispatch(DaemonCommand::AddDomain {
+                domain: domain.into(),
+            })
+            .await
+            .unwrap();
+    }
+    // winws reloads the changed file itself; a restart would drop bypass.
+    assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(
+        std::fs::read_to_string(data.join("user-domains.txt")).unwrap(),
+        "example.com\nxn--e1afmkfd.xn--p1ai\n"
+    );
+    assert_eq!(domains().await, ["example.com", "пример.рф"]);
+    daemon
+        .dispatch(DaemonCommand::RemoveDomain {
+            domain: "ПРИМЕР.РФ".into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(domains().await, ["example.com"]);
+    for bad in ["missing.example", "example.com\n--debug"] {
+        assert!(
+            daemon
+                .dispatch(DaemonCommand::RemoveDomain { domain: bad.into() })
+                .await
+                .is_err(),
+            "{bad}"
+        );
+    }
+    daemon
+        .dispatch(DaemonCommand::RemoveDomain {
+            domain: "example.com".into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(data.join("user-domains.txt")).unwrap(),
+        ""
+    );
+    assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 1);
+}

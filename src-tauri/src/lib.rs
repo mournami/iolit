@@ -58,6 +58,16 @@ async fn add_domain(domain: String) -> ApiResult<()> {
         .map_err(msg)
 }
 #[tauri::command]
+async fn remove_domain(domain: String) -> ApiResult<()> {
+    request_command(DaemonCommand::RemoveDomain { domain })
+        .await
+        .map_err(msg)
+}
+#[tauri::command]
+async fn domains() -> ApiResult<Vec<String>> {
+    request_command(DaemonCommand::Domains).await.map_err(msg)
+}
+#[tauri::command]
 async fn doctor() -> ApiResult<DoctorResult> {
     request_command(DaemonCommand::Doctor).await.map_err(msg)
 }
@@ -132,6 +142,8 @@ pub fn run() {
             select_strategy,
             cancel_operation,
             add_domain,
+            remove_domain,
+            domains,
             doctor,
             logs,
             report,
