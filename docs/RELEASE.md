@@ -546,3 +546,34 @@ make added domains take effect faster, and stop WinDivert with one button.
 Not verified: winws picking up an added domain without restart on Windows,
 the list against a real service, the stop mode and its shortcut on Windows,
 and CI on this branch.
+
+## 2026-11-14 — interface redesign (local, `codex/desktop-app`)
+
+Owner-approved redesign after the reference mockup: black/white chrome with
+one green accent, dark/light/system theme, a large on/off card instead of the
+route diagram, results with a system side column, two-column settings, and on
+Windows an in-app title row. The daemon API and Rust backend are unchanged;
+the only non-UI changes are Tauri window config (size, black background,
+frame off on Windows) and window permissions (minimise, maximise, close, drag).
+
+- Fonts (Inter, Geist Mono, OFL) are bundled from @fontsource; Lucide icon paths
+  (ISC) are inlined. Licenses added under `licenses/`. CSP unchanged.
+- Not implemented from the mockup because the service has no such setting:
+  restart behaviour choice and strategy-update toggle (rows state current
+  behaviour), "slow" status, prettified log lines, "Open log" button.
+- The time of the last check is remembered by the window only.
+- Layout adapts: overview card becomes a band below 940 px, side columns move
+  under the main column below 1000 px, the page scrolls down to the 720x560
+  minimum window.
+
+| Check (Arch Linux) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
+| `cargo test --workspace --locked` | 48 passed, 0 failed |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Vite + Playwright with a mocked Tauri IPC | Screenshots of on, off, no strategy, service missing, selection running, selection failed, Doctor, light theme, 820x700 and 720x560 windows, Windows title row (mocked user agent); no page errors |
+
+Not verified: the real Tauri window on any OS (frameless window, drag,
+snap, maximise, close-to-exit on Windows), fonts and theme inside WebView2,
+clipboard copy of the log, and the redesign against a running service.
