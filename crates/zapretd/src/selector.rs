@@ -73,6 +73,8 @@ pub async fn auto_select<B: Backend, P: Probes>(
     let recovery_path = state.recovery_path.clone();
     tokio::fs::write(&recovery_path, serde_json::to_vec(&original)?).await?;
     state.operation.lock().await.total = candidates.len();
+    // Candidates whose engine did not start, with the first line of the reason.
+    let mut skipped = Vec::new();
     // Always roll back on cancellation, failed probes, or a service/IPC error.
     let outcome = async {
         backend.lock().await.disable()?;
@@ -98,8 +100,18 @@ pub async fn auto_select<B: Backend, P: Probes>(
             }
             backend.lock().await.disable()?;
             backend.lock().await.set_strategy(&s.id).await?;
-            backend.lock().await.enable().await?;
-            wait_ready(backend).await?;
+            // One strategy the engine rejects must not end the whole search.
+            let enabled = backend.lock().await.enable().await;
+            let started = match enabled {
+                Ok(()) => wait_ready(backend).await,
+                Err(e) => Err(e),
+            };
+            if let Err(e) = started {
+                let reason = e.to_string();
+                let reason = reason.lines().next().unwrap_or_default().trim();
+                skipped.push(format!("{} ({reason})", s.name));
+                continue;
+            }
             // New clients and sockets per round prevent connection reuse between candidates.
             let first = probes.run().await;
             let first_pass = first.iter().all(|r| r.ok);
@@ -118,7 +130,15 @@ pub async fn auto_select<B: Backend, P: Probes>(
     .await;
     match outcome {
         Ok(Some(winner)) if !state.cancelled.load(Ordering::Acquire) => {
-            state.operation.lock().await.winner = Some(winner);
+            let mut op = state.operation.lock().await;
+            op.winner = Some(winner);
+            if !skipped.is_empty() {
+                op.notice = Some(format!(
+                    "Не запустились и пропущены: {}.",
+                    skipped.join("; ")
+                ));
+            }
+            drop(op);
             tokio::fs::remove_file(&recovery_path).await?;
             Ok(())
         }
@@ -131,8 +151,12 @@ pub async fn auto_select<B: Backend, P: Probes>(
                 Err(e) => Err(e),
                 _ if state.cancelled.load(Ordering::Acquire) => Ok(()),
                 _ if state.operation.lock().await.notice.is_some() => Ok(()),
-                _ => anyhow::bail!(
+                _ if skipped.is_empty() => anyhow::bail!(
                     "Ни одна стратегия не прошла все проверки. Исходная настройка восстановлена."
+                ),
+                _ => anyhow::bail!(
+                    "Ни одна стратегия не прошла все проверки. Не запустились: {}. Исходная настройка восстановлена.",
+                    skipped.join("; ")
                 ),
             }
         }
