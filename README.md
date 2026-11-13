@@ -56,10 +56,18 @@ Run in Windows 10/11 x64 with Rust MSVC, Node and Visual Studio Build Tools:
 ./scripts/build_windows.ps1
 ```
 
-The NSIS installer installs a per-machine Windows service; the GUI itself is not
-elevated. Installation requests UAC. Source profiles are imported without running
-upstream batch scripts: `zbuild` compiles the pinned Flowseal `.bat` files
-with the Rust strategy compiler. Windows on ARM is not supported by this WinDivert build.
+On macOS or Linux, `sh scripts/build_windows_cross.sh` cross-builds the same
+installer with `cargo-xwin` (on this repository's macOS setup also set
+`CC=/usr/bin/clang CXX=/usr/bin/clang++`). Both write
+`outputs/Zapret-Desktop-Setup.exe`.
+
+The installer is our own Rust program (`crates/zsetup`): one console window, a
+UAC prompt, a fixed folder in Program Files, a per-machine Windows service and
+Start menu and desktop shortcuts; the GUI itself is not elevated. It prints the
+duration of every step. `--quiet` installs without prompts and without opening
+the app. Source profiles are imported without running upstream batch scripts:
+`zbuild` compiles the pinned Flowseal `.bat` files with the Rust strategy
+compiler. Windows on ARM is not supported by this WinDivert build.
 
 ## Checks
 
@@ -86,7 +94,8 @@ sudo "/Library/PrivilegedHelperTools/io.zapret.desktop.engine" guard \
 ```
 
 `scripts/uninstall_macos.sh` unregisters the service and guard without deleting
-user data. On Windows, use the ordinary installed-apps uninstaller. Data is retained
+user data. On Windows, use the ordinary installed-apps uninstaller (it runs
+`uninstall.exe --uninstall`; add `--quiet` for no prompts). Data is retained
 under `%ProgramData%/ZapretDesktop`.
 
 ## Licensing

@@ -63,20 +63,50 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Contract generation failed' }
           git diff --exit-code -- contracts/daemon-api.schema.json contracts/bundle-manifest.schema.json ui/src/generated/api.ts
           if ($LASTEXITCODE -ne 0) { throw 'Generated contracts are stale' }
-      - run: npm run desktop:build -- --bundles nsis
-      - name: Install and verify the real service protocol
+      - run: npm run desktop:build -- --no-bundle
+      - name: Build the Rust installer
         shell: pwsh
         run: |
-          $installer = Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1
-          $p = Start-Process $installer.FullName -ArgumentList '/S' -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "Installer failed: $($p.ExitCode)" }
-          cargo test -p zapret-core --locked --test service_ipc -- --ignored --test-threads=1
-          if ($LASTEXITCODE -ne 0) { throw 'Service integration test failed' }
+          cargo run -p zbuild --locked -- installer-payload --app target/release/zapret-desktop.exe --service target/release/zapretd.exe --out work/installer-payload.tar.gz
+          if ($LASTEXITCODE -ne 0) { throw 'Installer payload failed' }
+          $env:ZAPRET_SETUP_PAYLOAD = (Resolve-Path work/installer-payload.tar.gz).Path
+          cargo build --release -p zsetup --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
+          New-Item -ItemType Directory -Force outputs | Out-Null
+          Copy-Item target/release/zapret-setup.exe outputs/Zapret-Desktop-Setup.exe
+      - name: Install, verify the service, reinstall over it, uninstall
+        shell: pwsh
+        run: |
+          function Invoke-Setup($file, $arguments) {
+            $p = Start-Process $file -ArgumentList $arguments -Wait -PassThru -NoNewWindow
+            if ($p.ExitCode -ne 0) { throw "$file $arguments failed: $($p.ExitCode)" }
+          }
+          function Test-Service {
+            cargo test -p zapret-core --locked --test service_ipc -- --ignored --test-threads=1
+            if ($LASTEXITCODE -ne 0) { throw 'Service integration test failed' }
+          }
+          $setup = (Resolve-Path outputs/Zapret-Desktop-Setup.exe).Path
+          $folder = Join-Path $env:ProgramFiles 'Zapret Desktop'
+          Invoke-Setup $setup '--quiet'
+          Test-Service
+          # The test loaded WinDivert from our folder: the driver keeps
+          # WinDivert64.sys busy, as on the first tester's PC.
+          Invoke-Setup $setup '--quiet'
+          Test-Service
+          Invoke-Setup (Join-Path $folder 'uninstall.exe') '--uninstall --quiet'
+          foreach ($i in 1..20) {
+            if (-not (Get-Service ZapretDesktop -ErrorAction SilentlyContinue)) { break }
+            Start-Sleep -Milliseconds 500
+          }
+          if (Get-Service ZapretDesktop -ErrorAction SilentlyContinue) { throw 'Service still registered after uninstall' }
+          if (Test-Path (Join-Path $folder 'zapret-desktop.exe')) { throw 'App still present after uninstall' }
+          sc.exe query WinDivert | Out-Null
+          if ($LASTEXITCODE -ne 1060) { throw "Our WinDivert driver service is still registered ($LASTEXITCODE)" }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Zapret-Desktop-Windows-x64-DEVELOPMENT
-          path: target/release/bundle/nsis/*.exe
+          path: outputs/Zapret-Desktop-Setup.exe
           if-no-files-found: error
   macos:
     name: Optional frozen macOS package
