@@ -8,6 +8,10 @@
   import Mark from './components/Mark.svelte';
   import Overview from './components/Overview.svelte';
   import Settings from './components/Settings.svelte';
+  import WindowControls from './components/WindowControls.svelte';
+
+  // Windows draws its own title row (no system frame); other systems keep theirs.
+  const ownFrame = native && navigator.userAgent.includes('Windows');
 
   const pages: { id: Page; label: string }[] = [
     { id: 'overview', label: 'Обзор' },
@@ -37,8 +41,8 @@
 <svelte:head><title>Zapret Desktop</title></svelte:head>
 
 <div class="shell">
-  <header class="titlebar">
-    <div class="brand"><Mark size={20} /><span class="brand-word">zapret</span></div>
+  <header class="titlebar" data-tauri-drag-region>
+    <div class="brand" data-tauri-drag-region><Mark size={20} /><span class="brand-word" data-tauri-drag-region>zapret</span></div>
     <nav class="tabs" aria-label="Разделы">
       {#each pages as p (p.id)}
         <button
@@ -50,7 +54,7 @@
         </button>
       {/each}
     </nav>
-    <div class="grow"></div>
+    <div class="grow" data-tauri-drag-region></div>
     <div class="svc-state {serviceState.tone}" title={serviceState.text}>
       <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
     </div>
@@ -62,6 +66,7 @@
     >
       <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={16} />
     </button>
+    {#if ownFrame}<WindowControls />{/if}
   </header>
 
   <main class="main">
@@ -109,6 +114,7 @@
     align-items: center;
     gap: 4px;
     padding: 0 10px 0 16px;
+    user-select: none;
   }
   .brand {
     display: flex;
