@@ -396,3 +396,63 @@ private, so clients cannot download from GitHub Releases until it is public or a
 mirror is configured. When the app itself is updated with a newer Flowseal, a
 previously downloaded bundle still counts as newer (the installer's bundle has no
 version yet). Network-change triggers are not implemented.
+
+## 2026-11-13 — first Windows install by a tester (branch `phase1/tester-fixes`)
+
+The installer was cross-built on macOS (`cargo-xwin`, Homebrew `makensis`/LLVM,
+`tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis`)
+from `phase1/bundle-update` and installed on a tester's Windows 11 x64 PC. This
+was the first Windows compile of the updater wiring in `platform/windows.rs`; it
+compiled. `makensis` crashes with `std::bad_alloc` when the locale is empty; set
+`LANG=en_US.UTF-8`. Cross-compilation is marked experimental by Tauri and the
+installer is unsigned.
+
+Reported by the tester (photos and a saved report, no logs):
+
+1. The installer showed «Создание папки: C:\ProgramData\ZapretDesktop» for a long
+   time, then finished. Cause found: the service hooks run last and `nsExec` prints
+   nothing, so that line stayed while `icacls` and `sc create/start` ran. Which
+   step was slow is not known (the first start of an unsigned service binary is a
+   likely candidate, not confirmed).
+2. Strategy search stopped at 16 of 22 with «winws завершился при запуске: exit
+   code: 1 … could not read ^!». Cause: `general (FAKE TLS AUTO)` passes
+   `--dpi-desync-fake-tls=^!`; for cmd, a caret outside quotes makes the next
+   character literal, so winws must get `!` (built-in fake). The Rust compiler and
+   the golden fixtures (taken from the phase-0 Python importer) kept `^!`. The
+   frozen macOS converter already handled it. Second cause: any engine start
+   failure aborted the whole search.
+3. After the aborted search, `general` was restored: Cloudflare and UDP passed;
+   YouTube, Discord API and the gstatic check failed. HTTPS failures showed only
+   «error sending request for url», so the reason (reset, timeout, TLS) is unknown.
+
+Changes:
+
+- Compiler: caret escapes follow cmd rules outside quotes (`^!` → `!`,
+  `^^` → `^`); unquoted `& | < >`, escaped quotes, `^^` before a line break and
+  `!` under `EnableDelayedExpansion` are rejected. Golden `strategies.json` and
+  `winws-argv.json`: only the 4 `--dpi-desync-fake-tls` lines of
+  `general-fake-tls-auto` changed.
+- Strategy search: a candidate whose engine does not start is skipped; the winner
+  notice («Не запустились и пропущены: …») or the final error lists skipped
+  strategies. Service and IPC errors still abort with rollback.
+- Checks: HTTPS failures name the cause (reset, aborted, refused, timeout, closed
+  before answer, DNS, certificate) and the error chain. A local run against closed,
+  unresolvable, expired-certificate and unroutable targets showed the expected
+  texts without IP addresses.
+- Installer: each service step prints its own line; the 1.5 s stop delay runs only
+  when a running service was stopped.
+
+| Check (macOS) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Passed |
+| `cargo xwin clippy -p zapretd -p zapret-core --target x86_64-pc-windows-msvc --all-targets -- -D warnings` | Passed |
+| `cargo test --workspace` | 42 passed, 0 failed (new: caret escapes, skipped candidates, failure texts) |
+| Golden import | Passed with the corrected fixtures |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Cross-built NSIS installer with new hooks | Built (4.66 MiB), not installed yet |
+
+Not verified: the fixed installer on Windows, `general (FAKE TLS AUTO)` actually
+starting under winws v72.9, a full 22-strategy search on the tester's ISP, why
+YouTube/Discord/gstatic failed with `general`, and which installer step was slow.
+Windows CI has not run on this branch.
