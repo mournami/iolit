@@ -18,6 +18,7 @@
 | Запоминание по сети (ASN + Wi-Fi) | После v1 | Не блокирует релиз |
 | Linux-десктоп с GUI | Побочный продукт фазы 3, без GUI | |
 | macOS со своим движком и UDP | Заморожен в `engines/macos` до фазы 5 | Главный пожиратель времени |
+| Установщик Windows на NSIS (Tauri) | Свой установщик на Rust `crates/zsetup` (решение владельца 13.11.2026) | NSIS падал без локали, плохо писал шаги и не умел заменить занятый `WinDivert64.sys`; свой — один язык, свои проверки, сборка на любой ОС |
 | Подбор и пробы в процессе Tauri | Переезжают в `zapretd` | Подбор должен идти при закрытом окне |
 | Отдельный демон на Go для macOS | Один `zapretd` на Rust; Go-движок Mac — внешний бинарник, как winws | Одна логика и один API |
 
@@ -64,7 +65,8 @@ Android (фаза 4) живёт отдельно: роль демона игра
 | `crates/zbuild` | Rust CLI | В CI: релиз flowseal → парсинг → сборка и подпись бандла. Не распарсилось — не публикуем | 1 |
 | `src-tauri` | Rust | Тонкая оболочка: окно, трей, пересылка вызовов в демон, сохранение файлов по диалогу | 0 |
 | `ui` | Svelte 5 + TS | Один интерфейс для Tauri и web UI; транспорт `tauri` или `http` | 0–3 |
-| Установщики | NSIS, opkg, pkg | Windows со службой; пакеты роутеров; позже .pkg | 1/3/5 |
+| `crates/zsetup` | Rust | Установщик Windows: файлы в Program Files, защищённый каталог данных, служба, ярлыки, удаление. Без страниц и выбора пути | 1 |
+| Установщики | zsetup, opkg, pkg | Windows со службой; пакеты роутеров; позже .pkg | 1/3/5 |
 | Android | Kotlin + byedpi | VpnService | 4 |
 | `engines/macos` | Go | Замороженный форк движка | 5 |
 
@@ -93,7 +95,8 @@ zapret/
 ├── crates/
 │   ├── zapret-core/
 │   ├── zapretd/               src/engine/{mod,winws,nfqws,macos}.rs, src/platform/{windows,unix}.rs
-│   └── zbuild/
+│   ├── zbuild/
+│   └── zsetup/                установщик Windows
 ├── src-tauri/
 ├── ui/                        src/transport/{index,tauri,http}.ts, src/generated/
 ├── engines/macos/             заморожен до фазы 5
