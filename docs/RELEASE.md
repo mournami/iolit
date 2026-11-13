@@ -456,3 +456,55 @@ Not verified: the fixed installer on Windows, `general (FAKE TLS AUTO)` actually
 starting under winws v72.9, a full 22-strategy search on the tester's ISP, why
 YouTube/Discord/gstatic failed with `general`, and which installer step was slow.
 Windows CI has not run on this branch.
+
+## 2026-11-13 — Rust installer replaces NSIS (branch `phase1/tester-fixes`)
+
+Owner decision: ship our own Windows installer in Rust (`crates/zsetup`,
+recorded in `docs/ARCHITECTURE.md`). Trigger: on the tester's PC the NSIS
+installer, run over the earlier install, stopped with «Невозможно открыть файл
+для записи: …\runtime\windows\bin\WinDivert64.sys». Cause: winws loads the
+WinDivert driver, and WinDivert.dll leaves it loaded (marked for deletion) after
+winws exits, so the `.sys` stays busy even with our service stopped. The
+workaround given to the tester: `sc stop WinDivert`, then «Повтор», or reboot.
+
+`zapret-setup.exe` (published as `Zapret-Desktop-Setup.exe`):
+
+- Console window, UAC prompt from the embedded manifest
+  (`requireAdministrator`, checked in the built exe), fixed folder
+  `Program Files\Zapret Desktop`; paths from known folders, not environment
+  variables. Each step prints its duration.
+- Stops the service, ends running copies of the app, stops the `WinDivert`
+  driver service only when its image is inside our folder. Busy files are
+  renamed and deleted at reboot instead of failing. Files an update dropped
+  are removed using `install.json`.
+- Creates `%ProgramData%\ZapretDesktop` with owner Administrators and a
+  protected SYSTEM/Administrators ACL; an existing folder gets the same
+  owner and ACL; a link or file in its place, or a folder whose ACL cannot be
+  reset, is moved aside. Files planted inside a folder created earlier by a
+  standard user are not re-checked (same as the NSIS hooks).
+- Registers or updates `ZapretDesktop` (same name, description and restart
+  policy as the NSIS hooks), writes the shortcuts and the Apps entry under
+  the NSIS names, removes NSIS registry leftovers, starts the service and
+  waits for Running, opens the app through explorer as the signed-in user.
+- `uninstall.exe --uninstall [--quiet]` removes the service, our driver
+  service, shortcuts, the Apps entry and the install folder (busy files at
+  reboot); settings stay in ProgramData. No rollback if an install fails
+  halfway; running the installer again repairs it.
+- The NSIS config and hooks stay in the repository until the Rust installer
+  passes tester checks; CI no longer builds NSIS.
+
+| Check (macOS) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Passed |
+| `cargo xwin clippy -p zsetup -p zapretd -p zapret-core -p zbuild --target x86_64-pc-windows-msvc --all-targets -- -D warnings` | Passed |
+| `cargo test --workspace` | 47 passed, 0 failed (new: payload checks, install record, driver path check, zbuild payload) |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| `scripts/build_windows_cross.sh` | Built `outputs/Zapret-Desktop-Setup.exe` (7.0 MB, payload 44 files) in 2 min |
+
+Not verified: the installer has not run on Windows yet (no Windows here). The
+new CI step (install, IPC test, reinstall over a loaded driver, IPC test,
+uninstall, service and driver gone) has not run. Not checked: upgrade over the
+tester's interrupted NSIS install, renaming a loaded driver file, the explorer
+launch as the user, shortcuts, the Apps entry, SmartScreen and antivirus
+reaction to an unsigned console installer.
