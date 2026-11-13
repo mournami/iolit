@@ -15,7 +15,8 @@ struct FakeBackend {
     running: bool,
     active: String,
     events: Vec<String>,
-    fail_start: bool,
+    /// Strategies whose engine never starts.
+    fail_start: Vec<String>,
     fail_restore: bool,
 }
 impl FakeBackend {
@@ -24,7 +25,7 @@ impl FakeBackend {
             running,
             active: "original".into(),
             events: vec![],
-            fail_start: false,
+            fail_start: vec![],
             fail_restore: false,
         }
     }
@@ -56,9 +57,8 @@ impl Backend for FakeBackend {
     }
     async fn enable(&mut self) -> Result<()> {
         self.events.push(format!("enable:{}", self.active));
-        if self.fail_start {
-            self.fail_start = false;
-            bail!("engine startup failed");
+        if self.fail_start.contains(&self.active) {
+            bail!("engine startup failed\nlog tail");
         }
         self.running = true;
         Ok(())
@@ -184,13 +184,40 @@ async fn failed_candidates_restore_the_original_state() {
     assert!(backend.lock().await.running);
 }
 #[tokio::test]
-async fn engine_failure_rolls_back_and_failed_restore_keeps_recovery() {
+async fn candidate_that_fails_to_start_is_skipped() {
+    let (data, backend, state, probes) = setup(true, &[false, true, true], 0);
+    backend.lock().await.fail_start = vec!["candidate-1".into()];
+    selector::auto_select(&state, &backend, &probes)
+        .await
+        .unwrap();
+    assert_eq!(
+        *probes.seen.lock().unwrap(),
+        [
+            (false, "original".into()),
+            (true, "candidate-2".into()),
+            (true, "candidate-2".into()),
+        ]
+    );
+    let op = state.operation.lock().await;
+    assert_eq!(op.winner.as_deref(), Some("candidate-2"));
+    assert_eq!(
+        op.notice.as_deref(),
+        Some("Не запустились и пропущены: candidate-1 (engine startup failed).")
+    );
+    assert!(backend.lock().await.running);
+    assert!(!data.path().join("selection-recovery.json").exists());
+}
+#[tokio::test]
+async fn no_startable_candidate_rolls_back_and_failed_restore_keeps_recovery() {
     let (data, backend, state, probes) = setup(true, &[false], 0);
-    backend.lock().await.fail_start = true;
+    backend.lock().await.fail_start = vec!["candidate-1".into(), "candidate-2".into()];
+    let error = selector::auto_select(&state, &backend, &probes)
+        .await
+        .unwrap_err()
+        .to_string();
     assert!(
-        selector::auto_select(&state, &backend, &probes)
-            .await
-            .is_err()
+        error.contains("candidate-1 (engine startup failed); candidate-2"),
+        "{error}"
     );
     assert_eq!(backend.lock().await.active, "original");
     assert!(backend.lock().await.running);
