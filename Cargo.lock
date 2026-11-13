@@ -5451,6 +5451,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
+name = "zsetup"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "flate2",
+ "serde",
+ "serde_json",
+ "tar",
+ "windows",
+ "windows-service",
+ "windows-sys 0.59.0",
+ "winreg",
+]
+
+[[package]]
 name = "zvariant"
 version = "5.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
