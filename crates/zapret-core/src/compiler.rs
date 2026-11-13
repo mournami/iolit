@@ -2,8 +2,10 @@
 //!
 //! Batch files are read as text and never executed. Only the single
 //! `start ... winws.exe <args>` line is used; everything else is ignored.
-//! The output matches the phase-0 Python importer exactly (see the golden
-//! fixtures), but unknown or ambiguous syntax is rejected instead of guessed.
+//! The output matches the phase-0 Python importer (see the golden fixtures)
+//! except for cmd caret escapes, which that importer kept literally: `^!`
+//! reached winws as a file name. Unknown or ambiguous syntax is rejected
+//! instead of guessed.
 use crate::{Strategy, strategy::valid_id};
 use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
@@ -20,6 +22,10 @@ pub fn compile_batch(file_name: &str, bytes: &[u8]) -> Result<Strategy> {
     let text = std::str::from_utf8(bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes))
         .with_context(|| format!("{file_name}: файл не в UTF-8"))?;
     let invocation = winws_invocation(text).with_context(|| file_name.to_owned())?;
+    // With delayed expansion cmd rewrites `!` again after caret removal.
+    if invocation.contains('!') && text.to_ascii_lowercase().contains("enabledelayedexpansion") {
+        bail!("{file_name}: «!» при включённом EnableDelayedExpansion не поддерживается");
+    }
     let tokens = tokenize(invocation).with_context(|| file_name.to_owned())?;
     let arguments = convert(tokens).with_context(|| file_name.to_owned())?;
     let id = strategy_id(name);
@@ -61,6 +67,10 @@ pub fn catalog_json(catalog: &[Strategy]) -> Result<String> {
 
 /// The argument text of the single `start ... winws.exe` line, after joining `^` continuations.
 fn winws_invocation(text: &str) -> Result<String> {
+    // An escaped caret before a line break is not a continuation.
+    if text.contains("^^\n") || text.contains("^^\r\n") {
+        bail!("Неоднозначный перенос строки после ^^");
+    }
     let joined = text.replace("^\r\n", " ").replace("^\n", " ");
     let mut found = None;
     for line in joined.split('\n') {
@@ -101,17 +111,31 @@ fn arguments_after_winws<'a>(line: &'a str, lower: &str) -> Option<&'a str> {
     None
 }
 
-/// Whitespace-separated tokens; `"..."` groups text and the quotes are dropped.
+/// Whitespace-separated tokens with cmd quoting: `"..."` groups text and the
+/// quotes are dropped; outside quotes `^` makes the next character literal.
+/// Command separators and redirections are not arguments and are rejected.
 fn tokenize(text: String) -> Result<Vec<String>> {
     let mut tokens = Vec::new();
     let mut current = String::new();
     let mut quoted = false;
     let mut started = false;
-    for c in text.chars() {
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
         match c {
             '"' => {
                 quoted = !quoted;
                 started = true;
+            }
+            '^' if !quoted => match chars.next() {
+                Some('"') => bail!("Экранированная кавычка в аргументах winws"),
+                Some(escaped) => {
+                    current.push(escaped);
+                    started = true;
+                }
+                None => bail!("Символ ^ в конце аргументов winws"),
+            },
+            '&' | '|' | '<' | '>' if !quoted => {
+                bail!("Неизвестный синтаксис: символ {c} вне кавычек")
             }
             c if c.is_whitespace() && !quoted => {
                 if started {
@@ -245,6 +269,25 @@ mod tests {
     }
 
     #[test]
+    fn caret_escapes_follow_cmd_rules() {
+        let s = compile_batch(
+            "general (FAKE TLS AUTO).bat",
+            &bat("start \"\" /min \"%BIN%winws.exe\" --dpi-desync-fake-tls=0x00000000 --dpi-desync-fake-tls=^! ^\r\n--x=a^^b --hostlist=\"%LISTS%a^b.txt\" --y=\"a&b\""),
+        )
+        .unwrap();
+        assert_eq!(
+            s.arguments,
+            [
+                "--dpi-desync-fake-tls=0x00000000",
+                "--dpi-desync-fake-tls=!",
+                "--x=a^b",
+                "--hostlist=@lists/a^b.txt",
+                "--y=a&b",
+            ]
+        );
+    }
+
+    #[test]
     fn rejects_unknown_or_ambiguous_syntax() {
         for (case, body) in [
             ("no winws", "start notepad.exe --x=1"),
@@ -255,6 +298,18 @@ mod tests {
             ("bare word", "start \"\" winws.exe --x=1 & del x"),
             ("uppercase flag", "start \"\" winws.exe --Wf-tcp=80"),
             ("open quote", "start \"\" winws.exe --hostlist=\"x"),
+            ("ampersand", "start \"\" winws.exe --x=1&calc"),
+            ("pipe", "start \"\" winws.exe --x=1|more"),
+            ("redirect", "start \"\" winws.exe --x=1>out.txt"),
+            ("escaped quote", "start \"\" winws.exe --x=^\"1"),
+            (
+                "escaped caret before line break",
+                "start \"\" winws.exe --x=1^^\r\n--y=2",
+            ),
+            (
+                "delayed expansion",
+                "setlocal EnableDelayedExpansion\r\nstart \"\" winws.exe --dpi-desync-fake-tls=^!",
+            ),
             (
                 "empty profile",
                 "start \"\" winws.exe --x=1 --new --new --y=2",
@@ -266,6 +321,8 @@ mod tests {
         ] {
             assert!(compile_batch("general.bat", &bat(body)).is_err(), "{case}");
         }
+        // A caret at the very end of the file escapes nothing.
+        assert!(compile_batch("general.bat", b"start \"\" winws.exe --x=1 ^").is_err());
         assert!(compile_batch("general.cmd", &bat("start \"\" winws.exe --x=1")).is_err());
         assert!(compile_batch("../general.bat", &bat("start \"\" winws.exe --x=1")).is_err());
     }
