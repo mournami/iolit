@@ -18,13 +18,11 @@ class AppState {
   domainBusy = $state(false);
   /** The user list as the service reports it, in readable form. */
   domains = $state<string[]>([]);
-  showDomains = $state(false);
   /** Highlighted after adding, so it is clear what went into the list. */
   lastDomain = $state('');
   doctorChecks = $state<DoctorCheck[]>([]);
   doctorRan = $state(false);
   logLines = $state<string[]>([]);
-  showLogs = $state(false);
   /** When this window saw the last check finish; the service does not report it. */
   checkedAt = $state<Date | null>(null);
   #refreshing = false;
@@ -110,7 +108,6 @@ class AppState {
       await this.loadDomains();
       const typed = domain.trim().toLowerCase().replace(/\.$/, '');
       this.lastDomain = this.domains.find((d) => d === typed) ?? this.domains.at(-1) ?? '';
-      this.showDomains = true;
       this.notice = `Домен ${this.lastDomain || domain.trim()} добавлен. Если сайт уже был открыт, закройте его вкладку и откройте снова: браузер какое-то время держит старое соединение.`;
       return true;
     } catch (e) {
@@ -151,13 +148,21 @@ class AppState {
     }
   };
 
-  toggleLogs = async () => {
-    this.showLogs = !this.showLogs;
-    if (!this.showLogs) return;
+  loadLogs = async () => {
+    if (!native) return;
     try {
       this.logLines = await api<string[]>('logs');
     } catch (e) {
       this.error = String(e);
+    }
+  };
+
+  copyLogs = async () => {
+    try {
+      await navigator.clipboard.writeText(this.logLines.join('\n'));
+      this.notice = 'Журнал скопирован. Перед тем как отправлять его кому-то, проверьте: в нём могут быть сетевые адреса.';
+    } catch (e) {
+      this.error = `Не удалось скопировать журнал: ${e}`;
     }
   };
 

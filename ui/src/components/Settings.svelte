@@ -1,20 +1,37 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
-  import { app, plural } from '../store.svelte';
+  import { app, bundleLine, plural } from '../store.svelte';
+  import { theme, type ThemeChoice } from '../theme.svelte';
   import Mark from './Mark.svelte';
 
   let selected = $state('');
   let domain = $state('');
 
-  // Load the list once the service answers, not on every refresh.
+  // Load the lists once the service answers, not on every refresh.
   const installed = $derived(app.installed);
   $effect(() => {
-    if (installed) app.loadDomains();
+    if (installed) {
+      app.loadDomains();
+      app.loadLogs();
+    }
   });
 
   // Follow the strategy the service reports; a failed change snaps back on the next refresh.
   $effect(() => {
     selected = app.service?.strategy ?? '';
+  });
+
+  const themes: { id: ThemeChoice; label: string; icon: string }[] = [
+    { id: 'dark', label: 'Тёмная', icon: 'moon' },
+    { id: 'light', label: 'Светлая', icon: 'sun' },
+    { id: 'system', label: 'Как в системе', icon: 'monitor' },
+  ];
+
+  const updates = $derived.by(() => {
+    const b = app.bundle;
+    if (!b) return { value: '—', text: 'Станет известно, когда служба ответит' };
+    if (!b.updates_enabled) return { value: 'Выключены', text: 'В этой сборке нет ключа проверки, используются стратегии из установщика' };
+    return { value: b.error ? 'Ошибка' : 'Включены', text: b.error ?? bundleLine(b) };
   });
 
   async function submitDomain(e: SubmitEvent) {
@@ -23,295 +40,326 @@
   }
 </script>
 
-<header class="page-head">
-  <div>
-    <h1>Настройки</h1>
-    <p>Стратегия, ваши домены и журнал службы.</p>
-  </div>
+<header class="page-h">
+  <h1 class="h1">Настройки</h1>
 </header>
 
-<section class="panel group">
-  <div class="row">
-    <div class="row-text">
-      <h2 id="strategy-label">Стратегия</h2>
-      <p>Набор правил, по которым меняются пакеты. Список зависит от установленного движка.</p>
-    </div>
-    <span class="select">
-      <select
-        aria-labelledby="strategy-label"
-        bind:value={selected}
-        disabled={!app.installed || app.busy}
-        onchange={() => app.setStrategy(selected)}
-      >
-        <option value="" disabled>Выберите стратегию</option>
-        {#each app.data?.strategies ?? [] as s (s.id)}
-          <option value={s.id} disabled={!s.supported}>{s.name}{s.supported ? '' : ' (несовместима)'}</option>
-        {/each}
-      </select>
-    </span>
-  </div>
-  <div class="row">
-    <div class="row-text">
-      <h2>После перезапуска компьютера</h2>
-      <p>Служба вернёт последнее состояние. Если вы выключили обход, он останется выключенным.</p>
-    </div>
-    <span class="value">Как было</span>
-  </div>
-  <div class="row">
-    <div class="row-text">
-      <h2>Телеметрия</h2>
-      <p>Приложение не отправляет статистику, историю и отчёты. Отчёт сохраняется только по вашей команде.</p>
-    </div>
-    <span class="value">Выключена</span>
-  </div>
-</section>
-
-<section class="panel" aria-labelledby="domains-title">
-  <div class="row-text">
-    <h2 id="domains-title">Свои домены</h2>
-    <p>
-      Добавьте сайт, который не открывается. Он попадёт в ваш отдельный список, общий список не меняется. Поддомены
-      входят сами: example.com включает www.example.com.
-    </p>
-  </div>
-  <form class="domain-form" onsubmit={submitDomain}>
-    <input
-      aria-label="Домен сайта"
-      placeholder="example.com"
-      bind:value={domain}
-      maxlength={253}
-      required
-      autocomplete="off"
-      spellcheck="false"
-    />
-    <button class="btn btn-secondary" type="submit" disabled={!app.installed || app.busy || app.domainBusy || !domain.trim()}>
-      <Icon name="plus" size={16} />Добавить
-    </button>
-  </form>
-  <button
-    class="disclosure"
-    type="button"
-    aria-expanded={app.showDomains}
-    aria-controls="domain-list"
-    disabled={!app.domains.length}
-    onclick={() => (app.showDomains = !app.showDomains)}
-  >
-    <span class="chevron" class:open={app.showDomains && app.domains.length > 0} aria-hidden="true"></span>
-    {app.domains.length
-      ? `Ваш список: ${app.domains.length} ${plural(app.domains.length, 'домен', 'домена', 'доменов')}`
-      : 'Ваш список пока пуст'}
-  </button>
-  {#if app.showDomains && app.domains.length}
-    <ul id="domain-list" class="domain-list">
-      {#each app.domains as d (d)}
-        <li class:fresh={d === app.lastDomain}>
-          <span class="domain-name">{d}</span>
-          {#if d === app.lastDomain}<span class="fresh-tag">добавлен</span>{/if}
-          <button
-            class="icon-btn"
-            type="button"
-            aria-label={`Удалить ${d}`}
-            title="Удалить из списка"
-            disabled={app.busy || app.domainBusy}
-            onclick={() => app.removeDomain(d)}
+<div class="set">
+  <div class="col left">
+    <section class="panel rows" aria-label="Работа обхода">
+      <div class="row">
+        <div>
+          <h2 class="row-k" id="strategy-label">Стратегия</h2>
+          <p class="row-d">Набор правил, по которым меняются пакеты</p>
+        </div>
+        <span class="select">
+          <select
+            class="mono"
+            aria-labelledby="strategy-label"
+            bind:value={selected}
+            disabled={!app.installed || app.busy}
+            onchange={() => app.setStrategy(selected)}
           >
-            <Icon name="close" size={14} />
-          </button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-</section>
+            <option value="" disabled>Выберите стратегию</option>
+            {#each app.data?.strategies ?? [] as s (s.id)}
+              <option value={s.id} disabled={!s.supported}>{s.name}{s.supported ? '' : ' (несовместима)'}</option>
+            {/each}
+          </select>
+          <Icon name="chevron" size={15} />
+        </span>
+      </div>
+      <div class="row">
+        <div>
+          <h2 class="row-k">После перезапуска компьютера</h2>
+          <p class="row-d">Служба вернёт последнее состояние. Если вы выключили обход, он останется выключенным.</p>
+        </div>
+        <span class="value">Как было</span>
+      </div>
+      <div class="row">
+        <div>
+          <h2 class="row-k">Обновления стратегий</h2>
+          <p class="row-d">{updates.text}</p>
+        </div>
+        <span class="value" class:bad={updates.value === 'Ошибка'}>{updates.value}</span>
+      </div>
+    </section>
 
-<section class="panel" aria-labelledby="log-title">
-  <div class="panel-head">
-    <div class="row-text">
-      <h2 id="log-title">Журнал службы</h2>
-      <p>Последние 80 строк. Журнал хранится только на этом компьютере и может содержать сетевые адреса.</p>
+    <section class="panel rows" aria-label="Окно и данные">
+      <div class="row">
+        <h2 class="row-k" id="theme-label">Тема</h2>
+        <div class="seg" role="radiogroup" aria-labelledby="theme-label">
+          {#each themes as t (t.id)}
+            <button
+              role="radio"
+              aria-checked={theme.choice === t.id}
+              class:on={theme.choice === t.id}
+              onclick={() => theme.set(t.id)}
+            >
+              <Icon name={t.icon} size={14} />{t.label}
+            </button>
+          {/each}
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <h2 class="row-k">Телеметрия</h2>
+          <p class="row-d">Статистика, история и отчёты не отправляются. Отчёт сохраняется только по вашей команде.</p>
+        </div>
+        <span class="value locked"><Icon name="lock" size={15} />Выключена</span>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="col right">
+    <section class="panel" aria-labelledby="domains-title">
+      <div class="panel-h">
+        <div>
+          <h2 class="h2" id="domains-title">Свои домены</h2>
+          <p class="sub">Сайты, которые у вас не открываются. Поддомены входят сами.</p>
+        </div>
+      </div>
+      <form class="field-row" onsubmit={submitDomain}>
+        <input
+          aria-label="Домен сайта"
+          placeholder="example.com"
+          bind:value={domain}
+          maxlength={253}
+          required
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="btn" type="submit" disabled={!app.installed || app.busy || app.domainBusy || !domain.trim()}>
+          <Icon name="plus" size={15} />Добавить
+        </button>
+      </form>
+      {#if app.domains.length}
+        <p class="count">
+          {app.domains.length}
+          {plural(app.domains.length, 'домен', 'домена', 'доменов')} в вашем списке, общий список не меняется
+        </p>
+        <ul class="domains">
+          {#each app.domains as d (d)}
+            <li class:fresh={d === app.lastDomain}>
+              <span class="dom-name">{d}</span>
+              {#if d === app.lastDomain}<span class="fresh-tag">добавлен</span>{/if}
+              <button
+                class="icon-btn"
+                type="button"
+                aria-label={`Удалить ${d}`}
+                title="Удалить из списка"
+                disabled={app.busy || app.domainBusy}
+                onclick={() => app.removeDomain(d)}
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="count">Ваш список пока пуст. Общий список при этом работает.</p>
+      {/if}
+    </section>
+
+    <section class="panel" aria-labelledby="log-title">
+      <div class="panel-h">
+        <div>
+          <h2 class="h2" id="log-title">Журнал службы</h2>
+          <p class="sub">Последние 80 строк, только на этом компьютере. Может содержать сетевые адреса.</p>
+        </div>
+      </div>
+      <pre class="log" aria-label="Строки журнала">{app.logLines.join('\n') ||
+          (app.installed ? 'Журнал пуст.' : 'Журнал появится, когда служба будет установлена.')}</pre>
+      <div class="log-actions">
+        <button class="btn sm" disabled={!app.installed} onclick={app.loadLogs}>
+          <Icon name="refresh" size={15} />Обновить
+        </button>
+        <button class="btn sm ghost" disabled={!app.logLines.length} onclick={app.copyLogs}>
+          <Icon name="copy" size={15} />Копировать
+        </button>
+      </div>
+    </section>
+  </div>
+  <footer class="about">
+    <Mark size={22} />
+    <div>
+      <p class="about-t">Zapret Desktop {app.data?.version || '0.1.0'}</p>
+      <p class="about-d">Открытый исходный код, лицензия MIT. Компоненты движков распространяются по своим лицензиям.</p>
     </div>
-    <button class="btn btn-secondary" disabled={!app.installed} aria-expanded={app.showLogs} onclick={app.toggleLogs}>
-      <Icon name="terminal" size={16} />{app.showLogs ? 'Скрыть' : 'Показать'}
-    </button>
-  </div>
-  {#if app.showLogs}
-    <pre class="log">{app.logLines.join('\n') || 'Журнал пуст.'}</pre>
-  {/if}
-</section>
-
-<footer class="about">
-  <Mark size={28} />
-  <div>
-    <strong>Zapret Desktop {app.data?.version || '0.1.0'}</strong>
-    <p>Открытый исходный код, лицензия MIT. Компоненты движков распространяются по своим лицензиям.</p>
-  </div>
-</footer>
+  </footer>
+</div>
 
 <style>
-  .group {
-    padding-top: 6px;
-    padding-bottom: 6px;
+  .set {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 384px;
+    grid-template-areas: 'left right' 'about right';
+    grid-template-rows: auto 1fr;
+    gap: 16px;
+    align-items: start;
   }
-  .row {
+  .left {
+    grid-area: left;
+  }
+  .right {
+    grid-area: right;
+  }
+  .about {
+    grid-area: about;
+  }
+  .col {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 16px 0;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
   }
-  .row + .row {
+
+  .rows .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px 24px;
+    padding: 18px 20px;
     border-top: 1px solid var(--line);
   }
-  .row-text h2 {
-    font-size: 15px;
+  .rows .row:first-child {
+    border-top: 0;
   }
-  .row-text p {
-    margin-top: 4px;
-    font-size: 13px;
+  .row-k {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .row-d {
+    margin-top: 3px;
+    max-width: 380px;
+    font-size: 12.5px;
     line-height: 1.45;
-    color: var(--ink-3);
-    max-width: 58ch;
+    color: var(--text-2);
   }
   .value {
-    color: var(--ink-2);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-2);
     white-space: nowrap;
+  }
+  .value.bad {
+    color: var(--red);
+  }
+  .locked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .select {
     position: relative;
-    flex: none;
+    display: flex;
+    align-items: center;
   }
-  .select::after {
-    content: '';
-    position: absolute;
-    right: 13px;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    border-right: 1.75px solid var(--ink-2);
-    border-bottom: 1.75px solid var(--ink-2);
-    transform: translateY(-70%) rotate(45deg);
-    pointer-events: none;
-  }
-  select {
+  .select select {
     appearance: none;
-    width: 240px;
+    width: 262px;
+    max-width: 100%;
     padding-right: 34px;
     text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .select :global(svg) {
+    position: absolute;
+    right: 10px;
+    color: var(--text-2);
+    pointer-events: none;
   }
 
-  .domain-form {
+  .field-row {
     display: flex;
-    gap: 10px;
-    margin-top: 16px;
-  }
-  .domain-form input {
-    flex: 1;
-    min-width: 0;
-    max-width: 420px;
-  }
-
-  .disclosure {
-    display: inline-flex;
-    align-items: center;
     gap: 8px;
-    margin-top: 14px;
-    padding: 4px 0;
-    border: 0;
-    background: none;
-    color: var(--ink-2);
-    font-size: 13px;
+    padding: 0 20px 14px;
   }
-  .disclosure:hover:not(:disabled) {
-    color: var(--ink);
+  .field-row input {
+    flex: 1;
   }
-  .disclosure:disabled {
-    color: var(--ink-3);
-    cursor: default;
+  .count {
+    padding: 0 20px 12px;
+    font-size: 12.5px;
+    color: var(--text-3);
   }
-  .chevron {
-    width: 7px;
-    height: 7px;
-    border-right: 1.75px solid currentColor;
-    border-bottom: 1.75px solid currentColor;
-    transform: rotate(-45deg);
-    transition: transform 0.15s ease;
-  }
-  .chevron.open {
-    transform: translateY(-2px) rotate(45deg);
-  }
-  .domain-list {
-    margin: 8px 0 0;
-    padding: 0;
-    max-width: 520px;
-    max-height: 280px;
-    overflow: auto;
+  .domains {
     list-style: none;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--bg);
+    max-height: 264px;
+    overflow: auto;
   }
-  .domain-list li {
+  .domains li {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 8px 6px 12px;
-    font-size: 13px;
-  }
-  .domain-list li + li {
+    min-height: 44px;
+    padding: 0 10px 0 20px;
     border-top: 1px solid var(--line);
+    font-size: 13.5px;
   }
-  .domain-list li.fresh {
-    background: var(--signal-wash);
+  .domains li.fresh {
+    background: var(--g-soft);
   }
-  .domain-name {
+  .dom-name {
     flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
-    color: var(--ink);
   }
   .fresh-tag {
-    color: var(--signal-ink);
     font-size: 12px;
+    color: var(--g-text);
   }
 
   .log {
-    margin: 16px 0 0;
-    padding: 14px 16px;
-    max-height: 320px;
+    margin: 0 20px;
+    padding: 12px 14px;
+    max-height: 220px;
     overflow: auto;
-    background: var(--bg);
+    border-radius: 10px;
+    background: var(--log-bg);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 12px;
-    line-height: 1.6;
-    color: var(--ink-2);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.75;
+    color: var(--text-2);
+    white-space: pre;
+  }
+  .log-actions {
+    display: flex;
+    gap: 8px;
+    padding: 14px 20px 18px;
   }
 
   .about {
     display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-top: 28px;
-    padding: 0 4px;
-    color: var(--ink-3);
+    align-items: flex-start;
+    gap: 12px;
+    padding: 2px 4px 0;
   }
-  .about strong {
-    color: var(--ink);
-    font-weight: 560;
+  .about-t {
+    font-size: 13px;
+    font-weight: 600;
   }
-  .about p {
-    font-size: 12px;
+  .about-d {
     margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-3);
   }
 
-  @media (max-width: 860px) {
-    .row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
+  @media (max-width: 1000px) {
+    .set {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'left' 'right' 'about';
+      grid-template-rows: auto;
+    }
+  }
+  @media (max-width: 720px) {
+    .rows .row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .select select {
+      width: 100%;
     }
   }
 </style>
