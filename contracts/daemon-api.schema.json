@@ -264,6 +264,47 @@
           ]
         },
         {
+          "description": "Removes one domain from the user list; accepts what `AddDomain` accepts.",
+          "type": "object",
+          "properties": {
+            "args": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "domain"
+              ]
+            },
+            "cmd": {
+              "type": "string",
+              "const": "remove_domain"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd",
+            "args"
+          ]
+        },
+        {
+          "description": "The user list in readable form (Unicode for IDN). Never part of reports.",
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "domains"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "cmd": {
@@ -298,6 +339,12 @@
         },
         {
           "$ref": "#/$defs/DoctorResult"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         {
           "type": "array",

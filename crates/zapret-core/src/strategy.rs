@@ -39,6 +39,15 @@ pub fn normalize_domain(input: &str) -> Result<String> {
     Ok(domain.to_lowercase())
 }
 
+/// Readable form of a stored domain: `xn--e1afmkfd.xn--p1ai` → `пример.рф`.
+/// `normalize_domain` turns it back into the stored form.
+pub fn display_domain(domain: &str) -> String {
+    match idna::domain_to_unicode(domain) {
+        (unicode, Ok(())) => unicode,
+        _ => domain.to_owned(),
+    }
+}
+
 pub fn load_catalog(root: &Path) -> Result<Vec<Strategy>> {
     let catalog: Vec<Strategy> =
         serde_json::from_slice(&std::fs::read(root.join("strategies.json"))?)?;
@@ -153,6 +162,12 @@ mod tests {
             "xn--e1afmkfd.xn--p1ai"
         );
         assert_eq!(normalize_domain("EXAMPLE.COM").unwrap(), "example.com");
+        assert_eq!(display_domain("xn--e1afmkfd.xn--p1ai"), "пример.рф");
+        assert_eq!(display_domain("example.com"), "example.com");
+        assert_eq!(
+            normalize_domain(&display_domain("xn--e1afmkfd.xn--p1ai")).unwrap(),
+            "xn--e1afmkfd.xn--p1ai"
+        );
     }
     #[test]
     fn paths_cannot_escape_bundle() {

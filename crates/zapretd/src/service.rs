@@ -10,6 +10,9 @@ use std::{path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 use zapret_core::{VERSION, api::*, strategy};
 
+/// The writable user list; strategies get it in place of `list-general-user.txt`.
+const USER_DOMAINS: &str = "user-domains.txt";
+
 pub struct Controller<E: Engine> {
     pub(crate) root: PathBuf,
     pub(crate) data: PathBuf,
@@ -131,19 +134,61 @@ impl<E: Engine> Controller<E> {
         std::fs::write(self.data.join("strategy"), id)?;
         Ok(())
     }
-    async fn add_domain(&mut self, domain: &str) -> Result<()> {
-        let domain = strategy::normalize_domain(domain)?;
-        let file = self.data.join("user-domains.txt");
-        let mut text = std::fs::read_to_string(&file).unwrap_or_default();
-        if !text.lines().any(|l| l == domain) {
-            text.push_str(&format!("{domain}\n"));
-            std::fs::write(file, text)?;
+    /// Stored user domains, one per line, in the form winws matches.
+    fn stored_domains(&self) -> Result<Vec<String>> {
+        match std::fs::read_to_string(self.data.join(USER_DOMAINS)) {
+            Ok(text) => Ok(text
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .map(str::to_owned)
+                .collect()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(vec![]),
+            Err(e) => Err(e.into()),
         }
-        if self.status()?.running {
-            self.stop()?;
-            self.start().await?;
+    }
+    fn domains(&self) -> Result<Vec<String>> {
+        Ok(self
+            .stored_domains()?
+            .iter()
+            .map(|d| strategy::display_domain(d))
+            .collect())
+    }
+    /// winws re-reads a hostlist when its size or time changes, so the running
+    /// engine is not restarted: a restart dropped bypass for a second or two.
+    /// The file is replaced in one rename so winws never reads half of it.
+    fn write_domains(&self, domains: &[String]) -> Result<()> {
+        let file = self.data.join(USER_DOMAINS);
+        let fresh = self.data.join(format!("{USER_DOMAINS}.new"));
+        let mut text = domains.join("\n");
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        std::fs::write(&fresh, text)?;
+        std::fs::rename(&fresh, &file)?;
+        Ok(())
+    }
+    fn add_domain(&mut self, domain: &str) -> Result<()> {
+        let domain = strategy::normalize_domain(domain)?;
+        let mut domains = self.stored_domains()?;
+        if !domains.contains(&domain) {
+            domains.push(domain);
+            self.write_domains(&domains)?;
         }
         Ok(())
+    }
+    fn remove_domain(&mut self, domain: &str) -> Result<()> {
+        let domain = strategy::normalize_domain(domain)?;
+        let mut domains = self.stored_domains()?;
+        let count = domains.len();
+        domains.retain(|d| *d != domain);
+        if domains.len() == count {
+            bail!(
+                "Домена {} нет в вашем списке",
+                strategy::display_domain(&domain)
+            );
+        }
+        self.write_domains(&domains)
     }
     fn doctor(&mut self) -> Result<DoctorResult> {
         let s = self.status()?;
@@ -231,6 +276,9 @@ impl<E: Engine + 'static> Daemon<E> {
                 self.operations.cancel();
                 Ok(DaemonResponse::Empty(()))
             }
+            DaemonCommand::Domains => Ok(DaemonResponse::Domains(
+                self.controller.lock().await.domains()?,
+            )),
             DaemonCommand::Logs => Ok(DaemonResponse::Logs(log_tail(
                 &self.controller.lock().await.data.join("engine.log"),
             ))),
@@ -269,7 +317,8 @@ impl<E: Engine + 'static> Daemon<E> {
                     DaemonCommand::SetStrategy { strategy_id } => {
                         controller.set_strategy(&strategy_id).await?
                     }
-                    DaemonCommand::AddDomain { domain } => controller.add_domain(&domain).await?,
+                    DaemonCommand::AddDomain { domain } => controller.add_domain(&domain)?,
+                    DaemonCommand::RemoveDomain { domain } => controller.remove_domain(&domain)?,
                     DaemonCommand::Doctor => {
                         return Ok(DaemonResponse::Doctor(controller.doctor()?));
                     }

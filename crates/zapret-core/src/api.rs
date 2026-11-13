@@ -15,12 +15,22 @@ pub enum DaemonCommand {
     Snapshot,
     Enable,
     Disable,
-    SetStrategy { strategy_id: String },
+    SetStrategy {
+        strategy_id: String,
+    },
     Diagnose,
     SelectStrategy,
     CancelOperation,
     Doctor,
-    AddDomain { domain: String },
+    AddDomain {
+        domain: String,
+    },
+    /// Removes one domain from the user list; accepts what `AddDomain` accepts.
+    RemoveDomain {
+        domain: String,
+    },
+    /// The user list in readable form (Unicode for IDN). Never part of reports.
+    Domains,
     Logs,
     Report,
 }
@@ -33,6 +43,7 @@ pub enum DaemonResponse {
     Snapshot(Snapshot),
     Doctor(DoctorResult),
     Logs(Vec<String>),
+    Domains(Vec<String>),
     Report(Report),
     Empty(()),
 }
