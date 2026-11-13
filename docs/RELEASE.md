@@ -508,3 +508,41 @@ uninstall, service and driver gone) has not run. Not checked: upgrade over the
 tester's interrupted NSIS install, renaming a loaded driver file, the explorer
 launch as the user, shortcuts, the Apps entry, SmartScreen and antivirus
 reaction to an unsigned console installer.
+
+## 2026-11-13 — user domain list and one-button WinDivert stop (branch `phase1/tester-fixes`)
+
+Owner requests after the first tester run: show which domains were added,
+make added domains take effect faster, and stop WinDivert with one button.
+
+- Daemon: fixed commands `domains` (readable form, Unicode for IDN) and
+  `remove_domain`. Adding a domain no longer restarts winws: the engine
+  re-reads a hostlist when its size or modification time changes
+  (`nfq/hostlist.c`, «automatically reload lists» in the engine readme), and
+  the restart cut bypass for 1–2 s, so connections opened meanwhile failed.
+  The list file is replaced in one rename. Reports still exclude user domains.
+- Settings: under «Свои домены» a toggle «Ваш список: N доменов» expands the
+  list; the domain just added is highlighted and marked «добавлен»; each
+  entry can be removed. The notice says to reopen the site's tab, because
+  the browser keeps an existing connection for a while.
+- What stays an engine or network limit: sites that load from other domains
+  (CDNs, APIs) need those added too; IP-based blocking is not fixed by DPI
+  tricks; user domains get the same desync as the general list.
+- Installer: the window asks once (Enter installs, «2» only stops WinDivert);
+  `--stop-windivert` ends every winws and stops and unregisters the
+  `WinDivert` and `WinDivert14` driver services whoever loaded them; a Start
+  menu shortcut «Zapret Desktop — остановить WinDivert» runs it. CI runs it
+  after the IPC test and checks the driver service is gone.
+
+| Check (macOS) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Passed |
+| `cargo xwin clippy -p zapretd -p zapret-core -p zbuild -p zsetup --target x86_64-pc-windows-msvc --all-targets -- -D warnings` | Passed |
+| `cargo test --workspace` | 48 passed, 0 failed (new: list, remove, IDN display, no engine restart on add) |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Settings page in Vite with sample domains | List expands and collapses, new entry highlighted (screenshot, no service) |
+| `scripts/build_windows_cross.sh` | Built `outputs/Zapret-Desktop-Setup.exe` (7.0 MB) |
+
+Not verified: winws picking up an added domain without restart on Windows,
+the list against a real service, the stop mode and its shortcut on Windows,
+and CI on this branch.
