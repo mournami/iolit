@@ -44,6 +44,9 @@ pub fn payload(root: &Path, app: &Path, service: &Path, out: &Path) -> Result<()
         entries.push((path.as_str(), data));
     }
     let bytes = bundle::pack_archive(entries.iter().map(|(p, d)| (*p, d.as_slice())))?;
+    if let Some(parent) = out.parent() {
+        fs::create_dir_all(parent)?;
+    }
     fs::write(out, &bytes).with_context(|| out.display().to_string())?;
     println!(
         "Installer payload: {} files, {} bytes -> {}",
