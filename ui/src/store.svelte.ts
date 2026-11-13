@@ -16,6 +16,11 @@ class AppState {
   notice = $state('');
   pending = $state<Pending>(null);
   domainBusy = $state(false);
+  /** The user list as the service reports it, in readable form. */
+  domains = $state<string[]>([]);
+  showDomains = $state(false);
+  /** Highlighted after adding, so it is clear what went into the list. */
+  lastDomain = $state('');
   doctorChecks = $state<DoctorCheck[]>([]);
   doctorRan = $state(false);
   logLines = $state<string[]>([]);
@@ -83,17 +88,46 @@ class AppState {
   };
   cancel = () => this.#run('cancel_operation', undefined, 'cancel');
 
+  loadDomains = async () => {
+    if (!native) return;
+    try {
+      this.domains = await api<string[]>('domains');
+    } catch {
+      // Without the service the panel keeps only the form.
+    }
+  };
+
   addDomain = async (domain: string) => {
     this.domainBusy = true;
     this.error = '';
     this.notice = '';
     try {
       await api('add_domain', { domain });
-      this.notice = `Домен ${domain.trim()} добавлен в ваш список`;
+      await this.loadDomains();
+      const typed = domain.trim().toLowerCase().replace(/\.$/, '');
+      this.lastDomain = this.domains.find((d) => d === typed) ?? this.domains.at(-1) ?? '';
+      this.showDomains = true;
+      this.notice = `Домен ${this.lastDomain || domain.trim()} добавлен. Если сайт уже был открыт, закройте его вкладку и откройте снова: браузер какое-то время держит старое соединение.`;
       return true;
     } catch (e) {
       this.error = String(e);
       return false;
+    } finally {
+      this.domainBusy = false;
+    }
+  };
+
+  removeDomain = async (domain: string) => {
+    this.domainBusy = true;
+    this.error = '';
+    this.notice = '';
+    try {
+      await api('remove_domain', { domain });
+      await this.loadDomains();
+      if (this.lastDomain === domain) this.lastDomain = '';
+      this.notice = `Домен ${domain} удалён из вашего списка`;
+    } catch (e) {
+      this.error = String(e);
     } finally {
       this.domainBusy = false;
     }
@@ -145,6 +179,15 @@ export function deviceName(platform: string | undefined) {
   if (platform === 'windows') return 'Этот ПК';
   if (platform === 'macos') return 'Этот Mac';
   return 'Этот компьютер';
+}
+
+/** Russian plural: plural(5, 'домен', 'домена', 'доменов') → 'доменов'. */
+export function plural(n: number, one: string, few: string, many: string) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
 }
 
 export function formatUptime(secs: number) {
