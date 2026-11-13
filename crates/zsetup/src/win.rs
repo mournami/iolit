@@ -70,10 +70,13 @@ const SERVICE_DESCRIPTION: &str =
     "Управление локальным обходом DPI. Приложение работает без прав администратора.";
 /// Kernel driver service that winws creates through WinDivert.dll.
 const DRIVER: &str = "WinDivert";
+/// Driver services WinDivert.dll registers: 2.x and the older 1.4.
+const DRIVERS: [&str; 2] = ["WinDivert", "WinDivert14"];
 const APP_EXE: &str = "zapret-desktop.exe";
 const UNINSTALLER: &str = "uninstall.exe";
 /// Same names as the NSIS installer of earlier builds, so this one replaces it.
 const SHORTCUT: &str = "Zapret Desktop.lnk";
+const STOP_SHORTCUT: &str = "Zapret Desktop — остановить WinDivert.lnk";
 const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Zapret Desktop";
 const NSIS_PRODUCT_KEY: &str = r"Software\zapret\Zapret Desktop";
 const NSIS_MANUFACTURER_KEY: &str = r"Software\zapret";
@@ -82,21 +85,36 @@ const DATA_SDDL: &str = "O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
 const WEBVIEW2_CLIENT: &str =
     r"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
 
+#[derive(Clone, Copy)]
+enum Mode {
+    Install,
+    Uninstall,
+    StopDriver,
+}
+
 struct Options {
-    uninstall: bool,
+    /// `None`: ask in the window; the default installs.
+    mode: Option<Mode>,
     quiet: bool,
 }
 
 fn parse_args(args: impl Iterator<Item = String>) -> Result<Options> {
     let mut options = Options {
-        uninstall: false,
+        mode: None,
         quiet: false,
     };
     for arg in args {
-        match arg.as_str() {
-            "--uninstall" => options.uninstall = true,
-            "--quiet" => options.quiet = true,
-            _ => bail!("Неизвестный параметр {arg}. Можно: --uninstall, --quiet"),
+        let mode = match arg.as_str() {
+            "--uninstall" => Mode::Uninstall,
+            "--stop-windivert" => Mode::StopDriver,
+            "--quiet" => {
+                options.quiet = true;
+                continue;
+            }
+            _ => bail!("Неизвестный параметр {arg}. Можно: --uninstall, --stop-windivert, --quiet"),
+        };
+        if options.mode.replace(mode).is_some() {
+            bail!("Укажите только одно действие");
         }
     }
     Ok(options)
@@ -110,16 +128,16 @@ pub fn main(payload: &[u8]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let action = if options.uninstall {
-        "удаление"
-    } else {
-        "установка"
+    println!("{PRODUCT} {VERSION}\n");
+    let mode = match options.mode {
+        Some(mode) => mode,
+        None if options.quiet => Mode::Install,
+        None => ask_mode(),
     };
-    println!("{PRODUCT} {VERSION}: {action}\n");
-    let result = if options.uninstall {
-        uninstall(&options)
-    } else {
-        install(payload, &options)
+    let result = match mode {
+        Mode::Install => install(payload, &options),
+        Mode::Uninstall => uninstall(&options),
+        Mode::StopDriver => stop_windivert(),
     };
     let code = match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -132,6 +150,24 @@ pub fn main(payload: &[u8]) -> ExitCode {
         pause("\nНажмите Enter, чтобы закрыть окно.");
     }
     code
+}
+
+/// The one choice in the window; Enter alone installs.
+fn ask_mode() -> Mode {
+    println!("Enter: установить или обновить Zapret Desktop.");
+    println!(
+        "2 и Enter: только остановить WinDivert и winws, если обход мешает сети или установке."
+    );
+    print!("> ");
+    let _ = io::stdout().flush();
+    let mut line = String::new();
+    let _ = io::stdin().read_line(&mut line);
+    println!();
+    if line.trim() == "2" {
+        Mode::StopDriver
+    } else {
+        Mode::Install
+    }
 }
 
 fn pause(text: &str) {
@@ -241,6 +277,55 @@ fn uninstall(options: &Options) -> Result<()> {
     Ok(())
 }
 
+/// The one-button fix when WinDivert is stuck or held: ends every winws (ours
+/// or another zapret's) and stops and unregisters the driver whoever loaded
+/// it, as Flowseal's service.bat does. WinDivert.dll registers it again on
+/// next use; our service shows the engine as stopped until it is enabled.
+fn stop_windivert() -> Result<()> {
+    let _guard = step("Проверка прав", |_| {
+        require_admin()?;
+        single_instance()
+    })?;
+    step("Остановка winws", |notes| {
+        notes.push(match end_processes("winws.exe", None)? {
+            0 => "не был запущен".to_owned(),
+            count => format!("остановлено процессов: {count}"),
+        });
+        Ok(())
+    })?;
+    for name in DRIVERS {
+        step(
+            &format!("Остановка драйвера {name}"),
+            |notes| stop_driver(name, notes),
+        )?;
+    }
+    println!(
+        "\nWinDivert остановлен. Обход выключен до перезапуска компьютера или до включения \
+         в программе."
+    );
+    Ok(())
+}
+
+fn stop_driver(name: &str, notes: &mut Vec<String>) -> Result<()> {
+    let manager = manager(ServiceManagerAccess::CONNECT)?;
+    let access = ServiceAccess::QUERY_STATUS | ServiceAccess::STOP | ServiceAccess::DELETE;
+    let Some(driver) = open_service(&manager, name, access)? else {
+        notes.push("не загружен".into());
+        return Ok(());
+    };
+    wait_stopped(&driver, Duration::from_secs(15)).context(
+        "драйвер держит другая программа (например, GoodbyeDPI): закройте её и повторите",
+    )?;
+    delete_service(&driver)
+}
+
+struct Shortcut {
+    link: PathBuf,
+    target: PathBuf,
+    arguments: &'static str,
+    description: &'static str,
+}
+
 struct Paths {
     install: PathBuf,
     data: PathBuf,
@@ -277,8 +362,23 @@ impl Paths {
     fn uninstaller(&self) -> PathBuf {
         self.install.join(UNINSTALLER)
     }
-    fn shortcuts(&self) -> [PathBuf; 2] {
-        [self.programs.join(SHORTCUT), self.desktop.join(SHORTCUT)]
+    fn shortcuts(&self) -> [Shortcut; 3] {
+        let app = |link| Shortcut {
+            link,
+            target: self.app(),
+            arguments: "",
+            description: "Управление локальным обходом DPI",
+        };
+        [
+            app(self.programs.join(SHORTCUT)),
+            app(self.desktop.join(SHORTCUT)),
+            Shortcut {
+                link: self.programs.join(STOP_SHORTCUT),
+                target: self.uninstaller(),
+                arguments: "--stop-windivert",
+                description: "Остановить WinDivert и winws одной кнопкой",
+            },
+        ]
     }
 }
 
@@ -466,7 +566,16 @@ fn release_driver(install: &Path, delete: bool, notes: &mut Vec<String>) -> Resu
 
 /// Ends running copies of the installed app: its window keeps the exe busy.
 fn close_app(app: &Path, notes: &mut Vec<String>) -> Result<()> {
-    let target = app.to_string_lossy().to_lowercase();
+    let closed = end_processes(APP_EXE, Some(app))?;
+    if closed > 0 {
+        notes.push(format!("закрыто окон программы: {closed}"));
+    }
+    Ok(())
+}
+
+/// Ends processes named `exe`; with `only`, just those started from that file.
+fn end_processes(exe: &str, only: Option<&Path>) -> Result<usize> {
+    let only = only.map(|path| path.to_string_lossy().to_lowercase());
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
         return Err(io::Error::last_os_error().into());
@@ -474,32 +583,32 @@ fn close_app(app: &Path, notes: &mut Vec<String>) -> Result<()> {
     let snapshot = Handle(snapshot);
     let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
     entry.dwSize = size_of::<PROCESSENTRY32W>() as u32;
-    let mut closed = 0;
+    let mut ended = 0;
     let mut more = unsafe { Process32FirstW(snapshot.0, &mut entry) } != 0;
     while more {
         let len = entry.szExeFile.iter().position(|c| *c == 0).unwrap_or(0);
         let name = String::from_utf16_lossy(&entry.szExeFile[..len]);
-        if name.eq_ignore_ascii_case(APP_EXE) {
+        if name.eq_ignore_ascii_case(exe) {
             let access =
                 PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | PROCESS_SYNCHRONIZE;
             let process = unsafe { OpenProcess(access, 0, entry.th32ProcessID) };
             if !process.is_null() {
                 let process = Handle(process);
-                if process_path(&process).is_some_and(|p| p.to_lowercase() == target) {
+                let matches = only.as_ref().is_none_or(|only| {
+                    process_path(&process).is_some_and(|p| p.to_lowercase() == *only)
+                });
+                if matches {
                     unsafe {
                         TerminateProcess(process.0, 0);
                         WaitForSingleObject(process.0, 5000);
                     }
-                    closed += 1;
+                    ended += 1;
                 }
             }
         }
         more = unsafe { Process32NextW(snapshot.0, &mut entry) } != 0;
     }
-    if closed > 0 {
-        notes.push(format!("закрыто окон программы: {closed}"));
-    }
-    Ok(())
+    Ok(ended)
 }
 
 fn process_path(process: &Handle) -> Option<String> {
@@ -822,23 +931,24 @@ fn create_shortcuts(paths: &Paths) -> Result<()> {
             },
             UI::Shell::{IShellLinkW, ShellLink},
         },
-        core::{HSTRING, Interface, w},
+        core::{HSTRING, Interface},
     };
-    let app = HSTRING::from(paths.app().as_os_str());
+    let icon = HSTRING::from(paths.app().as_os_str());
     let folder = HSTRING::from(paths.install.as_os_str());
     unsafe {
         let initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
         let result = (|| -> ::windows::core::Result<()> {
-            for link in paths.shortcuts() {
+            for shortcut in paths.shortcuts() {
                 let shell_link: IShellLinkW =
                     CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
-                shell_link.SetPath(&app)?;
+                shell_link.SetPath(&HSTRING::from(shortcut.target.as_os_str()))?;
+                shell_link.SetArguments(&HSTRING::from(shortcut.arguments))?;
                 shell_link.SetWorkingDirectory(&folder)?;
-                shell_link.SetIconLocation(&app, 0)?;
-                shell_link.SetDescription(w!("Управление локальным обходом DPI"))?;
+                shell_link.SetIconLocation(&icon, 0)?;
+                shell_link.SetDescription(&HSTRING::from(shortcut.description))?;
                 shell_link
                     .cast::<IPersistFile>()?
-                    .Save(&HSTRING::from(link.as_os_str()), true)?;
+                    .Save(&HSTRING::from(shortcut.link.as_os_str()), true)?;
             }
             Ok(())
         })();
@@ -904,11 +1014,11 @@ fn remove_nsis_keys(hklm: &RegKey) {
 }
 
 fn remove_registration(paths: &Paths) -> Result<()> {
-    for link in paths.shortcuts() {
-        if let Err(e) = fs::remove_file(&link)
+    for shortcut in paths.shortcuts() {
+        if let Err(e) = fs::remove_file(&shortcut.link)
             && e.kind() != io::ErrorKind::NotFound
         {
-            return Err(anyhow!(e).context(link.display().to_string()));
+            return Err(anyhow!(e).context(shortcut.link.display().to_string()));
         }
     }
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
