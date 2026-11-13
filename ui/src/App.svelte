@@ -3,6 +3,7 @@
   import { native } from './api';
   import Icon from './Icon.svelte';
   import { app, type Page } from './store.svelte';
+  import { theme } from './theme.svelte';
   import Checks from './components/Checks.svelte';
   import Mark from './components/Mark.svelte';
   import Overview from './components/Overview.svelte';
@@ -19,9 +20,11 @@
       ? { text: 'Только просмотр', tone: 'idle' }
       : !app.loaded
         ? { text: 'Подключаемся…', tone: 'idle' }
-        : app.installed
-          ? { text: 'Служба на связи', tone: 'ok' }
-          : { text: 'Служба не найдена', tone: 'warn' },
+        : !app.installed
+          ? { text: 'Служба не найдена', tone: 'warn' }
+          : app.running
+            ? { text: 'Служба работает', tone: 'ok' }
+            : { text: 'Служба на связи', tone: 'ok' },
   );
 
   onMount(() => {
@@ -34,31 +37,50 @@
 <svelte:head><title>Zapret Desktop</title></svelte:head>
 
 <div class="shell">
-  <header class="topbar">
-    <div class="brand"><Mark size={22} /><span>zapret</span></div>
+  <header class="titlebar">
+    <div class="brand"><Mark size={20} /><span class="brand-word">zapret</span></div>
     <nav class="tabs" aria-label="Разделы">
       {#each pages as p (p.id)}
-        <button class:active={app.page === p.id} aria-current={app.page === p.id ? 'page' : undefined} onclick={() => (app.page = p.id)}>
+        <button
+          class:on={app.page === p.id}
+          aria-current={app.page === p.id ? 'page' : undefined}
+          onclick={() => (app.page = p.id)}
+        >
           {p.label}
         </button>
       {/each}
     </nav>
-    <span class="service-state {serviceState.tone}"><span class="dot"></span>{serviceState.text}</span>
+    <div class="grow"></div>
+    <div class="svc-state {serviceState.tone}" title={serviceState.text}>
+      <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
+    </div>
+    <button
+      class="icon-btn"
+      aria-label={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+      title={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+      onclick={theme.flip}
+    >
+      <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={16} />
+    </button>
   </header>
 
-  <main class="content">
+  <main class="main">
     {#if app.error}
-      <div class="alert fault" role="alert">
-        <Icon name="alert" size={18} />
+      <div class="alert bad" role="alert">
+        <Icon name="alert" size={16} />
         <p>{app.error}</p>
-        <button class="icon-btn" aria-label="Закрыть сообщение об ошибке" onclick={() => (app.error = '')}><Icon name="close" size={16} /></button>
+        <button class="icon-btn" aria-label="Закрыть сообщение об ошибке" onclick={() => (app.error = '')}>
+          <Icon name="close" size={14} />
+        </button>
       </div>
     {/if}
     {#if app.notice}
-      <div class="alert signal" role="status">
-        <Icon name="check" size={18} />
+      <div class="alert good" role="status">
+        <Icon name="check" size={16} />
         <p>{app.notice}</p>
-        <button class="icon-btn" aria-label="Закрыть уведомление" onclick={() => (app.notice = '')}><Icon name="close" size={16} /></button>
+        <button class="icon-btn" aria-label="Закрыть уведомление" onclick={() => (app.notice = '')}>
+          <Icon name="close" size={14} />
+        </button>
       </div>
     {/if}
 
@@ -71,3 +93,104 @@
     {/if}
   </main>
 </div>
+
+<style>
+  .shell {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+
+  .titlebar {
+    height: 46px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px 0 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-right: 22px;
+  }
+  .brand-word {
+    font-size: 15.5px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .tabs {
+    display: flex;
+    gap: 2px;
+  }
+  .tabs button {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 0;
+    background: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+  .tabs button:hover:not(.on) {
+    color: var(--text);
+  }
+  .tabs button.on {
+    background: var(--tab-on);
+    color: var(--text);
+  }
+  .grow {
+    flex: 1;
+  }
+  .svc-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 6px;
+    font-size: 12.5px;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-3);
+    flex: none;
+  }
+  .ok .dot {
+    background: var(--g);
+    box-shadow: 0 0 0 3px var(--g-soft);
+  }
+  .warn .dot {
+    background: var(--amber);
+    box-shadow: 0 0 0 3px var(--amber-soft);
+  }
+
+  /* The page scrolls inside the window; the title bar stays. */
+  .main {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 4px 20px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 760px) {
+    .brand {
+      margin-right: 12px;
+    }
+    .brand-word,
+    .svc-text {
+      display: none;
+    }
+    .main {
+      padding: 4px 14px 14px;
+    }
+  }
+</style>
