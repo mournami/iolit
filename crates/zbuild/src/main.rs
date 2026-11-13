@@ -1,5 +1,6 @@
 //! Build-time bundle preparation. Replaces the Windows part of
 //! `scripts/prepare_engines.py`; never executes batch files or upstream installers.
+mod installer;
 mod release;
 
 use anyhow::{Context, Result, bail};
@@ -17,7 +18,8 @@ const USAGE: &str = "usage:
   zbuild sign --manifest FILE --out FILE       (key from ZAPRET_BUNDLE_SIGNING_KEY)
   zbuild public-key                            (key from ZAPRET_BUNDLE_SIGNING_KEY)
   zbuild verify --manifest FILE --archive FILE --public-key BASE64
-  zbuild changes --base DIR --new DIR";
+  zbuild changes --base DIR --new DIR
+  zbuild installer-payload --app EXE --service EXE --out FILE [--root DIR]";
 /// service.bat creates these at first launch; we never run batch files.
 const USER_LISTS: [&str; 3] = [
     "list-general-user.txt",
@@ -119,6 +121,15 @@ fn main() -> Result<()> {
             )?;
             print!("{notes}");
             Ok(())
+        }
+        "installer-payload" => {
+            opts.only(&["root", "app", "service", "out"])?;
+            installer::payload(
+                &opts.root()?,
+                Path::new(opts.required("app")?),
+                Path::new(opts.required("service")?),
+                Path::new(opts.required("out")?),
+            )
         }
         _ => bail!("{USAGE}"),
     }
