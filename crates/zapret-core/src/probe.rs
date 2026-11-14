@@ -76,10 +76,13 @@ const DNS_WARNING: &str = "DNS этого компьютера не знает �
     провайдер. Обход работает, но браузер может не открыть сайт, пока не включён защищённый DNS.";
 
 async fn fetch(url: &str, resolved: Option<(&str, &[SocketAddr])>) -> anyhow::Result<String> {
+    // A DPI block usually shows as a stalled TLS handshake, so every failing
+    // check waits for the timeout; selection runs these once per strategy and
+    // must stay under 3 minutes. 64 KB arrive well within 7 s on a working line.
     let mut client = reqwest::Client::builder()
         .no_proxy()
-        .timeout(Duration::from_secs(9))
-        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(7))
+        .connect_timeout(Duration::from_secs(4))
         .user_agent("ZapretDesktop/0.1 network-check");
     if let Some((host, addresses)) = resolved {
         client = client.resolve_to_addrs(host, addresses);
