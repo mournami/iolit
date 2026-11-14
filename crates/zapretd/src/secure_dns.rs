@@ -291,17 +291,17 @@ mod imp {
             write_family(id, true, &saved.ipv6)
         }
         fn resolves(&self, wait: Duration) -> bool {
-            resolves(wait)
+            resolves(&CHECK_NAMES, wait)
         }
     }
 
     /// Asks the DNS Client service, which applies the adapters' DoH settings,
     /// bypassing its cache and the hosts file. New settings take a moment, so
     /// the query repeats until `wait` runs out.
-    pub fn resolves(wait: Duration) -> bool {
+    pub fn resolves(names: &[&str], wait: Duration) -> bool {
         let deadline = Instant::now() + wait;
         loop {
-            if CHECK_NAMES.iter().any(|name| query(name)) {
+            if names.iter().any(|name| query(name)) {
                 return true;
             }
             if Instant::now() >= deadline {
@@ -539,13 +539,14 @@ mod imp {
     }
 }
 
-/// Whether the system resolver answers right now; for Doctor.
-pub fn system_resolves(wait: Duration) -> Option<bool> {
+/// Whether the system resolver finds `name` now; for Doctor. `None` where
+/// the check does not exist.
+pub fn system_resolves(name: &str, wait: Duration) -> Option<bool> {
     #[cfg(windows)]
-    return Some(imp::resolves(wait));
+    return Some(imp::resolves(&[name], wait));
     #[cfg(not(windows))]
     {
-        let _ = wait;
+        let _ = (name, wait);
         None
     }
 }

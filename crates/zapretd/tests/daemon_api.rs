@@ -290,3 +290,41 @@ async fn user_domains_are_listed_removed_and_applied_without_restart() {
     );
     assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 1);
 }
+
+#[tokio::test]
+async fn doctor_reports_a_broken_engine_and_missing_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("bundle");
+    let data = dir.path().join("data");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("strategies.json"),
+        serde_json::to_vec(&vec![Strategy {
+            id: "general".into(),
+            name: "General".into(),
+            description: String::new(),
+            supported: true,
+            arguments: vec!["--test".into()],
+        }])
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::create_dir_all(&data).unwrap();
+    // Turned on earlier, but the engine is not running now.
+    std::fs::write(data.join("enabled"), b"1").unwrap();
+    let daemon = Daemon {
+        controller: Arc::new(Mutex::new(
+            Controller::new(root, data.clone(), TestEngine::default()).unwrap(),
+        )),
+        operations: Arc::new(OperationManager::new(data)),
+    };
+    let DaemonResponse::Doctor(result) = daemon.dispatch(DaemonCommand::Doctor).await.unwrap()
+    else {
+        panic!("not a Doctor result");
+    };
+    let find = |name: &str| result.checks.iter().find(|c| c.name == name).unwrap();
+    assert!(find("Системная служба").ok);
+    assert!(!find("Движок").ok);
+    assert!(!find("Файлы движка").ok);
+    assert!(find("Другие программы обхода").ok);
+}

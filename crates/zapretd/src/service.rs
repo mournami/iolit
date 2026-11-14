@@ -191,35 +191,14 @@ impl<E: Engine> Controller<E> {
         }
         self.write_domains(&domains)
     }
-    fn doctor(&mut self) -> Result<DoctorResult> {
+    /// The controller's part of Doctor's facts; `crate::doctor` adds the rest.
+    fn doctor_facts(&mut self) -> Result<zapret_core::doctor::Facts> {
         let s = self.status()?;
-        Ok(DoctorResult {
-            checks: vec![
-                DoctorCheck {
-                    name: "Системная служба".into(),
-                    ok: true,
-                    detail: Some("Служба доступна".into()),
-                },
-                DoctorCheck {
-                    name: "Движок".into(),
-                    ok: s.running,
-                    detail: Some(
-                        if s.running {
-                            "Движок запущен"
-                        } else {
-                            "Движок выключен"
-                        }
-                        .into(),
-                    ),
-                },
-                DoctorCheck {
-                    name: "WinDivert".into(),
-                    ok: self.root.join("bin/WinDivert64.sys").is_file(),
-                    detail: Some(
-                        "Проверка наличия драйвера. Работу подтверждает запуск движка.".into(),
-                    ),
-                },
-            ],
+        Ok(zapret_core::doctor::Facts {
+            enabled: std::fs::read(self.data.join("enabled")).is_ok_and(|v| v == b"1"),
+            engine_running: s.running,
+            engine_warnings: s.warnings,
+            ..Default::default()
         })
     }
 }
@@ -319,6 +298,21 @@ impl<E: Engine + 'static> Daemon<E> {
                         .await??;
                     return Ok(DaemonResponse::Empty(()));
                 }
+                // Doctor queries DNS and the service manager: off the lock too.
+                if let DaemonCommand::Doctor = other {
+                    let (root, data, facts) = {
+                        let controller = &mut *self.controller.lock().await;
+                        let facts = controller.doctor_facts()?;
+                        (controller.root.clone(), controller.data.clone(), facts)
+                    };
+                    let facts = tokio::task::spawn_blocking(move || {
+                        crate::doctor::facts(&root, &data, facts)
+                    })
+                    .await?;
+                    return Ok(DaemonResponse::Doctor(DoctorResult {
+                        checks: zapret_core::doctor::checks(&facts),
+                    }));
+                }
                 let controller = &mut *self.controller.lock().await;
                 match other {
                     DaemonCommand::Enable => controller.enable().await?,
@@ -328,9 +322,6 @@ impl<E: Engine + 'static> Daemon<E> {
                     }
                     DaemonCommand::AddDomain { domain } => controller.add_domain(&domain)?,
                     DaemonCommand::RemoveDomain { domain } => controller.remove_domain(&domain)?,
-                    DaemonCommand::Doctor => {
-                        return Ok(DaemonResponse::Doctor(controller.doctor()?));
-                    }
                     _ => unreachable!(),
                 }
                 Ok(DaemonResponse::Empty(()))

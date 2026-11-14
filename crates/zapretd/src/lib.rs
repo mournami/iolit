@@ -1,3 +1,4 @@
+pub mod doctor;
 pub mod engine;
 mod logging;
 pub mod operation;
