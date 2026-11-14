@@ -16,6 +16,9 @@ fn main() -> Result<()> {
         root.join("contracts/bundle-manifest.schema.json"),
         schema + "\n",
     )?;
+    let schema =
+        serde_json::to_string_pretty(&schemars::schema_for!(zapret_core::targets::TargetList))?;
+    fs::write(root.join("contracts/targets.schema.json"), schema + "\n")?;
     let config = Config::default();
     let declarations = [
         DaemonCommand::decl(&config),

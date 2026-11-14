@@ -1,34 +1,27 @@
-use crate::ProbeResult;
+use crate::{
+    ProbeResult,
+    targets::{Check, TargetList},
+};
 use std::{
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
 };
 use tokio::net::UdpSocket;
 
-pub async fn run() -> Vec<ProbeResult> {
-    let targets = [
-        (
-            "internet",
-            "Интернет",
-            "https://www.gstatic.com/generate_204",
-        ),
-        ("youtube", "YouTube", "https://www.youtube.com/"),
-        (
-            "discord",
-            "Discord API",
-            "https://discord.com/api/v10/gateway",
-        ),
-        (
-            "cloudflare",
-            "Cloudflare",
-            "https://www.cloudflare.com/cdn-cgi/trace",
-        ),
-    ];
+/// Runs every check of `targets` in parallel; results sorted by id.
+pub async fn run(targets: &TargetList) -> Vec<ProbeResult> {
     let mut tasks = tokio::task::JoinSet::new();
-    for (id, name, url) in targets {
-        tasks.spawn(http_probe(id, name, url));
+    for target in &targets.targets {
+        let (id, name) = (target.id.clone(), target.name.clone());
+        match target.check.clone() {
+            Check::Https { url } => {
+                tasks.spawn(async move { http_probe(&id, &name, &url).await });
+            }
+            Check::Stun { host, port } => {
+                tasks.spawn(async move { stun_probe(&id, &name, &host, port).await });
+            }
+        }
     }
-    tasks.spawn(stun_probe());
     let mut results = Vec::new();
     while let Some(result) = tasks.join_next().await {
         if let Ok(result) = result {
@@ -211,11 +204,11 @@ fn network_cause(error: &anyhow::Error) -> Option<&'static str> {
     None
 }
 
-async fn stun_probe() -> ProbeResult {
+async fn stun_probe(id: &str, name: &str, host: &str, port: u16) -> ProbeResult {
     let start = Instant::now();
     let result = tokio::time::timeout(Duration::from_secs(6), async {
         let socket = UdpSocket::bind("0.0.0.0:0").await?;
-        socket.connect("stun.l.google.com:19302").await?;
+        socket.connect((host, port)).await?;
         let mut message = [0u8; 20];
         message[1] = 1;
         message[4..8].copy_from_slice(&[0x21, 0x12, 0xa4, 0x42]);
@@ -241,8 +234,8 @@ async fn stun_probe() -> ProbeResult {
         ),
     };
     ProbeResult {
-        id: "udp".into(),
-        name: "UDP / STUN".into(),
+        id: id.into(),
+        name: name.into(),
         protocol: "UDP".into(),
         ok,
         latency_ms: start.elapsed().as_millis() as u64,

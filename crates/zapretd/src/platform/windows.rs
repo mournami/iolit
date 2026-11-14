@@ -191,7 +191,11 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
                     operations.clone(),
                     store,
                     fetch,
-                    Arc::new(NetworkProbes),
+                    // Same checks before and after a bundle switch, so the
+                    // results compare; the built-in list never changes mid-run.
+                    Arc::new(NetworkProbes {
+                        targets: zapret_core::targets::TargetList::built_in(),
+                    }),
                     key,
                     sources,
                 ));

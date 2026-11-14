@@ -8,7 +8,7 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
-use zapret_core::{VERSION, api::*, strategy};
+use zapret_core::{VERSION, api::*, strategy, targets::TargetList};
 
 /// The writable user list; strategies get it in place of `list-general-user.txt`.
 const USER_DOMAINS: &str = "user-domains.txt";
@@ -21,6 +21,10 @@ pub struct Controller<E: Engine> {
     catalog: Vec<Strategy>,
     active: String,
     engine: E,
+    /// Checks of the active bundle, see `zapret_core::targets`.
+    pub(crate) targets: TargetList,
+    /// Why the bundle's checks were not loaded, shown until the bundle changes.
+    targets_warning: Option<String>,
     pub(crate) warning: Option<String>,
     pub bundle: BundleStatus,
 }
@@ -36,12 +40,15 @@ impl<E: Engine> Controller<E> {
             .context("Нет стратегий")?
             .id
             .clone();
+        let (targets, targets_warning) = load_targets(&root);
         Ok(Self {
             root,
             data,
             catalog,
             active,
             engine,
+            targets,
+            targets_warning,
             warning: None,
             bundle: BundleStatus::default(),
         })
@@ -66,11 +73,16 @@ impl<E: Engine> Controller<E> {
         let old_root = std::mem::replace(&mut self.root, root);
         let old_catalog = std::mem::replace(&mut self.catalog, catalog);
         let old_active = std::mem::replace(&mut self.active, active);
+        let (targets, targets_warning) = load_targets(&self.root);
+        let old_targets = std::mem::replace(&mut self.targets, targets);
+        let old_targets_warning = std::mem::replace(&mut self.targets_warning, targets_warning);
         if running && let Err(e) = self.start().await {
             let _ = self.stop();
             self.root = old_root;
             self.catalog = old_catalog;
             self.active = old_active;
+            self.targets = old_targets;
+            self.targets_warning = old_targets_warning;
             let _ = self.start().await;
             return Err(e.context("Новый набор стратегий не запустился"));
         }
@@ -83,6 +95,7 @@ impl<E: Engine> Controller<E> {
         let state = self.engine.is_ready()?;
         let mut warnings = state.warnings;
         warnings.extend(self.warning.clone());
+        warnings.extend(self.targets_warning.clone());
         Ok(ServiceStatus {
             installed: true,
             running: state.running,
@@ -250,6 +263,20 @@ impl<E: Engine> Backend for Controller<E> {
     }
 }
 
+/// The bundle's checks; a broken file falls back to the built-in list with a
+/// warning instead of leaving the service without checks.
+fn load_targets(root: &std::path::Path) -> (TargetList, Option<String>) {
+    match TargetList::load(root) {
+        Ok(targets) => (targets, None),
+        Err(e) => (
+            TargetList::built_in(),
+            Some(format!(
+                "Список проверок из набора не загружен ({e:#}); используется встроенный"
+            )),
+        ),
+    }
+}
+
 /// The bundle catalog plus the saved composite, if it is valid.
 fn with_composite(mut catalog: Vec<Strategy>, data: &std::path::Path) -> Vec<Strategy> {
     let saved = std::fs::read(data.join(COMPOSITE))
@@ -282,7 +309,9 @@ impl<E: Engine + 'static> Daemon<E> {
                 self.operations
                     .launch(
                         self.controller.clone(),
-                        Arc::new(NetworkProbes),
+                        Arc::new(NetworkProbes {
+                            targets: self.controller.lock().await.targets.clone(),
+                        }),
                         matches!(command, DaemonCommand::SelectStrategy),
                     )
                     .await?;

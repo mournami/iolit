@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 use tokio::sync::Mutex;
-use zapret_core::{ProbeResult, ServiceStatus, Strategy, composite};
+use zapret_core::{ProbeResult, ServiceStatus, Strategy, composite, targets::TargetList};
 
 pub trait Backend: Send {
     fn status(&mut self) -> Result<ServiceStatus>;
@@ -21,11 +21,21 @@ pub trait Backend: Send {
 
 pub trait Probes: Send + Sync {
     fn run(&self) -> impl Future<Output = Vec<ProbeResult>> + Send;
+    /// What the checks test; tells selection which profiles each depends on.
+    fn targets(&self) -> TargetList {
+        TargetList::built_in()
+    }
 }
-pub struct NetworkProbes;
+/// The checks of the active bundle's `targets.json`.
+pub struct NetworkProbes {
+    pub targets: TargetList,
+}
 impl Probes for NetworkProbes {
     async fn run(&self) -> Vec<ProbeResult> {
-        zapret_core::probe::run().await
+        zapret_core::probe::run(&self.targets).await
+    }
+    fn targets(&self) -> TargetList {
+        self.targets.clone()
     }
 }
 
@@ -93,6 +103,7 @@ pub async fn auto_select<B: Backend, P: Probes>(
     probes: &P,
 ) -> anyhow::Result<()> {
     let original = backend.lock().await.status()?;
+    let targets = probes.targets();
     let catalog = backend.lock().await.strategies()?;
     // The previous composite comes back if this selection is rolled back.
     let previous_composite = catalog.iter().find(|s| s.id == composite::ID).cloned();
@@ -175,7 +186,7 @@ pub async fn auto_select<B: Backend, P: Probes>(
             // the rest of the list cannot do better than the composite.
             let composable = needed
                 .iter()
-                .all(|c| winners.contains_key(c) && !composite::slots(c).is_empty());
+                .all(|c| winners.contains_key(c) && !targets.slots(c).is_empty());
             let distinct: BTreeSet<_> = winners.values().collect();
             if composable && distinct.len() > 1 {
                 break;
@@ -204,7 +215,7 @@ pub async fn auto_select<B: Backend, P: Probes>(
                 Some((check.clone(), candidates.iter().find(|s| &s.id == id)?))
             })
             .collect();
-        let tested = match composite::compose(base, &donors) {
+        let tested = match composite::compose(base, &donors, &targets) {
             Some(assembled) => {
                 backend.lock().await.set_composite(Some(assembled))?;
                 composite::ID.to_owned()
