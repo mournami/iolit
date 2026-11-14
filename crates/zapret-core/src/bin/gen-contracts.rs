@@ -23,6 +23,7 @@ fn main() -> Result<()> {
         ApiResponse::decl(&config),
         Strategy::decl(&config),
         Capabilities::decl(&config),
+        SecureDns::decl(&config),
         ServiceStatus::decl(&config),
         ProbeResult::decl(&config),
         Operation::decl(&config),

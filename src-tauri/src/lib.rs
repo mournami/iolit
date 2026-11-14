@@ -58,6 +58,12 @@ async fn add_domain(domain: String) -> ApiResult<()> {
         .map_err(msg)
 }
 #[tauri::command]
+async fn set_secure_dns(enabled: bool) -> ApiResult<()> {
+    request_command(DaemonCommand::SetSecureDns { enabled })
+        .await
+        .map_err(msg)
+}
+#[tauri::command]
 async fn remove_domain(domain: String) -> ApiResult<()> {
     request_command(DaemonCommand::RemoveDomain { domain })
         .await
@@ -143,6 +149,7 @@ pub fn run() {
             cancel_operation,
             add_domain,
             remove_domain,
+            set_secure_dns,
             domains,
             doctor,
             logs,

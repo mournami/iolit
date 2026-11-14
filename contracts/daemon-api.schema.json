@@ -329,6 +329,33 @@
           "required": [
             "cmd"
           ]
+        },
+        {
+          "description": "Cloudflare DNS over HTTPS on the active adapters (Windows 11); off\nrestores each adapter's previous DNS settings.",
+          "type": "object",
+          "properties": {
+            "args": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "enabled"
+              ]
+            },
+            "cmd": {
+              "type": "string",
+              "const": "set_secure_dns"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd",
+            "args"
+          ]
         }
       ]
     },
@@ -563,6 +590,24 @@
         "latency_ms"
       ]
     },
+    "SecureDns": {
+      "description": "System-wide secure DNS set by the service, see `SetSecureDns`.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Turned on by this app; the previous settings are saved.",
+          "type": "boolean"
+        },
+        "supported": {
+          "description": "Windows 11 or newer.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "supported",
+        "enabled"
+      ]
+    },
     "ServiceStatus": {
       "type": "object",
       "properties": {
@@ -595,6 +640,13 @@
         },
         "running": {
           "type": "boolean"
+        },
+        "secure_dns": {
+          "$ref": "#/$defs/SecureDns",
+          "default": {
+            "enabled": false,
+            "supported": false
+          }
         },
         "strategy": {
           "type": "string"
