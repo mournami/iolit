@@ -12,6 +12,7 @@
   const results = $derived([...(op?.results ?? [])].sort((a, b) => rank(a.id) - rank(b.id)));
   const failed = $derived(results.filter((r) => !r.ok).length);
   const dnsWarning = $derived(results.some((r) => r.ok && r.warning));
+  const secureDns = $derived(app.service?.secure_dns);
 
   const summary = $derived.by(() => {
     if (op?.busy) return op.total ? `${op.stage}, ${op.current} из ${op.total}` : op.stage || 'Проверяем…';
@@ -129,12 +130,23 @@
       {#if dnsWarning}
         <div class="alert warn dns-hint">
           <Icon name="info" size={16} />
-          <p>
-            Чтобы сайты открывались в браузере, включите защищённый DNS. Windows 11: «Параметры» → «Сеть и
-            Интернет» → ваше подключение → «Назначение DNS-сервера» → «Изменить» → «Вручную», DNS
-            <span class="mono">1.1.1.1</span> и <span class="mono">1.0.0.1</span>, «DNS через HTTPS». В Chrome и
-            Edge: «Конфиденциальность и безопасность» → «Использовать безопасный DNS».
-          </p>
+          {#if secureDns?.supported && !secureDns.enabled}
+            <p>
+              Включите защищённый DNS, и адреса сайтов будут приходить через HTTPS для всех программ (Cloudflare
+              <span class="mono">1.1.1.1</span>). Прежние настройки сохранятся, вернуть их можно в «Настройках».
+            </p>
+            <button class="btn sm primary" disabled={app.busy} onclick={() => app.setSecureDns(true)}>
+              {app.pending === 'dns' ? 'Включаем…' : 'Включить'}
+            </button>
+          {:else if secureDns?.enabled}
+            <p>Защищённый DNS включён. Если предупреждение осталось, проверьте ещё раз через минуту.</p>
+          {:else}
+            <p>
+              В этой версии Windows защищённый DNS для всей системы недоступен. Включите его в браузере: Chrome и
+              Edge — «Конфиденциальность и безопасность» → «Использовать безопасный DNS»; Firefox — «Приватность и
+              защита» → «DNS через HTTPS».
+            </p>
+          {/if}
         </div>
       {/if}
       <p class="note">
@@ -294,6 +306,10 @@
   .dns-hint {
     margin: 4px 20px 14px;
     font-size: 12.5px;
+    align-items: center;
+  }
+  .dns-hint .btn {
+    flex: none;
   }
   .mark.warn {
     background: var(--amber-soft);

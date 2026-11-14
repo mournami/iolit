@@ -5,7 +5,7 @@ import type { BundleStatus, DoctorCheck, DoctorResult, Snapshot } from './types'
 export type Page = 'overview' | 'checks' | 'settings';
 
 /** Command currently waiting for the service, used to word the busy state. */
-type Pending = 'enable' | 'disable' | 'strategy' | 'install' | 'diagnose' | 'select' | 'cancel' | 'doctor' | null;
+type Pending = 'enable' | 'disable' | 'strategy' | 'install' | 'diagnose' | 'select' | 'cancel' | 'doctor' | 'dns' | null;
 
 class AppState {
   page = $state<Page>('overview');
@@ -89,6 +89,22 @@ class AppState {
     return this.#run('select_strategy', undefined, 'select');
   };
   cancel = () => this.#run('cancel_operation', undefined, 'cancel');
+
+  /** Secure DNS for the whole computer; on success the checks run again. */
+  setSecureDns = async (enabled: boolean) => {
+    if (!(await this.#run('set_secure_dns', { enabled }, 'dns'))) return;
+    this.notice = enabled
+      ? 'Защищённый DNS включён: Cloudflare 1.1.1.1 через HTTPS. Прежние настройки сохранены, их вернёт выключение в «Настройках» или удаление программы.'
+      : 'Прежние настройки DNS возвращены.';
+    if (!enabled) return;
+    // Check again right away, keeping the notice: YouTube should turn green.
+    try {
+      await api('diagnose');
+      await this.refresh();
+    } catch (e) {
+      this.error = String(e);
+    }
+  };
 
   loadDomains = async () => {
     if (!native) return;
