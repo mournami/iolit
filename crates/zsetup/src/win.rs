@@ -280,12 +280,16 @@ fn install(bytes: &[u8], launch: bool) -> Result<()> {
 }
 
 fn uninstall() -> Result<()> {
-    report(Event::Plan(6));
+    report(Event::Plan(7));
     let _guard = step("Проверка прав", |_| {
         require_admin()?;
         single_instance()
     })?;
     let paths = Paths::detect()?;
+    step("Возврат настроек DNS", |notes| {
+        restore_dns(&paths, notes);
+        Ok(())
+    })?;
     step("Остановка и удаление службы", |_| remove_service())?;
     step("Закрытие Zapret Desktop", |notes| {
         close_app(&paths.app(), notes)
@@ -1138,6 +1142,30 @@ fn launch_as_user(paths: &Paths) -> Result<()> {
         .arg(paths.app())
         .spawn()?;
     Ok(())
+}
+
+/// Secure DNS turned on in the app must not outlive it: the service binary
+/// restores each adapter's saved settings. A failure only leaves a note; the
+/// user can still change DNS in Windows settings.
+fn restore_dns(paths: &Paths, notes: &mut Vec<String>) {
+    let service = paths.service();
+    if !service.exists() {
+        return;
+    }
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    match Command::new(&service)
+        .arg("--restore-dns")
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+    {
+        Ok(status) if status.success() => {}
+        Ok(status) => notes.push(format!(
+            "настройки DNS не вернулись (код {}); проверьте их в «Параметрах» → «Сеть и Интернет»",
+            status.code().unwrap_or(-1)
+        )),
+        Err(e) => notes.push(format!("настройки DNS не вернулись: {e}")),
+    }
 }
 
 /// Opens the WebView2 download page in the user's browser, not elevated.
