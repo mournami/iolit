@@ -398,7 +398,7 @@ async fn services_fixed_by_different_strategies_get_a_composite() {
     assert!(
         backend
             .events
-            .contains(&"composite:основа a; youtube: b".to_string()),
+            .contains(&"composite:основа a; YouTube: b".to_string()),
         "{:?}",
         backend.events
     );

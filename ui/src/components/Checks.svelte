@@ -81,9 +81,15 @@
         {#if op.error}<p class="op-text bad">{op.error}</p>{/if}
         {#if op.notice}<p class="op-text">{op.notice}</p>{/if}
         {#if op.winner}
+          {@const chosen = app.data?.strategies.find((s) => s.id === op.winner)}
           <p class="op-text good">
-            Выбрана и включена стратегия {op.winner}: она дважды прошла все проверки. Видео и голос в Discord проверьте в
-            самих приложениях.
+            {#if op.winner === 'composite'}
+              Включена стратегия, собранная по сервисам ({chosen?.description ?? 'у каждого сервиса своя'}): она дважды
+              прошла проверки.
+            {:else}
+              Выбрана и включена стратегия {chosen?.name ?? op.winner}: она дважды прошла проверки.
+            {/if}
+            Видео и голос в Discord проверьте в самих приложениях.
           </p>
         {/if}
       </section>

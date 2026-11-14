@@ -42,6 +42,17 @@ pub fn slots(check: &str) -> &'static [Slot] {
     }
 }
 
+/// How a check is named in the composite's description.
+fn label(check: &str) -> &str {
+    match check {
+        "youtube" => "YouTube",
+        "discord" => "Discord",
+        "udp" => "голос Discord",
+        "cloudflare" => "Cloudflare",
+        other => other,
+    }
+}
+
 fn has(profile: &[String], prefix: &str, needle: &str) -> bool {
     profile
         .iter()
@@ -122,7 +133,7 @@ pub fn compose(base: &Strategy, winners: &BTreeMap<String, &Strategy>) -> Option
     let mut parts = vec![format!("основа {}", base.name)];
     for (check, strategy) in winners {
         if strategy.id != base.id && slots(check).iter().any(|s| used.contains_key(s)) {
-            parts.push(format!("{check}: {}", strategy.name));
+            parts.push(format!("{}: {}", label(check), strategy.name));
         }
     }
     Some(Strategy {
@@ -170,7 +181,7 @@ mod tests {
             composite.arguments.iter().filter(|a| *a == "--new").count(),
             3
         );
-        assert_eq!(composite.description, "основа a; youtube: b");
+        assert_eq!(composite.description, "основа a; YouTube: b");
     }
 
     #[test]
