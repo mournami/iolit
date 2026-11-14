@@ -37,7 +37,8 @@ is replaced by the application's own MIT license.
 
 ## Interface fonts and icons
 
-Bundled into the desktop interface, nothing is loaded at runtime:
+Bundled into the desktop interface and the installer window (Latin and Cyrillic
+subsets copied to `crates/zsetup/ui/fonts/`), nothing is loaded at runtime:
 
 - Inter (`@fontsource-variable/inter`), SIL Open Font License 1.1: `Inter-OFL.txt`.
 - Geist Mono (`@fontsource/geist-mono`), SIL Open Font License 1.1: `GeistMono-OFL.txt`.
