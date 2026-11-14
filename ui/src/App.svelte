@@ -4,6 +4,8 @@
   import Icon from './Icon.svelte';
   import { app, type Page } from './store.svelte';
   import { theme } from './theme.svelte';
+  import { appearance } from './appearance.svelte';
+  import { applyWindowIcon } from './windowIcon';
   import Checks from './components/Checks.svelte';
   import Mark from './components/Mark.svelte';
   import Overview from './components/Overview.svelte';
@@ -30,6 +32,16 @@
             ? { text: 'Служба работает', tone: 'ok' }
             : { text: 'Служба на связи', tone: 'ok' },
   );
+
+  // Taskbar and tray follow the icon chosen in settings. The exe icon is
+  // already the default mark, so nothing is sent until the user picks one.
+  let iconTouched = false;
+  $effect(() => {
+    const icon = appearance.icon;
+    if (!native || (!icon && !iconTouched)) return;
+    iconTouched = true;
+    void applyWindowIcon(icon);
+  });
 
   onMount(() => {
     void app.refresh();
