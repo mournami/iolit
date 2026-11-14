@@ -101,6 +101,7 @@ impl Probes for ScriptedProbes {
             ok,
             latency_ms: 1,
             detail: String::new(),
+            warning: None,
         }]
     }
 }

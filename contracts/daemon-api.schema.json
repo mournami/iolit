@@ -469,6 +469,13 @@
         },
         "protocol": {
           "type": "string"
+        },
+        "warning": {
+          "description": "The service answered, but something outside the bypass needs the\nuser's attention (the system DNS did not know the address).",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [

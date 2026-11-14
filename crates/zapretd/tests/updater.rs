@@ -105,6 +105,7 @@ impl Probes for ScriptedProbes {
                 ok: i < n,
                 latency_ms: 0,
                 detail: String::new(),
+                warning: None,
             })
             .collect()
     }

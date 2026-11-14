@@ -112,6 +112,7 @@ async fn commands_preserve_preferences_busy_gate_and_report_privacy() {
         ok: false,
         latency_ms: 1,
         detail: "192.0.2.4 private.example".into(),
+        warning: None,
     }];
     let report =
         serde_json::to_string(&daemon.dispatch(DaemonCommand::Report).await.unwrap()).unwrap();

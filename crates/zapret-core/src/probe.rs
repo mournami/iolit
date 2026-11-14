@@ -1,5 +1,8 @@
 use crate::ProbeResult;
-use std::time::{Duration, Instant};
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::{Duration, Instant},
+};
 use tokio::net::UdpSocket;
 
 pub async fn run() -> Vec<ProbeResult> {
@@ -38,31 +41,26 @@ pub async fn run() -> Vec<ProbeResult> {
 
 async fn http_probe(id: &str, name: &str, url: &str) -> ProbeResult {
     let start = Instant::now();
-    let result = async {
-        let client = reqwest::Client::builder()
-            .no_proxy()
-            .timeout(Duration::from_secs(9))
-            .connect_timeout(Duration::from_secs(5))
-            .user_agent("ZapretDesktop/0.1 network-check")
-            .build()?;
-        let mut response = client.get(url).send().await?;
-        let status = response.status();
-        if !status.is_success() {
-            anyhow::bail!(
-                "Сервис ответил HTTP {}. Полная работа не подтверждена.",
-                status.as_u16()
-            );
-        }
-        let mut bytes = 0;
-        while let Some(chunk) = response.chunk().await? {
-            bytes += chunk.len();
-            if bytes >= 65536 {
-                break;
+    let mut warning = None;
+    let mut result = fetch(url, None).await;
+    // A DNS failure says nothing about DPI: ask a public resolver over HTTPS
+    // and check the service by that address, so strategy selection measures
+    // the bypass. The DNS problem is reported separately.
+    if let Err(error) = &result
+        && is_dns_failure(error)
+        && let Some(host) = reqwest::Url::parse(url)
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_owned))
+        && let Some(addresses) = resolve_over_https(&host).await
+    {
+        result = match fetch(url, Some((&host, &addresses))).await {
+            Ok(detail) => {
+                warning = Some(DNS_WARNING.to_owned());
+                Ok(format!("{detail} · адрес получен через защищённый DNS"))
             }
-        }
-        Ok::<_, anyhow::Error>(format!("TLS и HTTP работают · получено {bytes} байт"))
+            Err(e) => Err(e.context("системный DNS не знает адрес; по адресу из защищённого DNS")),
+        };
     }
-    .await;
     ProbeResult {
         id: id.into(),
         name: name.into(),
@@ -70,7 +68,89 @@ async fn http_probe(id: &str, name: &str, url: &str) -> ProbeResult {
         ok: result.is_ok(),
         latency_ms: start.elapsed().as_millis() as u64,
         detail: result.unwrap_or_else(|e| failure_detail(&e)),
+        warning,
     }
+}
+
+const DNS_WARNING: &str = "DNS этого компьютера не знает адрес сервиса, обычно его блокирует \
+    провайдер. Обход работает, но браузер может не открыть сайт, пока не включён защищённый DNS.";
+
+async fn fetch(url: &str, resolved: Option<(&str, &[SocketAddr])>) -> anyhow::Result<String> {
+    let mut client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(9))
+        .connect_timeout(Duration::from_secs(5))
+        .user_agent("ZapretDesktop/0.1 network-check");
+    if let Some((host, addresses)) = resolved {
+        client = client.resolve_to_addrs(host, addresses);
+    }
+    let mut response = client.build()?.get(url).send().await?;
+    let status = response.status();
+    if !status.is_success() {
+        anyhow::bail!(
+            "Сервис ответил HTTP {}. Полная работа не подтверждена.",
+            status.as_u16()
+        );
+    }
+    let mut bytes = 0;
+    while let Some(chunk) = response.chunk().await? {
+        bytes += chunk.len();
+        if bytes >= 65536 {
+            break;
+        }
+    }
+    Ok(format!("TLS и HTTP работают · получено {bytes} байт"))
+}
+
+fn is_dns_failure(error: &anyhow::Error) -> bool {
+    error
+        .chain()
+        .any(|cause| cause.to_string().to_ascii_lowercase().contains("dns error"))
+}
+
+/// DNS-over-HTTPS JSON API of public resolvers, reached by IP address so the
+/// lookup itself needs no DNS. Only the fixed check host is sent.
+const DOH_RESOLVERS: [&str; 2] = ["https://1.1.1.1/dns-query", "https://8.8.8.8/resolve"];
+
+async fn resolve_over_https(host: &str) -> Option<Vec<SocketAddr>> {
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .ok()?;
+    for resolver in DOH_RESOLVERS {
+        let Ok(response) = client
+            .get(resolver)
+            .query(&[("name", host), ("type", "A")])
+            .header("accept", "application/dns-json")
+            .send()
+            .await
+        else {
+            continue;
+        };
+        let Ok(text) = response.text().await else {
+            continue;
+        };
+        let addresses = parse_doh_answer(&text);
+        if !addresses.is_empty() {
+            return Some(addresses);
+        }
+    }
+    None
+}
+
+fn parse_doh_answer(text: &str) -> Vec<SocketAddr> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    value["Answer"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|record| record["type"] == 1)
+        .filter_map(|record| record["data"].as_str()?.parse::<IpAddr>().ok())
+        .map(|ip| SocketAddr::new(ip, 443))
+        .collect()
 }
 
 /// Failure text with the underlying cause. reqwest's own message ("error
@@ -164,6 +244,7 @@ async fn stun_probe() -> ProbeResult {
         ok,
         latency_ms: start.elapsed().as_millis() as u64,
         detail,
+        warning: None,
     }
 }
 
@@ -189,10 +270,31 @@ mod tests {
         ));
         assert!(failure_detail(&tls).contains("сертификат сервера не прошёл проверку"));
         let status = anyhow::anyhow!("Сервис ответил HTTP 403. Полная работа не подтверждена.");
+        assert!(is_dns_failure(
+            &anyhow::anyhow!("dns error: host unknown").context("client error (Connect)")
+        ));
+        assert!(!is_dns_failure(&reset));
         assert_eq!(
             failure_detail(&status),
             "Проверка не прошла: Сервис ответил HTTP 403. Полная работа не подтверждена. \
              Причина блокировки не установлена."
         );
+    }
+
+    #[test]
+    fn doh_answer_keeps_ipv4_records_only() {
+        let answer = r#"{"Status":0,"Answer":[
+            {"name":"www.youtube.com","type":5,"data":"youtube-ui.l.google.com."},
+            {"name":"youtube-ui.l.google.com","type":1,"data":"192.0.2.10"},
+            {"name":"youtube-ui.l.google.com","type":1,"data":"192.0.2.11"}]}"#;
+        assert_eq!(
+            parse_doh_answer(answer),
+            vec![
+                "192.0.2.10:443".parse::<SocketAddr>().unwrap(),
+                "192.0.2.11:443".parse().unwrap()
+            ]
+        );
+        assert!(parse_doh_answer(r#"{"Status":3}"#).is_empty());
+        assert!(parse_doh_answer("not json").is_empty());
     }
 }

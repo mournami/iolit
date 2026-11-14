@@ -169,6 +169,11 @@ pub struct ProbeResult {
     #[ts(type = "number")]
     pub latency_ms: u64,
     pub detail: String,
+    /// The service answered, but something outside the bypass needs the
+    /// user's attention (the system DNS did not know the address).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
