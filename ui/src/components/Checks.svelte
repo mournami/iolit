@@ -132,8 +132,8 @@
           <Icon name="info" size={16} />
           {#if secureDns?.supported && !secureDns.enabled}
             <p>
-              Включите защищённый DNS, и адреса сайтов будут приходить через HTTPS для всех программ (Cloudflare
-              <span class="mono">1.1.1.1</span>). Прежние настройки сохранятся, вернуть их можно в «Настройках».
+              Включите защищённый DNS, и адреса сайтов будут приходить через HTTPS для всех программ (Cloudflare, Google
+              или Quad9 — какой ответит). Прежние настройки сохранятся, вернуть их можно в «Настройках».
             </p>
             <button class="btn sm primary" disabled={app.busy} onclick={() => app.setSecureDns(true)}>
               {app.pending === 'dns' ? 'Включаем…' : 'Включить'}

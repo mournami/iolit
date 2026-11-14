@@ -12,7 +12,11 @@ supported: boolean,
 /**
  * Turned on by this app; the previous settings are saved.
  */
-enabled: boolean, };
+enabled: boolean, 
+/**
+ * Resolver that answered when it was turned on, e.g. "Cloudflare".
+ */
+provider?: string, };
 export type ServiceStatus = { installed: boolean, running: boolean, platform: string, engine: string, strategy: string, uptime_secs: number, capabilities: Capabilities, warnings: Array<string>, packets: number, modified_packets: number, errors: number, secure_dns: SecureDns, };
 export type ProbeResult = { id: string, name: string, protocol: string, ok: boolean, latency_ms: number, detail: string, 
 /**

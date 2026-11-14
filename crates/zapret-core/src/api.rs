@@ -151,6 +151,10 @@ pub struct SecureDns {
     pub supported: bool,
     /// Turned on by this app; the previous settings are saved.
     pub enabled: bool,
+    /// Resolver that answered when it was turned on, e.g. "Cloudflare".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub provider: Option<String>,
 }
 
 impl ServiceStatus {
