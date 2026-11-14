@@ -33,6 +33,11 @@ const NAME: &str = "ZapretDesktop";
 define_windows_service!(ffi_main, service_main);
 
 pub fn entry() -> Result<()> {
+    // The uninstaller runs this before removing the service, so secure DNS
+    // turned on in the app does not outlive it.
+    if std::env::args().any(|a| a == "--restore-dns") {
+        return crate::secure_dns::set(&data_dir()?, false);
+    }
     if std::env::args().any(|a| a == "--console") {
         let (tx, rx) = watch::channel(false);
         let rt = tokio::runtime::Runtime::new()?;
@@ -131,14 +136,20 @@ impl Drop for Security {
     }
 }
 
+fn data_dir() -> Result<PathBuf> {
+    Ok(
+        PathBuf::from(std::env::var_os("ProgramData").context("Нет ProgramData")?)
+            .join("ZapretDesktop"),
+    )
+}
+
 async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
     // Executable paths come only from the installed service location.
     let install = std::env::current_exe()?
         .parent()
         .context("Нет каталога службы")?
         .to_path_buf();
-    let data = PathBuf::from(std::env::var_os("ProgramData").context("Нет ProgramData")?)
-        .join("ZapretDesktop");
+    let data = data_dir()?;
     // Downloaded bundles stay under the admin-only install folder (see updater).
     let key = updater::public_key();
     let store = Store::new(install.join("bundles"), install.join("windows"));

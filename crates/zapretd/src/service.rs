@@ -93,6 +93,7 @@ impl<E: Engine> Controller<E> {
             packets: 0,
             modified_packets: 0,
             errors: 0,
+            secure_dns: crate::secure_dns::state(&self.data),
         })
     }
     pub(crate) fn stop(&mut self) -> Result<()> {
@@ -319,6 +320,9 @@ impl<E: Engine + 'static> Daemon<E> {
                     }
                     DaemonCommand::AddDomain { domain } => controller.add_domain(&domain)?,
                     DaemonCommand::RemoveDomain { domain } => controller.remove_domain(&domain)?,
+                    DaemonCommand::SetSecureDns { enabled } => {
+                        crate::secure_dns::set(&controller.data, enabled)?
+                    }
                     DaemonCommand::Doctor => {
                         return Ok(DaemonResponse::Doctor(controller.doctor()?));
                     }

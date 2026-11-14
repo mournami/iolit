@@ -33,6 +33,11 @@ pub enum DaemonCommand {
     Domains,
     Logs,
     Report,
+    /// Cloudflare DNS over HTTPS on the active adapters (Windows 11); off
+    /// restores each adapter's previous DNS settings.
+    SetSecureDns {
+        enabled: bool,
+    },
 }
 
 // One short-lived value per request; boxing the snapshot would buy nothing.
@@ -135,6 +140,17 @@ pub struct ServiceStatus {
     pub modified_packets: u64,
     #[ts(type = "number")]
     pub errors: u64,
+    #[serde(default)]
+    pub secure_dns: SecureDns,
+}
+
+/// System-wide secure DNS set by the service, see `SetSecureDns`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
+pub struct SecureDns {
+    /// Windows 11 or newer.
+    pub supported: bool,
+    /// Turned on by this app; the previous settings are saved.
+    pub enabled: bool,
 }
 
 impl ServiceStatus {
@@ -155,6 +171,7 @@ impl ServiceStatus {
             warnings: vec![reason],
             packets: 0,
             modified_packets: 0,
+            secure_dns: SecureDns::default(),
             errors: 0,
         }
     }
