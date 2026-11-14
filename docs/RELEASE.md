@@ -833,3 +833,72 @@ Known gaps and ideas for next time:
 - Appearance is per window (local storage), not per machine; exe and
   shortcut icons are fixed.
 - Signing (SmartScreen warning) is a release gate and needs the owner.
+
+## 2026-11-14: secure DNS rollback, real Doctor, selection per service (`phase1/mvp`)
+
+Review of the day's `codex/desktop-app` work found three phase 1 gaps; this
+branch closes the code part of them. Built and checked on macOS (owner's PC
+has no TSPU, so nothing here is a bypass test).
+
+1. **Secure DNS could leave the PC without DNS.** DoH without plain-text
+   fallback was applied and never checked. Now each resolver is applied and
+   checked through the system resolver (`DnsQuery_W`, cache and hosts file
+   bypassed, up to 4 s): Cloudflare, then Google, then Quad9. The first that
+   answers is kept and shown (`SecureDns.provider`); if none answers the saved
+   settings are restored at once and the error names each resolver. A failed
+   restore keeps the backup so "Выключить" or uninstall can retry. The command
+   runs off the controller lock. Recorded in `docs/ARCHITECTURE.md` (API
+   list and a paragraph on the one command that changes network settings).
+2. **Doctor was a stub.** Pure checks in `zapret_core::doctor`, facts read by
+   `zapretd/src/doctor.rs` (read only): engine off although the user turned
+   it on (with the engine's warning), missing `winws.exe`/`WinDivert64.sys`,
+   WinDivert/WinDivert14 driver loaded from outside the bundle folder,
+   running GoodbyeDPI, ByeDPI, SpoofDPI, a `winws.exe` from another folder,
+   services `zapret` (Flowseal), `winws1`/`winws2`, `GoodbyeDPI` (stopped ones
+   are a note), and whether the system DNS finds www.youtube.com (3 s).
+   Shows process and service names only, no paths or addresses.
+3. **Selection per service with composite** (architecture step 5).
+   For every check that fails without bypass the first strategy that fixes it
+   is remembered. Nobody passes everything → the strategy that fixed the most
+   is the base, and the profiles of each service's slots (`--filter-*`,
+   hostlist and ipset decide the slot: list-google → YouTube, list-general
+   TCP and discord.media → Discord, discord/stun L7 → UDP, ipset-all TCP →
+   Cloudflare) come from that service's strategy. `--wf-*` stays from the
+   base (identical in all 22 Flowseal strategies). The composite is checked
+   twice and stored as strategy `composite` ("Подобрано по сервисам") in
+   `%ProgramData%\ZapretDesktop\composite.json`; on failure the previous one
+   comes back. Scanning stops once every failing service has a strategy. A
+   service no strategy fixes is named in the notice and the rest is kept
+   (before, the whole selection was rolled back). The notice gives the time
+   selection took.
+4. HTTPS check timeout 9 → 7 s (connect 5 → 4 s). Worst case with 22
+   strategies that all fail is still about 3 min 15 s; the early stop is what
+   keeps typical runs short. Not measured on a real network.
+5. Overview: the "Изменено пакетов" tile (winws reports none) shows the DNS
+   in use instead; strategy names instead of ids; composite makeup shown.
+
+| Check (macOS, arm64) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Passed |
+| `cargo xwin clippy -p zapretd -p zapret-core --target x86_64-pc-windows-msvc --all-targets -- -D warnings` | Passed |
+| `cargo test --workspace` | Passed (new: 4 secure DNS fallback/rollback, 5 Doctor, 3 composite incl. all 22 Flowseal strategies, 3 selection, 2 daemon API) |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| `scripts/build_windows_cross.sh` | Passed, `outputs/Zapret-Desktop-Setup.exe` 8.5 MB |
+
+Not verified on Windows (for testers):
+
+- Secure DNS on a network where Cloudflare DoH is blocked: should fall back
+  to Google/Quad9 or restore DNS, never leave the PC without DNS.
+- Doctor with GoodbyeDPI or Flowseal zapret running, and on a clean PC.
+- Selection on a provider where no single strategy fixes everything:
+  composite chosen, YouTube and Discord work, time of the run.
+- Provider name and selection time for each tester (exit criterion).
+
+Still open in phase 1:
+
+- `targets.json` (checks as bundle data): checks and their slots are a Rust
+  table (`probe.rs`, `composite::slots`) for now.
+- Doctor's light check every 10 minutes and on network change, re-selection
+  of only the broken service.
+- Signed bundle channel: needs the owner's production key decision.
