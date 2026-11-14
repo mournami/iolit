@@ -608,3 +608,43 @@ daemon opens the next instance before serving a client, and the client retries
 Not verified: the pipe fix on Windows (needs a retest of Settings).
 Open: strategy selection keeps trying all strategies when the failure is DNS;
 it could stop early and suggest changing DNS.
+
+## 2026-11-14: installer window instead of console, NSIS removed
+
+Decision of both developers: one own installer, no NSIS, MSI, Inno or
+console. `zsetup` keeps every install step as it was; only the output moved
+from `println`/Enter prompts to events shown in a window.
+
+- Window: tao + wry (WebView2), frameless 420x500, rounded corners on
+  Windows 11, our palette and fonts; the page `crates/zsetup/ui/index.html` and
+  fonts are embedded and served from a custom protocol, WebView2 profile in
+  `%TEMP%` (removed on exit), devtools, context menu and browser keys off.
+- Install: one UAC prompt (manifest), installing starts at once, progress
+  "N из 10" with the current step, then the app opens and the window closes by
+  itself. Step notes (for example a file replaced after reboot) keep the window
+  open with a Close button. Failure: step and error, Retry, Copy, Close. Close
+  and Alt+F4 are ignored while steps run.
+- Uninstall from Apps: same window, one confirmation, then progress.
+  "Stop WinDivert" shortcut: same window, starts at once.
+- No WebView2: a system message offers the Microsoft download page.
+- `--quiet`: no window, attaches to the parent console and prints steps
+  (CI install/reinstall/uninstall test unchanged).
+- Exe: GUI subsystem, icon and version info (tauri-winres), manifest with
+  requireAdministrator, Common Controls 6, PerMonitorV2. Size 8.1 MB (was 7.3).
+- Tauri bundler: NSIS config and `packaging/windows/hooks.nsh` removed;
+  bundle targets only `app` (macOS).
+- Tester guide: SmartScreen steps and a DNS section (1.1.1.1 / DoH for
+  Windows 11, Windows 10 and browsers).
+
+| Check (Arch Linux) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
+| `cargo xwin clippy -p zsetup --target x86_64-pc-windows-msvc --all-targets -- -D warnings` | Passed |
+| `cargo test --workspace --locked` | 48 passed, 0 failed |
+| Windows cross-build (`build.sh`) | Passed; PE subsystem GUI, manifest present |
+| Page states in Chromium (Playwright, mocked events) | Progress, done, done with note, failure, uninstall question, stop done; no page errors |
+
+Not verified: the installer window on real Windows (WebView2 crashes under
+Wine), UAC and SmartScreen flow, auto-launch of the app, uninstall from Apps,
+the no-WebView2 message, `--quiet` console output in CI.

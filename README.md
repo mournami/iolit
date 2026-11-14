@@ -61,11 +61,16 @@ installer with `cargo-xwin` (on this repository's macOS setup also set
 `CC=/usr/bin/clang CXX=/usr/bin/clang++`). Both write
 `outputs/Zapret-Desktop-Setup.exe`.
 
-The installer is our own Rust program (`crates/zsetup`): one console window, a
-UAC prompt, a fixed folder in Program Files, a per-machine Windows service and
-Start menu and desktop shortcuts; the GUI itself is not elevated. It prints the
-duration of every step. `--quiet` installs without prompts and without opening
-the app. Source profiles are imported without running upstream batch scripts:
+The installer is our own Rust program (`crates/zsetup`), the only installer we
+ship (no NSIS, MSI or Inno). One UAC prompt, then a small window in the app's
+style (WebView2 page embedded in the exe, `crates/zsetup/ui/index.html`)
+installs at once with a progress bar and opens the app; there are no pages or
+choices. It installs to a fixed folder in Program Files with a per-machine
+Windows service and Start menu and desktop shortcuts; the GUI itself is not
+elevated. On failure the window shows the step and error with Retry and Copy.
+Without WebView2 it offers the Microsoft download page. `--quiet` installs
+without a window and without opening the app, printing each step and its
+duration to the calling console. Source profiles are imported without running upstream batch scripts:
 `zbuild` compiles the pinned Flowseal `.bat` files with the Rust strategy
 compiler. Windows on ARM is not supported by this WinDivert build.
 
@@ -95,7 +100,8 @@ sudo "/Library/PrivilegedHelperTools/io.zapret.desktop.engine" guard \
 
 `scripts/uninstall_macos.sh` unregisters the service and guard without deleting
 user data. On Windows, use the ordinary installed-apps uninstaller (it runs
-`uninstall.exe --uninstall`; add `--quiet` for no prompts). Data is retained
+`uninstall.exe --uninstall` in the same window, with one confirmation; add
+`--quiet` for no window). Data is retained
 under `%ProgramData%/ZapretDesktop`.
 
 ## Licensing
