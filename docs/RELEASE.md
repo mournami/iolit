@@ -914,3 +914,40 @@ Still to write down for the phase 1 gate (line "Providers" above):
 - which build they ran (installers before or after `phase1/mvp`) and which
   strategy was active;
 - how long strategy selection took (criterion: under 3 minutes).
+
+## 2026-11-14: targets.json, background check, repair of one service (`phase1/mvp`)
+
+1. **`targets.json`.** The checks (id, name, HTTPS URL or STUN host:port,
+   strategy slots) moved from Rust code to `resources/targets.json`, copied
+   into `windows/targets.json` by `zbuild prepare-windows` and signed with the
+   bundle. Validation: schema 1, 1–16 checks, unique ids, public domain names
+   only (no IP, localhost, port or login in URLs, https only). The daemon reads
+   the active bundle's file; missing → built-in copy, broken → built-in copy
+   plus a warning in the status. Schema in `contracts/targets.schema.json`
+   (CI checks it is current). The updater keeps the built-in list so checks
+   before and after a bundle switch compare.
+2. **Background check** (`zapretd/src/health.rs`). While the bypass is on:
+   every 10 minutes and after a network change (connected adapters and their
+   gateway, polled every 30 s, kept in memory only). A check that passed
+   earlier with the running strategy and fails twice 30 s apart goes to
+   `Snapshot.health.broken`. Skipped while any operation runs; results seen
+   during one are dropped. Changes nothing by itself.
+3. **Repair** (`DaemonCommand::RepairStrategy`, Overview banner "… перестал
+   работать" with "Починить"). Selection limited to the broken checks: the
+   running strategy stays the base, no run without bypass, the running
+   strategy is not retried, scanning stops when each broken check has a
+   strategy, and the composite must pass the repaired checks and everything
+   that worked before, twice; otherwise everything is rolled back.
+
+| Check (macOS, arm64) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Passed |
+| `cargo xwin clippy -p zapretd -p zapret-core --target x86_64-pc-windows-msvc --all-targets -- -D warnings` | Passed |
+| `cargo test --workspace` | Passed (new: 3 targets validation, 2 health monitor unit, 2 health tick, 2 repair) |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Vite with mocked IPC | Overview banner with a broken YouTube and "Починить" renders |
+| `zbuild prepare-windows` | `windows/targets.json` present in the bundle |
+
+Not verified on Windows: the network-change trigger (`GetAdaptersAddresses`
+gateway), the banner after a real outage, repair on a live network.
