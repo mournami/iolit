@@ -58,9 +58,10 @@
     { id: 'udp', name: 'UDP', hint: 'Отвечает STUN-сервер', icon: 'wave' },
     { id: 'cloudflare', name: 'Сайты на Cloudflare', hint: 'Проходит HTTPS', icon: 'globe' },
   ];
-  type Status = 'ok' | 'bad' | 'wait' | 'idle';
+  type Status = 'ok' | 'warn' | 'bad' | 'wait' | 'idle';
   const labels: Record<Status, string> = {
     ok: 'Доступен',
+    warn: 'Мешает DNS',
     bad: 'Не подтверждён',
     wait: 'Проверяем…',
     idle: 'Не проверен',
@@ -68,7 +69,15 @@
   const rows = $derived(
     services.map((s) => {
       const result: ProbeResult | undefined = results.find((r) => r.id === s.id);
-      const status: Status = result ? (result.ok ? 'ok' : 'bad') : op?.busy ? 'wait' : 'idle';
+      const status: Status = result
+        ? result.ok
+          ? result.warning
+            ? 'warn'
+            : 'ok'
+          : 'bad'
+        : op?.busy
+          ? 'wait'
+          : 'idle';
       return { ...s, result, status };
     }),
   );
@@ -145,7 +154,7 @@
       </div>
       <ul class="svc-list">
         {#each rows as row (row.id)}
-          <li class="svc-row" title={row.result?.detail}>
+          <li class="svc-row" title={row.result?.warning ?? row.result?.detail}>
             <span class="svc-ico"><Icon name={row.icon} size={18} /></span>
             <span class="svc-text">
               <span class="svc-name">{row.name}</span>
