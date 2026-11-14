@@ -5,6 +5,7 @@
   import Mark from './Mark.svelte';
 
   let selected = $state('');
+  const dns = $derived(app.service?.secure_dns);
   let domain = $state('');
 
   // Load the lists once the service answers, not on every refresh.
@@ -74,6 +75,33 @@
           <p class="row-d">Служба вернёт последнее состояние. Если вы выключили обход, он останется выключенным.</p>
         </div>
         <span class="value">Как было</span>
+      </div>
+      <div class="row">
+        <div>
+          <h2 class="row-k">Защищённый DNS</h2>
+          <p class="row-d">
+            {#if !dns?.supported}
+              Для всей системы есть только в Windows 11. Включите безопасный DNS в браузере.
+            {:else if dns.enabled}
+              Адреса сайтов приходят через HTTPS от Cloudflare. Выключение вернёт прежние настройки.
+            {:else}
+              Помогает, если провайдер подменяет или блокирует адреса сайтов. Cloudflare <span class="mono">1.1.1.1</span>
+              через HTTPS; прежние настройки сохранятся.
+            {/if}
+          </p>
+        </div>
+        {#if dns?.supported}
+          <button
+            class="btn sm"
+            class:primary={!dns.enabled}
+            disabled={!app.installed || app.busy}
+            onclick={() => app.setSecureDns(!dns.enabled)}
+          >
+            {app.pending === 'dns' ? 'Подождите…' : dns.enabled ? 'Выключить' : 'Включить'}
+          </button>
+        {:else}
+          <span class="value">Недоступен</span>
+        {/if}
       </div>
       <div class="row">
         <div>

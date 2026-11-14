@@ -696,3 +696,42 @@ Recording from the tester with the DNS problem, new `Zapret-Desktop-Setup.exe`
 - "Изменено пакетов" always showed 0: winws reports no counters and the
   service sends zero. The overview now shows "—, движок не сообщает" while
   running without counters.
+
+## 2026-11-14: one-click secure DNS (Windows 11)
+
+The tester fixed YouTube by hand: Settings → Wi-Fi → DNS server assignment →
+manual, `1.1.1.1` / `1.0.0.1` and `2606:4700:4700::1111` with "DNS over HTTPS:
+on (automatic template)", fallback to plain text off. After that all checks
+pass with no DNS warning. The app now does the same on request.
+
+- `DaemonCommand::SetSecureDns { enabled }` (fixed command, no arguments from
+  the user besides on/off); `ServiceStatus.secure_dns { supported, enabled }`.
+- `zapretd` (`secure_dns.rs`): connected Ethernet/Wi-Fi adapters with a
+  gateway, VPN and virtual adapters skipped. Before changing anything it saves
+  each adapter's IPv4/IPv6 servers and DoH settings to
+  `%ProgramData%\ZapretDesktop\secure-dns.json`; enabling again keeps the
+  first backup. Sets Cloudflare IPv4/IPv6 with
+  `DNS_DOH_SERVER_SETTINGS_ENABLE_AUTO`, no UDP fallback, via
+  `SetInterfaceDnsSettings` (DNS_INTERFACE_SETTINGS3). Off restores the saved
+  settings (empty list = DHCP) and deletes the backup.
+- Windows 10 (build < 22000) reports unsupported; the UI shows browser steps.
+- UI: "Включить" in the Checks DNS hint (then checks run again), row
+  "Защищённый DNS" in Settings with Включить/Выключить.
+- Uninstall: new step "Возврат настроек DNS" runs
+  `runtime\zapretd.exe --restore-dns` (no console window) before removing the
+  service; a failure leaves a note, not an error.
+- Never automatic: the app does not change DNS without the user's click, as
+  corporate networks, VPNs and routers with local names rely on their DNS.
+
+| Check (Arch Linux) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
+| `cargo xwin clippy --workspace --target x86_64-pc-windows-msvc --all-targets -- -D warnings` | Passed |
+| `cargo test --workspace --locked` | 50 passed, 0 failed |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Vite + Playwright, mocked IPC | Checks hint with button, Windows 10 hint, Settings on/off rows |
+| Windows cross-build (`build.sh`) | Passed, installer 8.2 MB |
+
+Not verified on Windows: enabling and restoring DNS on a real adapter, the
+Settings app showing the result, uninstall restore, Windows 10 message.
