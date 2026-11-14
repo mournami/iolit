@@ -771,3 +771,65 @@ storage like the theme:
 | Windows cross-build (`build.sh`) | Passed |
 
 Not verified: the eyedropper and fonts on real Windows/WebView2.
+
+## 2026-11-14: app icon, window icon
+
+- The lightning icon (`resources/icon.svg`, old placeholder) is replaced by
+  the green z tile from the title bar; all `src-tauri/icons` regenerated with
+  `tauri icon`. Exe, installer (`zsetup` embeds `icon.ico`), shortcuts, window
+  and tray use it.
+- The icon chosen in Settings → "Оформление" → "Значок" now also goes to the
+  window (taskbar, Alt+Tab) and the tray, with rounded corners; removing it
+  restores the z mark. Start menu and desktop shortcuts keep the exe icon.
+  Tauri `image-png` feature, `core:window:allow-set-icon`,
+  `core:tray:allow-get-by-id`, `core:tray:allow-set-icon`; tray id `main`.
+- Checks: fmt, clippy (workspace, locked), 50 tests, `npm run check`/`build`,
+  Windows cross-build (installer 8.4 MB) passed. Not verified on Windows.
+
+## State at the end of 2026-11-14 (handoff)
+
+Branch `codex/desktop-app`, everything pushed. Latest test installer was
+built locally at `~/E/zapret-build/out/Zapret-Desktop-Setup.exe` (cross-build
+on Arch, `~/E/zapret-build/build.sh`); CI builds the same from the branch.
+
+Done today, in order:
+
+1. Redesign of the UI after the mockup, own title bar on Windows
+   (earlier today, see above).
+2. Named pipe fix: parallel requests no longer report "service not installed".
+3. Own installer window (tao + wry), no NSIS/MSI/Inno/console; `--quiet`
+   stays windowless for CI.
+4. DNS: checks fall back to DoH so selection measures DPI only; amber
+   "Мешает DNS" with instructions.
+5. Packet counter shows "—" because winws reports none.
+6. One-click secure DNS (Windows 11): service command, backup and restore,
+   uninstall restores DNS.
+7. Appearance: background/accent pickers, fonts, cropped title-bar icon.
+8. New app icon; custom icon on taskbar and tray.
+
+Confirmed on testers' Windows 11 PCs (screen recordings):
+
+- Installer window installs over the previous version and opens the app.
+- No more red banner in Settings after the pipe fix.
+- DoH fallback: YouTube shows "Мешает DNS" instead of failing; selection
+  works.
+- Secure DNS button sets Cloudflare DoH; Windows Settings shows it; all
+  checks green afterwards.
+
+Waiting for a Windows test:
+
+- Uninstall from Apps in the window (with DNS restore step), "Выключить"
+  for secure DNS restoring DHCP, Windows 10 message.
+- Appearance on WebView2: eyedropper, Windows fonts, taskbar/tray icon swap.
+- New z icon in Start menu, taskbar and installer.
+
+Known gaps and ideas for next time:
+
+- Why the service (LocalSystem) gets no DNS answer for YouTube while the
+  user's browser does: the browser uses its own DoH; plain DNS for YouTube is
+  dropped by the provider on testers' networks. Secure DNS covers it.
+- Settings rows without a service setting yet: restart behaviour, update
+  toggle; "slow" status; Doctor could detect DNS blocking up front.
+- Appearance is per window (local storage), not per machine; exe and
+  shortcut icons are fixed.
+- Signing (SmartScreen warning) is a release gate and needs the owner.
