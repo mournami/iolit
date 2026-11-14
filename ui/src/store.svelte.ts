@@ -93,8 +93,9 @@ class AppState {
   /** Secure DNS for the whole computer; on success the checks run again. */
   setSecureDns = async (enabled: boolean) => {
     if (!(await this.#run('set_secure_dns', { enabled }, 'dns'))) return;
+    const provider = this.data?.service.secure_dns.provider ?? 'публичный DNS';
     this.notice = enabled
-      ? 'Защищённый DNS включён: Cloudflare 1.1.1.1 через HTTPS. Прежние настройки сохранены, их вернёт выключение в «Настройках» или удаление программы.'
+      ? `Защищённый DNS включён: ${provider} через HTTPS. Прежние настройки сохранены, их вернёт выключение в «Настройках» или удаление программы.`
       : 'Прежние настройки DNS возвращены.';
     if (!enabled) return;
     // Check again right away, keeping the notice: YouTube should turn green.

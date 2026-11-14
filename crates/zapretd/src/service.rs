@@ -311,6 +311,14 @@ impl<E: Engine + 'static> Daemon<E> {
                 let _gate = self.operations.gate.try_lock().map_err(|_| {
                     anyhow::anyhow!("Дождитесь завершения проверки или отмените её")
                 })?;
+                // Applying and checking secure DNS takes seconds; status requests
+                // keep working meanwhile, so it runs off the controller lock.
+                if let DaemonCommand::SetSecureDns { enabled } = other {
+                    let data = self.controller.lock().await.data.clone();
+                    tokio::task::spawn_blocking(move || crate::secure_dns::set(&data, enabled))
+                        .await??;
+                    return Ok(DaemonResponse::Empty(()));
+                }
                 let controller = &mut *self.controller.lock().await;
                 match other {
                     DaemonCommand::Enable => controller.enable().await?,
@@ -320,9 +328,6 @@ impl<E: Engine + 'static> Daemon<E> {
                     }
                     DaemonCommand::AddDomain { domain } => controller.add_domain(&domain)?,
                     DaemonCommand::RemoveDomain { domain } => controller.remove_domain(&domain)?,
-                    DaemonCommand::SetSecureDns { enabled } => {
-                        crate::secure_dns::set(&controller.data, enabled)?
-                    }
                     DaemonCommand::Doctor => {
                         return Ok(DaemonResponse::Doctor(controller.doctor()?));
                     }

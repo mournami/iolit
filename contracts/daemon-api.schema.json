@@ -598,6 +598,13 @@
           "description": "Turned on by this app; the previous settings are saved.",
           "type": "boolean"
         },
+        "provider": {
+          "description": "Resolver that answered when it was turned on, e.g. \"Cloudflare\".",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "supported": {
           "description": "Windows 11 or newer.",
           "type": "boolean"
