@@ -5,6 +5,7 @@
   import type { ProbeResult } from '../types';
 
   const service = $derived(app.service);
+  const activeStrategy = $derived(app.data?.strategies.find((s) => s.id === service?.strategy));
   const op = $derived(app.operation);
   const results = $derived(op?.results ?? []);
   const mode = $derived(
@@ -173,7 +174,9 @@
       <div class="fact strategy">
         <dt>Стратегия</dt>
         <dd>
-          <span class="fact-v mono" title={service?.strategy}>{service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span>
+          <span class="fact-v mono" title={activeStrategy?.description || service?.strategy}
+            >{activeStrategy?.name || service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span
+          >
           {#if app.installed && app.bundle}
             <span class="fact-sub" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}>
               {bundleLine(app.bundle)}
