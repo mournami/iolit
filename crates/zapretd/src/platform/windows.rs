@@ -207,6 +207,14 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
             }
         }
     }
+    tokio::spawn(crate::health::run(
+        operations.clone(),
+        controller.clone(),
+        |c: &mut Controller<Winws>| NetworkProbes {
+            targets: c.targets.clone(),
+        },
+        shutdown.clone(),
+    ));
     let daemon = Arc::new(Daemon {
         controller: controller.clone(),
         operations: operations.clone(),

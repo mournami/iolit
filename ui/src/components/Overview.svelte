@@ -59,6 +59,10 @@
     { id: 'udp', name: 'UDP', hint: 'Отвечает STUN-сервер', icon: 'wave' },
     { id: 'cloudflare', name: 'Сайты на Cloudflare', hint: 'Проходит HTTPS', icon: 'globe' },
   ];
+  /** Services the background check found broken, by name. */
+  const broken = $derived(
+    (app.health?.broken ?? []).map((id) => services.find((s) => s.id === id)?.name ?? id),
+  );
   type Status = 'ok' | 'warn' | 'bad' | 'wait' | 'idle';
   const labels: Record<Status, string> = {
     ok: 'Доступен',
@@ -138,6 +142,20 @@
   </section>
 
   <div class="ov-right">
+    {#if app.running && broken.length}
+      <div class="alert warn health" role="status">
+        <Icon name="info" size={16} />
+        <p>
+          {broken.join(', ')}
+          {broken.length > 1 ? 'перестали' : 'перестал'} работать: фоновая проверка в {formatClock(
+            new Date((app.health?.checked_at ?? 0) * 1000),
+          )} не прошла дважды. Остальное работает.
+        </p>
+        <button class="btn sm primary" disabled={app.busy} onclick={app.repairStrategy}>
+          <Icon name="wand" size={15} />Починить
+        </button>
+      </div>
+    {/if}
     <section class="panel services" aria-labelledby="svc-title">
       {#if op?.busy}
         <div class="progress" class:indeterminate={!op.total}>

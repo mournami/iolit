@@ -88,6 +88,14 @@ class AppState {
     this.page = 'checks';
     return this.#run('select_strategy', undefined, 'select');
   };
+  /** Selection only for the services the background check found broken. */
+  repairStrategy = () => {
+    this.page = 'checks';
+    return this.#run('repair_strategy', undefined, 'select');
+  };
+  get health() {
+    return this.data?.health;
+  }
   cancel = () => this.#run('cancel_operation', undefined, 'cancel');
 
   /** Secure DNS for the whole computer; on success the checks run again. */

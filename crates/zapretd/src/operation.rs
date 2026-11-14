@@ -2,6 +2,7 @@
 use crate::selector::{self, Backend, Probes};
 use anyhow::Result;
 use std::{
+    collections::BTreeSet,
     path::PathBuf,
     sync::{
         Arc,
@@ -9,13 +10,25 @@ use std::{
     },
 };
 use tokio::sync::Mutex;
-use zapret_core::{Operation, ServiceStatus};
+use zapret_core::{Health, Operation, ServiceStatus};
+
+/// What an operation does.
+pub enum Mode {
+    /// Run the checks once with the current setting.
+    Diagnose,
+    /// Full strategy selection.
+    Select,
+    /// Selection for these broken checks only.
+    Repair(BTreeSet<String>),
+}
 
 pub struct OperationManager {
     pub operation: Mutex<Operation>,
     pub gate: Arc<Mutex<()>>,
     pub(crate) cancelled: AtomicBool,
     pub(crate) recovery_path: PathBuf,
+    /// Result of the background check, see `crate::health`.
+    pub health: Mutex<Health>,
 }
 
 impl OperationManager {
@@ -25,6 +38,7 @@ impl OperationManager {
             gate: Arc::new(Mutex::new(())),
             cancelled: AtomicBool::new(false),
             recovery_path: data.join("selection-recovery.json"),
+            health: Mutex::new(Health::default()),
         }
     }
 
@@ -36,7 +50,7 @@ impl OperationManager {
         self: &Arc<Self>,
         backend: Arc<Mutex<B>>,
         probes: Arc<P>,
-        selection: bool,
+        mode: Mode,
     ) -> Result<()> {
         let gate = self
             .gate
@@ -46,10 +60,10 @@ impl OperationManager {
         self.cancelled.store(false, Ordering::Release);
         *self.operation.lock().await = Operation {
             busy: true,
-            stage: if selection {
-                "Подготавливаем подбор"
-            } else {
-                "Проверяем соединения"
+            stage: match mode {
+                Mode::Diagnose => "Проверяем соединения",
+                Mode::Select => "Подготавливаем подбор",
+                Mode::Repair(_) => "Подбираем стратегию для сломавшихся сервисов",
             }
             .into(),
             ..Default::default()
@@ -57,13 +71,23 @@ impl OperationManager {
         let state = self.clone();
         tokio::spawn(async move {
             let _gate = gate;
-            let result = if selection {
-                selector::auto_select(&state, &backend, probes.as_ref()).await
-            } else {
-                let results = probes.run().await;
-                state.operation.lock().await.results = results;
-                Ok(())
+            let result = match mode {
+                Mode::Diagnose => {
+                    let results = probes.run().await;
+                    state.operation.lock().await.results = results;
+                    Ok(())
+                }
+                Mode::Select => {
+                    selector::auto_select(&state, &backend, probes.as_ref(), None).await
+                }
+                Mode::Repair(focus) => {
+                    selector::auto_select(&state, &backend, probes.as_ref(), Some(focus)).await
+                }
             };
+            // A new strategy starts the background check's memory over.
+            if result.is_ok() && state.operation.lock().await.winner.is_some() {
+                *state.health.lock().await = Health::default();
+            }
             let mut operation = state.operation.lock().await;
             operation.busy = false;
             operation.stage = if state.cancelled.load(Ordering::Acquire) {

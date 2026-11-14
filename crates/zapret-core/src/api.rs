@@ -20,6 +20,9 @@ pub enum DaemonCommand {
     },
     Diagnose,
     SelectStrategy,
+    /// Selection only for the checks the background check found broken,
+    /// keeping the current strategy for everything else.
+    RepairStrategy,
     CancelOperation,
     Doctor,
     AddDomain {
@@ -234,6 +237,19 @@ pub struct Snapshot {
     pub operation: Operation,
     #[serde(default)]
     pub bundle: BundleStatus,
+    #[serde(default)]
+    pub health: Health,
+}
+
+/// Background check while the bypass is on: every 10 minutes and after the
+/// network changes.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+pub struct Health {
+    /// Unix time of the last background check; 0 before the first one.
+    #[ts(type = "number")]
+    pub checked_at: u64,
+    /// Ids of checks that passed earlier with this strategy and fail now.
+    pub broken: Vec<String>,
 }
 
 /// Schema root describes both directions of the daemon transport.
