@@ -5,7 +5,7 @@ import type { BundleStatus, DoctorCheck, DoctorResult, Snapshot } from './types'
 export type Page = 'overview' | 'checks' | 'settings';
 
 /** Command currently waiting for the service, used to word the busy state. */
-type Pending = 'enable' | 'disable' | 'strategy' | 'install' | 'diagnose' | 'select' | 'cancel' | 'doctor' | 'dns' | null;
+type Pending = 'enable' | 'disable' | 'strategy' | 'install' | 'diagnose' | 'select' | 'cancel' | 'doctor' | 'dns' | 'update' | null;
 
 class AppState {
   page = $state<Page>('overview');
@@ -93,6 +93,14 @@ class AppState {
     this.page = 'checks';
     return this.#run('repair_strategy', undefined, 'select');
   };
+  /** Runs the downloaded installer; the window closes and opens again. */
+  updateApp = async () => {
+    if (await this.#run('update_app', undefined, 'update'))
+      this.notice = 'Устанавливаем обновление. Окно закроется и через минуту откроется снова.';
+  };
+  get appUpdate() {
+    return this.data?.app;
+  }
   get health() {
     return this.data?.health;
   }

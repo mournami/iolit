@@ -156,6 +156,26 @@
         </button>
       </div>
     {/if}
+    {#if app.installed && app.appUpdate?.available}
+      <div class="alert good health" role="status">
+        <Icon name="download" size={16} />
+        <p>
+          {#if app.appUpdate.installing}
+            Устанавливаем версию {app.appUpdate.available}. Окно закроется и откроется снова.
+          {:else}
+            Вышла новая версия приложения {app.appUpdate.available}. Она уже скачана и проверена.
+            {#if app.appUpdate.error}<br />{app.appUpdate.error}{/if}
+          {/if}
+        </p>
+        <button
+          class="btn sm primary"
+          disabled={app.busy || app.appUpdate.installing}
+          onclick={app.updateApp}
+        >
+          <Icon name="refresh" size={15} />Обновить
+        </button>
+      </div>
+    {/if}
     <section class="panel services" aria-labelledby="svc-title">
       {#if op?.busy}
         <div class="progress" class:indeterminate={!op.total}>
