@@ -131,12 +131,16 @@ impl Manifest {
     }
 }
 
-pub fn verify_signature(envelope: &SignedManifest, key: &[u8; 32]) -> Result<Manifest> {
+/// The signed payload bytes, or an error if the signature does not match `key`.
+pub fn signed_payload(envelope: &SignedManifest, key: &[u8; 32]) -> Result<Vec<u8>> {
     let payload = STANDARD.decode(&envelope.payload)?;
     let signature = Signature::from_slice(&STANDARD.decode(&envelope.signature)?)?;
-    VerifyingKey::from_bytes(key)?
-        .verify_strict(&payload, &signature)
-        .context("Подпись набора недействительна")?;
+    VerifyingKey::from_bytes(key)?.verify_strict(&payload, &signature)?;
+    Ok(payload)
+}
+
+pub fn verify_signature(envelope: &SignedManifest, key: &[u8; 32]) -> Result<Manifest> {
+    let payload = signed_payload(envelope, key).context("Подпись набора недействительна")?;
     let manifest: Manifest = serde_json::from_slice(&payload)?;
     manifest.validate()?;
     Ok(manifest)

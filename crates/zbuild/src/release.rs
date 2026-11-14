@@ -116,6 +116,52 @@ pub fn sign_file(manifest: &Path, out: &Path, key: &SigningKey) -> Result<()> {
     Ok(())
 }
 
+/// Signed application update for the rolling `app` release: copies the
+/// installer as `Zapret-Desktop-Setup-<version>.exe` (version of this build)
+/// and writes `app-manifest.json` into `out`. With `previous` (the published
+/// manifest) the version must be newer, or clients would never offer it.
+pub fn app_release(
+    installer: &Path,
+    out: &Path,
+    previous: Option<&Path>,
+    key: &SigningKey,
+) -> Result<()> {
+    use zapret_core::app_update::{self, AppManifest, MANIFEST_NAME};
+    let version = zapret_core::VERSION;
+    if let Some(previous) = previous {
+        let envelope: SignedManifest = serde_json::from_slice(&fs::read(previous)?)?;
+        let published = app_update::verify(&envelope, key.verifying_key().as_bytes())
+            .context("Published app manifest does not verify with this key")?;
+        if !bundle::compare_versions(version, &published.version).is_gt() {
+            bail!(
+                "Version {version} is not newer than the published {}; raise it in Cargo.toml",
+                published.version
+            );
+        }
+    }
+    let bytes = fs::read(installer).with_context(|| installer.display().to_string())?;
+    let manifest = AppManifest::new(version, &bytes)?;
+    let payload = serde_json::to_vec_pretty(&manifest)?;
+    let envelope = SignedManifest {
+        payload: STANDARD.encode(&payload),
+        signature: STANDARD.encode(key.sign(&payload).to_bytes()),
+    };
+    // The same check the service runs.
+    app_update::verify(&envelope, key.verifying_key().as_bytes())?.check_installer(&bytes)?;
+    fs::create_dir_all(out)?;
+    fs::write(out.join(&manifest.installer.path), &bytes)?;
+    fs::write(
+        out.join(MANIFEST_NAME),
+        serde_json::to_string_pretty(&envelope)? + "\n",
+    )?;
+    println!(
+        "{} {version}, signed with {}",
+        manifest.installer.path,
+        public_key(key)
+    );
+    Ok(())
+}
+
 /// Client-side check, the same code the service runs before switching bundles.
 pub fn verify(envelope: &[u8], public_key: &str, archive: &[u8], dest: &Path) -> Result<Manifest> {
     let key: [u8; 32] = STANDARD
@@ -339,5 +385,32 @@ mod tests {
         )
         .unwrap();
         assert_eq!(same.matches("Без изменений.").count(), 2);
+    }
+
+    #[test]
+    fn app_release_signs_a_newer_installer_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let setup = dir.path().join("setup.exe");
+        fs::write(&setup, b"installer").unwrap();
+        let out = dir.path().join("out");
+        app_release(&setup, &out, None, &test_key()).unwrap();
+        let name = zapret_core::app_update::installer_name(zapret_core::VERSION);
+        assert_eq!(fs::read(out.join(&name)).unwrap(), b"installer");
+        let manifest = out.join("app-manifest.json");
+        let envelope: SignedManifest =
+            serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+        let verified =
+            zapret_core::app_update::verify(&envelope, test_key().verifying_key().as_bytes())
+                .unwrap();
+        assert_eq!(verified.version, zapret_core::VERSION);
+        // Publishing the same version again would never reach clients.
+        let err = app_release(
+            &setup,
+            &dir.path().join("again"),
+            Some(&manifest),
+            &test_key(),
+        )
+        .unwrap_err();
+        assert!(format!("{err:#}").contains("not newer"), "{err:#}");
     }
 }

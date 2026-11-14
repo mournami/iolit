@@ -19,7 +19,9 @@ const USAGE: &str = "usage:
   zbuild public-key                            (key from ZAPRET_BUNDLE_SIGNING_KEY)
   zbuild verify --manifest FILE --archive FILE --public-key BASE64
   zbuild changes --base DIR --new DIR
-  zbuild installer-payload --app EXE --service EXE --out FILE [--root DIR]";
+  zbuild installer-payload --app EXE --service EXE --out FILE [--root DIR]
+  zbuild app-release --installer EXE --out DIR [--previous FILE]
+                                               (key from ZAPRET_BUNDLE_SIGNING_KEY)";
 /// service.bat creates these at first launch; we never run batch files.
 const USER_LISTS: [&str; 3] = [
     "list-general-user.txt",
@@ -129,6 +131,15 @@ fn main() -> Result<()> {
                 Path::new(opts.required("app")?),
                 Path::new(opts.required("service")?),
                 Path::new(opts.required("out")?),
+            )
+        }
+        "app-release" => {
+            opts.only(&["installer", "out", "previous"])?;
+            release::app_release(
+                Path::new(opts.required("installer")?),
+                Path::new(opts.required("out")?),
+                opts.get("previous").map(Path::new),
+                &release::signing_key_from_env()?,
             )
         }
         _ => bail!("{USAGE}"),
