@@ -166,7 +166,8 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Выйти из приложения", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             let mut tray =
-                TrayIconBuilder::new()
+                // A fixed id lets the window swap the tray icon for the user's one.
+                TrayIconBuilder::with_id("main")
                     .menu(&menu)
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "show" => {
