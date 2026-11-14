@@ -12,6 +12,8 @@ use zapret_core::{VERSION, api::*, strategy};
 
 /// The writable user list; strategies get it in place of `list-general-user.txt`.
 const USER_DOMAINS: &str = "user-domains.txt";
+/// Strategy assembled by selection from several bundle strategies.
+const COMPOSITE: &str = "composite.json";
 
 pub struct Controller<E: Engine> {
     pub(crate) root: PathBuf,
@@ -24,8 +26,8 @@ pub struct Controller<E: Engine> {
 }
 impl<E: Engine> Controller<E> {
     pub fn new(root: PathBuf, data: PathBuf, engine: E) -> Result<Self> {
-        let catalog = strategy::load_catalog(&root)?;
         std::fs::create_dir_all(&data)?;
+        let catalog = with_composite(strategy::load_catalog(&root)?, &data);
         let saved = std::fs::read_to_string(data.join("strategy")).unwrap_or_default();
         let active = catalog
             .iter()
@@ -51,7 +53,7 @@ impl<E: Engine> Controller<E> {
     /// stopped; if the engine was running and fails to start from the new bundle,
     /// the previous bundle, strategy and engine state are restored.
     pub(crate) async fn switch_root(&mut self, root: PathBuf) -> Result<()> {
-        let catalog = strategy::load_catalog(&root)?;
+        let catalog = with_composite(strategy::load_catalog(&root)?, &self.data);
         let active = catalog
             .iter()
             .find(|s| s.id == self.active)
@@ -191,6 +193,26 @@ impl<E: Engine> Controller<E> {
         }
         self.write_domains(&domains)
     }
+    /// Replace (or with `None` remove) the composite strategy in the catalog
+    /// and on disk. The active strategy is not changed here.
+    fn set_composite(&mut self, composite: Option<Strategy>) -> Result<()> {
+        let file = self.data.join(COMPOSITE);
+        self.catalog.retain(|s| s.id != zapret_core::composite::ID);
+        match composite {
+            Some(composite) => {
+                strategy::validate(&composite)?;
+                let fresh = self.data.join(format!("{COMPOSITE}.new"));
+                std::fs::write(&fresh, serde_json::to_vec_pretty(&composite)?)?;
+                std::fs::rename(&fresh, &file)?;
+                self.catalog.push(composite);
+            }
+            None => match std::fs::remove_file(&file) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.into()),
+                _ => {}
+            },
+        }
+        Ok(())
+    }
     /// The controller's part of Doctor's facts; `crate::doctor` adds the rest.
     fn doctor_facts(&mut self) -> Result<zapret_core::doctor::Facts> {
         let s = self.status()?;
@@ -223,6 +245,20 @@ impl<E: Engine> Backend for Controller<E> {
     async fn set_strategy(&mut self, id: &str) -> Result<()> {
         Controller::set_strategy(self, id).await
     }
+    fn set_composite(&mut self, composite: Option<Strategy>) -> Result<()> {
+        Controller::set_composite(self, composite)
+    }
+}
+
+/// The bundle catalog plus the saved composite, if it is valid.
+fn with_composite(mut catalog: Vec<Strategy>, data: &std::path::Path) -> Vec<Strategy> {
+    let saved = std::fs::read(data.join(COMPOSITE))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Strategy>(&bytes).ok())
+        .filter(|s| s.id == zapret_core::composite::ID && strategy::validate(s).is_ok());
+    catalog.retain(|s| s.id != zapret_core::composite::ID);
+    catalog.extend(saved);
+    catalog
 }
 
 pub struct Daemon<E: Engine> {

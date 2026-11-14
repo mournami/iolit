@@ -18,6 +18,8 @@ struct FakeBackend {
     /// Strategies whose engine never starts.
     fail_start: Vec<String>,
     fail_restore: bool,
+    /// Replaces the two plain candidates.
+    catalog: Option<Vec<Strategy>>,
 }
 impl FakeBackend {
     fn new(running: bool) -> Self {
@@ -27,6 +29,7 @@ impl FakeBackend {
             events: vec![],
             fail_start: vec![],
             fail_restore: false,
+            catalog: None,
         }
     }
 }
@@ -39,6 +42,9 @@ impl Backend for FakeBackend {
         Ok(status)
     }
     fn strategies(&self) -> Result<Vec<Strategy>> {
+        if let Some(catalog) = &self.catalog {
+            return Ok(catalog.clone());
+        }
         Ok(["candidate-1", "candidate-2"]
             .iter()
             .map(|id| Strategy {
@@ -69,6 +75,13 @@ impl Backend for FakeBackend {
             bail!("restore failed");
         }
         self.active = id.into();
+        Ok(())
+    }
+    fn set_composite(&mut self, composite: Option<Strategy>) -> Result<()> {
+        self.events.push(format!(
+            "composite:{}",
+            composite.map_or("none".into(), |c| c.description)
+        ));
         Ok(())
     }
 }
@@ -201,9 +214,11 @@ async fn candidate_that_fails_to_start_is_skipped() {
     );
     let op = state.operation.lock().await;
     assert_eq!(op.winner.as_deref(), Some("candidate-2"));
-    assert_eq!(
-        op.notice.as_deref(),
-        Some("Не запустились и пропущены: candidate-1 (engine startup failed).")
+    let notice = op.notice.as_deref().unwrap();
+    assert!(notice.starts_with("Подбор занял 0 мин"), "{notice}");
+    assert!(
+        notice.ends_with("Не запустились и пропущены: candidate-1 (engine startup failed)."),
+        "{notice}"
     );
     assert!(backend.lock().await.running);
     assert!(!data.path().join("selection-recovery.json").exists());
@@ -280,4 +295,152 @@ async fn daemon_owns_operation_and_snapshot_remains_readable() {
     let op = observer.operation.lock().await;
     assert!(!op.busy);
     assert_eq!(op.stage, "Проверка отменена");
+}
+
+/// Per-service results: each strategy makes a fixed set of checks pass.
+struct ServiceProbes {
+    backend: Arc<Mutex<FakeBackend>>,
+    passes: Vec<(&'static str, Vec<&'static str>)>,
+    seen: SyncMutex<Vec<String>>,
+}
+impl Probes for ServiceProbes {
+    async fn run(&self) -> Vec<ProbeResult> {
+        let backend = self.backend.lock().await;
+        let active = if backend.running {
+            backend.active.clone()
+        } else {
+            "off".into()
+        };
+        self.seen.lock().unwrap().push(active.clone());
+        let ok: Vec<&str> = self
+            .passes
+            .iter()
+            .find(|(id, _)| *id == active)
+            .map(|(_, ok)| ok.clone())
+            .unwrap_or_default();
+        ["internet", "youtube", "discord"]
+            .iter()
+            .map(|id| ProbeResult {
+                id: id.to_string(),
+                name: id.to_string(),
+                protocol: "TCP".into(),
+                ok: *id == "internet" || ok.contains(id),
+                latency_ms: 1,
+                detail: String::new(),
+                warning: None,
+            })
+            .collect()
+    }
+}
+
+fn flowseal_like(id: &str, google: &str, general: &str) -> Strategy {
+    let args = format!(
+        "--wf-tcp=80,443 --filter-tcp=443 --hostlist=@lists/list-google.txt \
+         --dpi-desync={google} --new --filter-tcp=80,443 --hostlist=@lists/list-general.txt \
+         --dpi-desync={general}"
+    );
+    Strategy {
+        id: id.into(),
+        name: id.into(),
+        description: String::new(),
+        supported: true,
+        arguments: args.split_whitespace().map(String::from).collect(),
+    }
+}
+
+fn service_setup(
+    passes: Vec<(&'static str, Vec<&'static str>)>,
+) -> (
+    tempfile::TempDir,
+    Arc<Mutex<FakeBackend>>,
+    Arc<OperationManager>,
+    ServiceProbes,
+) {
+    let data = tempfile::tempdir().unwrap();
+    let mut fake = FakeBackend::new(false);
+    fake.catalog = Some(vec![
+        flowseal_like("a", "split", "fake"),
+        flowseal_like("b", "fake", "split"),
+        flowseal_like("c", "disorder", "disorder"),
+    ]);
+    let backend = Arc::new(Mutex::new(fake));
+    let state = Arc::new(OperationManager::new(data.path().into()));
+    let probes = ServiceProbes {
+        backend: backend.clone(),
+        passes,
+        seen: SyncMutex::new(vec![]),
+    };
+    (data, backend, state, probes)
+}
+
+#[tokio::test]
+async fn services_fixed_by_different_strategies_get_a_composite() {
+    // a fixes Discord, b fixes YouTube, c is never reached.
+    let (_data, backend, state, probes) = service_setup(vec![
+        ("a", vec!["discord"]),
+        ("b", vec!["youtube"]),
+        ("composite", vec!["youtube", "discord"]),
+    ]);
+    selector::auto_select(&state, &backend, &probes)
+        .await
+        .unwrap();
+    assert_eq!(
+        *probes.seen.lock().unwrap(),
+        ["off", "a", "b", "composite", "composite"],
+        "stops scanning once every service has a strategy"
+    );
+    assert_eq!(
+        state.operation.lock().await.winner.as_deref(),
+        Some("composite")
+    );
+    let backend = backend.lock().await;
+    assert!(backend.running);
+    assert!(
+        backend
+            .events
+            .contains(&"composite:основа a; youtube: b".to_string()),
+        "{:?}",
+        backend.events
+    );
+}
+
+#[tokio::test]
+async fn failing_composite_restores_the_previous_composite() {
+    let (data, backend, state, probes) = service_setup(vec![
+        ("a", vec!["discord"]),
+        ("b", vec!["youtube"]),
+        ("composite", vec!["youtube"]),
+    ]);
+    assert!(
+        selector::auto_select(&state, &backend, &probes)
+            .await
+            .is_err()
+    );
+    let backend = backend.lock().await;
+    assert_eq!(backend.active, "original");
+    assert!(!backend.running);
+    assert_eq!(backend.events.last().unwrap(), "strategy:original");
+    assert!(backend.events.contains(&"composite:none".to_string()));
+    assert!(!data.path().join("selection-recovery.json").exists());
+}
+
+#[tokio::test]
+async fn service_nothing_fixes_is_named_and_the_rest_is_kept() {
+    // Only YouTube can be fixed; Discord fails with every strategy.
+    let (_data, backend, state, probes) = service_setup(vec![("b", vec!["youtube"])]);
+    selector::auto_select(&state, &backend, &probes)
+        .await
+        .unwrap();
+    // All three tried, then b alone is confirmed twice (nothing to combine).
+    assert_eq!(
+        *probes.seen.lock().unwrap(),
+        ["off", "a", "b", "c", "b", "b"]
+    );
+    let op = state.operation.lock().await;
+    assert_eq!(op.winner.as_deref(), Some("b"));
+    let notice = op.notice.as_deref().unwrap();
+    assert!(
+        notice.contains("Не помогла ни одна стратегия: discord"),
+        "{notice}"
+    );
 }

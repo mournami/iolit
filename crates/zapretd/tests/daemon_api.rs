@@ -328,3 +328,46 @@ async fn doctor_reports_a_broken_engine_and_missing_files() {
     assert!(!find("Файлы движка").ok);
     assert!(find("Другие программы обхода").ok);
 }
+
+#[tokio::test]
+async fn composite_strategy_survives_a_service_restart() {
+    use zapretd::selector::Backend;
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("bundle");
+    let data = dir.path().join("data");
+    std::fs::create_dir_all(&root).unwrap();
+    let general = Strategy {
+        id: "general".into(),
+        name: "General".into(),
+        description: String::new(),
+        supported: true,
+        arguments: vec!["--test".into()],
+    };
+    std::fs::write(
+        root.join("strategies.json"),
+        serde_json::to_vec(&vec![general.clone()]).unwrap(),
+    )
+    .unwrap();
+    let mut controller =
+        Controller::new(root.clone(), data.clone(), TestEngine::default()).unwrap();
+    let composite = Strategy {
+        id: zapret_core::composite::ID.into(),
+        name: zapret_core::composite::NAME.into(),
+        description: "основа general".into(),
+        ..general.clone()
+    };
+    // A file with a bad argument is refused, not stored.
+    let bad = Strategy {
+        arguments: vec!["rm -rf".into()],
+        ..composite.clone()
+    };
+    assert!(controller.set_composite(Some(bad)).is_err());
+    controller.set_composite(Some(composite)).unwrap();
+    controller.set_strategy("composite").await.unwrap();
+    drop(controller);
+    let mut controller = Controller::new(root, data.clone(), TestEngine::default()).unwrap();
+    assert_eq!(controller.status().unwrap().strategy, "composite");
+    assert_eq!(controller.strategies().unwrap().len(), 2);
+    controller.set_composite(None).unwrap();
+    assert!(!data.join("composite.json").exists());
+}

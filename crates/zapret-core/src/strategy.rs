@@ -53,19 +53,28 @@ pub fn load_catalog(root: &Path) -> Result<Vec<Strategy>> {
         serde_json::from_slice(&std::fs::read(root.join("strategies.json"))?)?;
     let mut ids = HashSet::new();
     for s in &catalog {
-        if !valid_id(&s.id) || !ids.insert(&s.id) {
+        if !ids.insert(&s.id) {
             bail!("Некорректный или повторный идентификатор стратегии");
         }
-        if s.arguments.is_empty() {
-            bail!("Пустая стратегия {}", s.id);
-        }
-        for arg in &s.arguments {
-            if !arg.starts_with("--") || arg.contains(['\n', '\r', '\0']) {
-                bail!("Недопустимый аргумент стратегии");
-            }
-        }
+        validate(s)?;
     }
     Ok(catalog)
+}
+
+/// Checks a strategy from the bundle or the daemon's own composite file.
+pub fn validate(s: &Strategy) -> Result<()> {
+    if !valid_id(&s.id) {
+        bail!("Некорректный или повторный идентификатор стратегии");
+    }
+    if s.arguments.is_empty() {
+        bail!("Пустая стратегия {}", s.id);
+    }
+    for arg in &s.arguments {
+        if !arg.starts_with("--") || arg.contains(['\n', '\r', '\0']) {
+            bail!("Недопустимый аргумент стратегии");
+        }
+    }
+    Ok(())
 }
 
 pub fn resolve_arguments(strategy: &Strategy, root: &Path) -> Result<Vec<String>> {
