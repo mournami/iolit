@@ -735,3 +735,39 @@ pass with no DNS warning. The app now does the same on request.
 
 Not verified on Windows: enabling and restoring DNS on a real adapter, the
 Settings app showing the result, uninstall restore, Windows 10 message.
+
+## 2026-11-14: secure DNS on Windows, appearance settings
+
+Tester recording with the one-click secure DNS build: installed over the old
+version, "Включить" in Settings → "Защищённый DNS", checks pass, and Windows
+Settings shows the adapter's DNS changed by the app. Restore and uninstall
+were not shown.
+
+Appearance (Settings → "Оформление"), stored only in the window's local
+storage like the theme:
+
+- Background and accent: popover with a large saturation/brightness field,
+  hue strip, hex input (3 or 6 digits), screen eyedropper (EyeDropper API in
+  WebView2), 16 presets, back-to-theme button; changes apply live. Panels,
+  lines and text are derived from the background; a custom background picks
+  dark or light by its brightness, and choosing a theme drops it. Accent text
+  is adjusted to WCAG AA on the background; text on the accent picks the
+  higher-contrast of near-black and white; a warning shows when the accent
+  nearly matches the background.
+- Font: Inter (default), system, Geist Mono and Windows fonts (Bahnschrift,
+  Cascadia Code, Trebuchet MS, Verdana, Georgia, Consolas), each previewed in
+  its own face; logs and codes stay monospace.
+- Title-bar icon: drop or pick PNG/JPG/WebP/GIF/SVG/BMP up to 25 MB, any
+  size; drag to pan, wheel/slider/keys to zoom (100-800 %), live preview in a
+  title-bar sample; saved as a 256x256 PNG, corners rounded on display. Used
+  in the title bar and the about line.
+- "Сбросить всё" returns the defaults.
+
+| Check (Arch Linux) | Result |
+| --- | --- |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| `cargo fmt --all --check`, `cargo test --workspace --locked` | Passed |
+| Playwright on Vite with mocked IPC | Picker open, preset, hue and field drags, hex typing, font list, icon drop zone, crop with zoom and pan, saved icon in title bar, dark custom and light custom backgrounds, 720x560 popover fits, settings survive reload; no page errors |
+| Windows cross-build (`build.sh`) | Passed |
+
+Not verified: the eyedropper and fonts on real Windows/WebView2.

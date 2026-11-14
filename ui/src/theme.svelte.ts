@@ -1,4 +1,6 @@
 /** Window theme. Stored only in this window's local storage, never sent anywhere. */
+import { appearance } from './appearance.svelte';
+
 export type ThemeChoice = 'dark' | 'light' | 'system';
 
 const KEY = 'zapret-theme';
@@ -22,16 +24,21 @@ class Theme {
     media?.addEventListener('change', (e) => (this.#systemLight = e.matches));
     $effect.root(() => {
       $effect(() => {
-        document.documentElement.dataset.theme = this.resolved;
+        const resolved = this.resolved;
+        document.documentElement.dataset.theme = resolved;
+        appearance.apply(resolved);
       });
     });
   }
 
+  /** A custom background decides dark or light by its brightness. */
   get resolved(): 'dark' | 'light' {
-    return this.choice === 'system' ? (this.#systemLight ? 'light' : 'dark') : this.choice;
+    return appearance.themeFor(this.choice === 'system' ? (this.#systemLight ? 'light' : 'dark') : this.choice);
   }
 
+  /** Picking a theme drops a custom background, so the choice is visible. */
   set = (choice: ThemeChoice) => {
+    if (appearance.bg) appearance.setBg(null);
     this.choice = choice;
     try {
       localStorage.setItem(KEY, choice);
