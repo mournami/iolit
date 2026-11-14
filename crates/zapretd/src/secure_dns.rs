@@ -427,6 +427,58 @@ mod imp {
         Ok(adapters)
     }
 
+    /// Adapter names with the raw bytes of their first gateway address: a
+    /// new Wi-Fi network changes the gateway even on the same adapter.
+    pub fn signature() -> Option<String> {
+        let flags = GAA_FLAG_INCLUDE_GATEWAYS | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST;
+        let mut size = 16 * 1024u32;
+        let mut buffer: Vec<u64>;
+        loop {
+            buffer = vec![0u64; size as usize / 8 + 1];
+            let status = unsafe {
+                GetAdaptersAddresses(
+                    0,
+                    flags,
+                    std::ptr::null(),
+                    buffer.as_mut_ptr().cast(),
+                    &mut size,
+                )
+            };
+            match status {
+                0 => break,
+                111 => continue,
+                232 => return Some(String::new()),
+                _ => return None,
+            }
+        }
+        let mut parts = Vec::new();
+        let mut next = buffer.as_ptr() as *const IP_ADAPTER_ADDRESSES_LH;
+        while let Some(a) = unsafe { next.as_ref() } {
+            next = a.Next;
+            if a.OperStatus != IfOperStatusUp {
+                continue;
+            }
+            let name = unsafe { std::ffi::CStr::from_ptr(a.AdapterName.cast()) }
+                .to_string_lossy()
+                .into_owned();
+            let gateway = unsafe { a.FirstGatewayAddress.as_ref() }
+                .and_then(|g| {
+                    let address = g.Address;
+                    (!address.lpSockaddr.is_null()).then(|| unsafe {
+                        std::slice::from_raw_parts(
+                            address.lpSockaddr as *const u8,
+                            address.iSockaddrLength as usize,
+                        )
+                        .to_vec()
+                    })
+                })
+                .unwrap_or_default();
+            parts.push(format!("{name}={gateway:02x?}"));
+        }
+        parts.sort();
+        Some(parts.join(";"))
+    }
+
     fn read_family(id: GUID, ipv6: bool) -> Result<FamilySettings> {
         let mut settings: DNS_INTERFACE_SETTINGS3 = unsafe { std::mem::zeroed() };
         settings.Version = DNS_INTERFACE_SETTINGS_VERSION3;
@@ -537,6 +589,15 @@ mod imp {
             .flatten()
             .map(GUID::from_u128)
     }
+}
+
+/// Connected adapters and their gateways, for noticing a network change.
+/// Kept in memory only; `None` where it cannot be read.
+pub fn network_signature() -> Option<String> {
+    #[cfg(windows)]
+    return imp::signature();
+    #[cfg(not(windows))]
+    None
 }
 
 /// Whether the system resolver finds `name` now; for Doctor. `None` where

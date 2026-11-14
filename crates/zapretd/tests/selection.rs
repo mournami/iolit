@@ -7,7 +7,7 @@ use std::{
 use tokio::sync::{Mutex, Notify};
 use zapret_core::{ProbeResult, ServiceStatus, Strategy};
 use zapretd::{
-    operation::OperationManager,
+    operation::{Mode, OperationManager},
     selector::{self, Backend, Probes},
 };
 
@@ -144,7 +144,7 @@ fn setup(
 #[tokio::test]
 async fn baseline_restores_the_original_enabled_state() {
     let (data, backend, state, probes) = setup(true, &[true], 0);
-    selector::auto_select(&state, &backend, &probes)
+    selector::auto_select(&state, &backend, &probes, None)
         .await
         .unwrap();
     assert_eq!(*probes.seen.lock().unwrap(), [(false, "original".into())]);
@@ -156,7 +156,7 @@ async fn baseline_restores_the_original_enabled_state() {
 #[tokio::test]
 async fn winner_requires_two_successful_rounds() {
     let (_data, backend, state, probes) = setup(false, &[false, true, false, true, true], 0);
-    selector::auto_select(&state, &backend, &probes)
+    selector::auto_select(&state, &backend, &probes, None)
         .await
         .unwrap();
     assert_eq!(
@@ -178,7 +178,7 @@ async fn winner_requires_two_successful_rounds() {
 #[tokio::test]
 async fn cancellation_during_confirmation_rolls_back() {
     let (data, backend, state, probes) = setup(false, &[false, true, true], 3);
-    selector::auto_select(&state, &backend, &probes)
+    selector::auto_select(&state, &backend, &probes, None)
         .await
         .unwrap();
     assert_eq!(backend.lock().await.active, "original");
@@ -190,7 +190,7 @@ async fn cancellation_during_confirmation_rolls_back() {
 async fn failed_candidates_restore_the_original_state() {
     let (_data, backend, state, probes) = setup(true, &[false, false, false], 0);
     assert!(
-        selector::auto_select(&state, &backend, &probes)
+        selector::auto_select(&state, &backend, &probes, None)
             .await
             .is_err()
     );
@@ -201,7 +201,7 @@ async fn failed_candidates_restore_the_original_state() {
 async fn candidate_that_fails_to_start_is_skipped() {
     let (data, backend, state, probes) = setup(true, &[false, true, true], 0);
     backend.lock().await.fail_start = vec!["candidate-1".into()];
-    selector::auto_select(&state, &backend, &probes)
+    selector::auto_select(&state, &backend, &probes, None)
         .await
         .unwrap();
     assert_eq!(
@@ -227,7 +227,7 @@ async fn candidate_that_fails_to_start_is_skipped() {
 async fn no_startable_candidate_rolls_back_and_failed_restore_keeps_recovery() {
     let (data, backend, state, probes) = setup(true, &[false], 0);
     backend.lock().await.fail_start = vec!["candidate-1".into(), "candidate-2".into()];
-    let error = selector::auto_select(&state, &backend, &probes)
+    let error = selector::auto_select(&state, &backend, &probes, None)
         .await
         .unwrap_err()
         .to_string();
@@ -242,7 +242,7 @@ async fn no_startable_candidate_rolls_back_and_failed_restore_keeps_recovery() {
     let (data, backend, state, probes) = setup(true, &[false, false, false], 0);
     backend.lock().await.fail_restore = true;
     assert!(
-        selector::auto_select(&state, &backend, &probes)
+        selector::auto_select(&state, &backend, &probes, None)
             .await
             .is_err()
     );
@@ -276,11 +276,16 @@ async fn daemon_owns_operation_and_snapshot_remains_readable() {
         release: Notify::new(),
     });
     state
-        .launch(backend.clone(), probes.clone(), false)
+        .launch(backend.clone(), probes.clone(), Mode::Diagnose)
         .await
         .unwrap();
     probes.started.notified().await;
-    assert!(state.launch(backend, probes.clone(), true).await.is_err());
+    assert!(
+        state
+            .launch(backend, probes.clone(), Mode::Select)
+            .await
+            .is_err()
+    );
     assert!(state.gate.try_lock().is_err());
     assert!(
         tokio::time::timeout(std::time::Duration::from_secs(1), state.operation.lock())
@@ -381,7 +386,7 @@ async fn services_fixed_by_different_strategies_get_a_composite() {
         ("b", vec!["youtube"]),
         ("composite", vec!["youtube", "discord"]),
     ]);
-    selector::auto_select(&state, &backend, &probes)
+    selector::auto_select(&state, &backend, &probes, None)
         .await
         .unwrap();
     assert_eq!(
@@ -412,7 +417,7 @@ async fn failing_composite_restores_the_previous_composite() {
         ("composite", vec!["youtube"]),
     ]);
     assert!(
-        selector::auto_select(&state, &backend, &probes)
+        selector::auto_select(&state, &backend, &probes, None)
             .await
             .is_err()
     );
@@ -428,7 +433,7 @@ async fn failing_composite_restores_the_previous_composite() {
 async fn service_nothing_fixes_is_named_and_the_rest_is_kept() {
     // Only YouTube can be fixed; Discord fails with every strategy.
     let (_data, backend, state, probes) = service_setup(vec![("b", vec!["youtube"])]);
-    selector::auto_select(&state, &backend, &probes)
+    selector::auto_select(&state, &backend, &probes, None)
         .await
         .unwrap();
     // All three tried, then b alone is confirmed twice (nothing to combine).
@@ -443,4 +448,63 @@ async fn service_nothing_fixes_is_named_and_the_rest_is_kept() {
         notice.contains("Не помогла ни одна стратегия: discord"),
         "{notice}"
     );
+}
+
+#[tokio::test]
+async fn repair_swaps_only_the_broken_service_into_the_running_strategy() {
+    // "a" runs; YouTube broke, Discord still works. b fixes YouTube.
+    let (_data, backend, state, probes) = service_setup(vec![
+        ("a", vec!["discord"]),
+        ("b", vec!["youtube"]),
+        ("composite", vec!["youtube", "discord"]),
+    ]);
+    {
+        let mut fake = backend.lock().await;
+        fake.active = "a".into();
+        fake.running = true;
+    }
+    let focus = ["youtube".to_string()].into_iter().collect();
+    selector::auto_select(&state, &backend, &probes, Some(focus))
+        .await
+        .unwrap();
+    assert_eq!(
+        *probes.seen.lock().unwrap(),
+        ["a", "b", "composite", "composite"],
+        "no run without bypass, the running strategy is not retried"
+    );
+    assert_eq!(
+        state.operation.lock().await.winner.as_deref(),
+        Some("composite")
+    );
+    assert!(
+        backend
+            .lock()
+            .await
+            .events
+            .contains(&"composite:основа a; YouTube: b".to_string())
+    );
+}
+
+#[tokio::test]
+async fn repair_that_breaks_a_working_service_is_rolled_back() {
+    let (_data, backend, state, probes) = service_setup(vec![
+        ("a", vec!["discord"]),
+        ("b", vec!["youtube"]),
+        // The composite fixes YouTube but loses Discord.
+        ("composite", vec!["youtube"]),
+    ]);
+    {
+        let mut fake = backend.lock().await;
+        fake.active = "a".into();
+        fake.running = true;
+    }
+    let focus = ["youtube".to_string()].into_iter().collect();
+    assert!(
+        selector::auto_select(&state, &backend, &probes, Some(focus))
+            .await
+            .is_err()
+    );
+    let fake = backend.lock().await;
+    assert_eq!(fake.active, "a");
+    assert!(fake.running);
 }

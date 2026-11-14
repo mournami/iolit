@@ -97,16 +97,23 @@ fn passed(results: &[ProbeResult]) -> BTreeSet<String> {
         .collect()
 }
 
+/// `focus`: repair only these checks, keeping the running strategy as the
+/// base for everything else; `None`: full selection.
 pub async fn auto_select<B: Backend, P: Probes>(
     state: &OperationManager,
     backend: &Arc<Mutex<B>>,
     probes: &P,
+    focus: Option<BTreeSet<String>>,
 ) -> anyhow::Result<()> {
     let original = backend.lock().await.status()?;
+    if focus.is_some() && !original.running {
+        anyhow::bail!("Включите обход, чтобы починить отдельный сервис");
+    }
     let targets = probes.targets();
     let catalog = backend.lock().await.strategies()?;
     // The previous composite comes back if this selection is rolled back.
     let previous_composite = catalog.iter().find(|s| s.id == composite::ID).cloned();
+    let current = catalog.iter().find(|s| s.id == original.strategy).cloned();
     let candidates: Vec<_> = catalog
         .into_iter()
         .filter(|s| s.supported && s.id != composite::ID)
@@ -124,25 +131,40 @@ pub async fn auto_select<B: Backend, P: Probes>(
     let mut unhelped: Vec<String> = Vec::new();
     // Always roll back on cancellation, failed probes, or a service/IPC error.
     let outcome = async {
-        backend.lock().await.disable()?;
-        state.operation.lock().await.stage = "Проверяем доступность без обхода".into();
+        // Full selection starts from no bypass; a repair from the strategy
+        // that runs now, whose working checks must keep working.
+        if focus.is_none() {
+            backend.lock().await.disable()?;
+        }
+        state.operation.lock().await.stage = if focus.is_some() {
+            "Проверяем, что перестало работать".into()
+        } else {
+            "Проверяем доступность без обхода".into()
+        };
         let baseline = probes.run().await;
         let names: BTreeMap<String, String> = baseline
             .iter()
             .map(|r| (r.id.clone(), r.name.clone()))
             .collect();
-        // Checks that fail without bypass: what selection has to fix.
+        let keep: BTreeSet<String> = if focus.is_some() {
+            passed(&baseline)
+        } else {
+            BTreeSet::new()
+        };
+        // Checks that fail now: what selection has to fix.
         let needed: BTreeSet<String> = baseline
             .iter()
-            .filter(|r| !r.ok)
+            .filter(|r| !r.ok && focus.as_ref().is_none_or(|f| f.contains(&r.id)))
             .map(|r| r.id.clone())
             .collect();
         state.operation.lock().await.results = baseline;
         if needed.is_empty() {
-            state.operation.lock().await.notice = Some(
+            state.operation.lock().await.notice = Some(if focus.is_some() {
+                "Сейчас всё работает, текущая стратегия оставлена.".into()
+            } else {
                 "Все проверенные соединения доступны без обхода. Исходная настройка сохранена."
-                    .into(),
-            );
+                    .into()
+            });
             return Ok(None);
         }
         let mut rounds: Vec<Round> = Vec::new();
@@ -151,6 +173,10 @@ pub async fn auto_select<B: Backend, P: Probes>(
         for (index, s) in candidates.iter().enumerate() {
             if state.cancelled.load(Ordering::Acquire) {
                 return Ok(None);
+            }
+            // A repair already knows how the running strategy does.
+            if focus.is_some() && s.id == original.strategy {
+                continue;
             }
             {
                 let mut op = state.operation.lock().await;
@@ -188,7 +214,7 @@ pub async fn auto_select<B: Backend, P: Probes>(
                 .iter()
                 .all(|c| winners.contains_key(c) && !targets.slots(c).is_empty());
             let distinct: BTreeSet<_> = winners.values().collect();
-            if composable && distinct.len() > 1 {
+            if composable && (distinct.len() > 1 || focus.is_some()) {
                 break;
             }
         }
@@ -205,10 +231,13 @@ pub async fn auto_select<B: Backend, P: Probes>(
             .find(|r| fixed(r) == top)
             .map(|r| r.id.clone())
             .expect("a winner implies a round");
-        let base = candidates
-            .iter()
-            .find(|s| s.id == base_id)
-            .expect("candidate");
+        let base = match (&focus, &current) {
+            (Some(_), Some(current)) => current,
+            _ => candidates
+                .iter()
+                .find(|s| s.id == base_id)
+                .expect("candidate"),
+        };
         let donors: BTreeMap<String, &Strategy> = winners
             .iter()
             .filter_map(|(check, id)| {
@@ -231,8 +260,10 @@ pub async fn auto_select<B: Backend, P: Probes>(
             skipped.push(format!("{} ({})", composite::NAME, first_line(&e)));
             return Ok(None);
         }
-        // The composite must pass, twice, everything some strategy fixed.
+        // The composite must pass, twice, everything some strategy fixed and,
+        // in a repair, everything that worked before.
         let reachable: BTreeSet<String> = winners.keys().cloned().collect();
+        let required: BTreeSet<String> = reachable.union(&keep).cloned().collect();
         for _ in 0..2 {
             if state.cancelled.load(Ordering::Acquire) {
                 return Ok(None);
@@ -240,7 +271,7 @@ pub async fn auto_select<B: Backend, P: Probes>(
             let results = probes.run().await;
             let ok = passed(&results);
             state.operation.lock().await.results = results;
-            if !reachable.is_subset(&ok) {
+            if !required.is_subset(&ok) {
                 return Ok(None);
             }
         }

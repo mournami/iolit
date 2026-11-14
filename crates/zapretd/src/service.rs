@@ -2,7 +2,7 @@
 use crate::{
     engine::Engine,
     logging::log_tail,
-    operation::OperationManager,
+    operation::{Mode, OperationManager},
     selector::{Backend, NetworkProbes},
 };
 use anyhow::{Context, Result, bail};
@@ -303,16 +303,30 @@ impl<E: Engine + 'static> Daemon<E> {
                     strategies: controller.catalog.clone(),
                     operation: self.operations.operation.lock().await.clone(),
                     bundle: controller.bundle.clone(),
+                    health: self.operations.health.lock().await.clone(),
                 }))
             }
-            DaemonCommand::Diagnose | DaemonCommand::SelectStrategy => {
+            DaemonCommand::Diagnose
+            | DaemonCommand::SelectStrategy
+            | DaemonCommand::RepairStrategy => {
+                let mode = match command {
+                    DaemonCommand::Diagnose => Mode::Diagnose,
+                    DaemonCommand::SelectStrategy => Mode::Select,
+                    _ => {
+                        let broken = self.operations.health.lock().await.broken.clone();
+                        if broken.is_empty() {
+                            bail!("Фоновая проверка не нашла сломавшихся сервисов");
+                        }
+                        Mode::Repair(broken.into_iter().collect())
+                    }
+                };
                 self.operations
                     .launch(
                         self.controller.clone(),
                         Arc::new(NetworkProbes {
                             targets: self.controller.lock().await.targets.clone(),
                         }),
-                        matches!(command, DaemonCommand::SelectStrategy),
+                        mode,
                     )
                     .await?;
                 Ok(DaemonResponse::Empty(()))

@@ -212,6 +212,20 @@
           ]
         },
         {
+          "description": "Selection only for the checks the background check found broken,\nkeeping the current strategy for everything else.",
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "repair_strategy"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "cmd": {
@@ -420,6 +434,29 @@
       },
       "required": [
         "checks"
+      ]
+    },
+    "Health": {
+      "description": "Background check while the bypass is on: every 10 minutes and after the\nnetwork changes.",
+      "type": "object",
+      "properties": {
+        "broken": {
+          "description": "Ids of checks that passed earlier with this strategy and fail now.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "checked_at": {
+          "description": "Unix time of the last background check; 0 before the first one.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "checked_at",
+        "broken"
       ]
     },
     "Operation": {
@@ -696,6 +733,13 @@
             "last_update": null,
             "updates_enabled": false,
             "version": null
+          }
+        },
+        "health": {
+          "$ref": "#/$defs/Health",
+          "default": {
+            "broken": [],
+            "checked_at": 0
           }
         },
         "operation": {
