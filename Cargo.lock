@@ -5459,11 +5459,14 @@ dependencies = [
  "flate2",
  "serde",
  "serde_json",
+ "tao",
  "tar",
+ "tauri-winres",
  "windows",
  "windows-service",
  "windows-sys 0.59.0",
  "winreg",
+ "wry",
 ]
 
 [[package]]

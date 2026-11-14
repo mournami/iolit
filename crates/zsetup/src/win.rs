@@ -7,12 +7,14 @@ use crate::payload::{self, Entry, Record};
 use anyhow::{Context, Result, anyhow, bail};
 use std::{
     ffi::{OsStr, OsString},
-    fs,
-    io::{self, Write},
+    fs, io,
     os::windows::{ffi::OsStrExt, fs::MetadataExt},
     path::{Path, PathBuf},
     process::{Command, ExitCode},
-    sync::atomic::{AtomicU32, Ordering},
+    sync::{
+        OnceLock,
+        atomic::{AtomicU32, Ordering},
+    },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use windows_service::{
@@ -82,120 +84,150 @@ const NSIS_PRODUCT_KEY: &str = r"Software\zapret\Zapret Desktop";
 const NSIS_MANUFACTURER_KEY: &str = r"Software\zapret";
 /// Owner Administrators; SYSTEM and Administrators only; not inherited.
 const DATA_SDDL: &str = "O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
+pub const WEBVIEW2_DOWNLOAD: &str = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
 const WEBVIEW2_CLIENT: &str =
     r"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
 
-#[derive(Clone, Copy)]
-enum Mode {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
     Install,
     Uninstall,
     StopDriver,
 }
 
 struct Options {
-    /// `None`: ask in the window; the default installs.
-    mode: Option<Mode>,
+    mode: Mode,
+    /// No window: for scripts, CI and the uninstall entry's quiet command.
     quiet: bool,
 }
 
 fn parse_args(args: impl Iterator<Item = String>) -> Result<Options> {
-    let mut options = Options {
-        mode: None,
-        quiet: false,
-    };
+    let mut mode = None;
+    let mut quiet = false;
     for arg in args {
-        let mode = match arg.as_str() {
+        let next = match arg.as_str() {
             "--uninstall" => Mode::Uninstall,
             "--stop-windivert" => Mode::StopDriver,
             "--quiet" => {
-                options.quiet = true;
+                quiet = true;
                 continue;
             }
             _ => bail!("Неизвестный параметр {arg}. Можно: --uninstall, --stop-windivert, --quiet"),
         };
-        if options.mode.replace(mode).is_some() {
+        if mode.replace(next).is_some() {
             bail!("Укажите только одно действие");
         }
     }
-    Ok(options)
+    Ok(Options {
+        mode: mode.unwrap_or(Mode::Install),
+        quiet,
+    })
 }
 
-pub fn main(payload: &[u8]) -> ExitCode {
+pub fn main(payload: &'static [u8]) -> ExitCode {
     let options = match parse_args(std::env::args().skip(1)) {
         Ok(options) => options,
         Err(e) => {
-            eprintln!("{e:#}");
+            crate::gui::message(&format!("{e:#}"));
             return ExitCode::from(2);
         }
     };
+    if !options.quiet {
+        return crate::gui::run(options.mode, payload);
+    }
+    attach_console();
     println!("{PRODUCT} {VERSION}\n");
-    let mode = match options.mode {
-        Some(mode) => mode,
-        None if options.quiet => Mode::Install,
-        None => ask_mode(),
-    };
-    let result = match mode {
-        Mode::Install => install(payload, &options),
-        Mode::Uninstall => uninstall(&options),
-        Mode::StopDriver => stop_windivert(),
-    };
-    let code = match result {
+    match run(options.mode, payload, false) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             println!("\nНе получилось: {e:#}");
             ExitCode::FAILURE
         }
-    };
-    if !options.quiet {
-        pause("\nНажмите Enter, чтобы закрыть окно.");
-    }
-    code
-}
-
-/// The one choice in the window; Enter alone installs.
-fn ask_mode() -> Mode {
-    println!("Enter: установить или обновить Zapret Desktop.");
-    println!(
-        "2 и Enter: только остановить WinDivert и winws, если обход мешает сети или установке."
-    );
-    print!("> ");
-    let _ = io::stdout().flush();
-    let mut line = String::new();
-    let _ = io::stdin().read_line(&mut line);
-    println!();
-    if line.trim() == "2" {
-        Mode::StopDriver
-    } else {
-        Mode::Install
     }
 }
 
-fn pause(text: &str) {
-    println!("{text}");
-    let _ = io::stdin().read_line(&mut String::new());
+/// The installer is a window app; a quiet run still prints into the console
+/// that started it, so CI logs show the steps.
+fn attach_console() {
+    use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+    }
 }
 
-/// Runs one named step and prints how long it took, so testers can report
-/// which step is slow. Notes from the step are printed under it.
+/// Runs one action; `launch` opens the app after a successful install.
+pub fn run(mode: Mode, payload: &[u8], launch: bool) -> Result<()> {
+    match mode {
+        Mode::Install => install(payload, launch),
+        Mode::Uninstall => uninstall(),
+        Mode::StopDriver => stop_windivert(),
+    }
+}
+
+/// Progress of an action, shown in the window or printed in quiet mode.
+pub enum Event {
+    /// Number of steps the action will run.
+    Plan(usize),
+    Step(String),
+    StepDone {
+        ok: bool,
+        seconds: f32,
+        notes: Vec<String>,
+    },
+    /// Something the user should read after the action.
+    Note(String),
+    /// Console-only summary line.
+    Info(String),
+}
+
+type Reporter = Box<dyn Fn(Event) + Send + Sync>;
+static REPORTER: OnceLock<Reporter> = OnceLock::new();
+
+/// The window sets this once; without it events go to the console.
+pub fn set_reporter(reporter: Reporter) {
+    let _ = REPORTER.set(reporter);
+}
+
+fn report(event: Event) {
+    if let Some(reporter) = REPORTER.get() {
+        return reporter(event);
+    }
+    match event {
+        Event::Plan(_) => {}
+        Event::Step(name) => print!("{name}… "),
+        Event::StepDone { ok, seconds, notes } => {
+            let outcome = if ok { "готово" } else { "ошибка" };
+            println!("{outcome} ({seconds:.1} с)");
+            for note in notes {
+                println!("    {note}");
+            }
+        }
+        Event::Note(text) | Event::Info(text) => println!("{text}"),
+    }
+}
+
+/// Runs one named step and reports how long it took, so testers can tell
+/// which step is slow. Notes from the step are shown under it.
 fn step<T>(name: &str, run: impl FnOnce(&mut Vec<String>) -> Result<T>) -> Result<T> {
-    print!("{name}… ");
-    let _ = io::stdout().flush();
+    report(Event::Step(name.to_owned()));
     let started = Instant::now();
     let mut notes = Vec::new();
     let result = run(&mut notes);
-    let outcome = if result.is_ok() {
-        "готово"
-    } else {
-        "ошибка"
-    };
-    println!("{outcome} ({:.1} с)", started.elapsed().as_secs_f32());
-    for note in notes {
-        println!("    {note}");
-    }
+    report(Event::StepDone {
+        ok: result.is_ok(),
+        seconds: started.elapsed().as_secs_f32(),
+        notes,
+    });
     result.with_context(|| name.to_owned())
 }
 
-fn install(bytes: &[u8], options: &Options) -> Result<()> {
+/// Where settings and the user's domains stay after uninstall.
+pub fn data_dir() -> Option<PathBuf> {
+    Paths::detect().ok().map(|paths| paths.data)
+}
+
+fn install(bytes: &[u8], launch: bool) -> Result<()> {
+    report(Event::Plan(10));
     let _guard = step("Проверка системы", |_| {
         require_admin()?;
         reject_arm()?;
@@ -229,36 +261,31 @@ fn install(bytes: &[u8], options: &Options) -> Result<()> {
         },
     )?;
     step("Запуск службы", |_| start_service())?;
-    println!("\n{PRODUCT} установлен в {}.", paths.install.display());
-    println!("Обход выключен, пока его не включат в программе.");
+    report(Event::Info(format!(
+        "\n{PRODUCT} установлен в {}.\nОбход выключен, пока его не включат в программе.",
+        paths.install.display()
+    )));
     if !webview2_installed() {
-        println!(
+        report(Event::Note(format!(
             "Не найден Microsoft Edge WebView2. Если окно программы не откроется, \
-             установите его: https://go.microsoft.com/fwlink/p/?LinkId=2124703"
-        );
+             установите его: {WEBVIEW2_DOWNLOAD}"
+        )));
     }
-    if !options.quiet
-        && let Err(e) = launch_as_user(&paths)
-    {
-        println!("Не удалось открыть программу ({e:#}); она есть в меню «Пуск».");
+    if launch && let Err(e) = launch_as_user(&paths) {
+        report(Event::Note(format!(
+            "Не удалось открыть программу ({e:#}); она есть в меню «Пуск»."
+        )));
     }
     Ok(())
 }
 
-fn uninstall(options: &Options) -> Result<()> {
+fn uninstall() -> Result<()> {
+    report(Event::Plan(6));
     let _guard = step("Проверка прав", |_| {
         require_admin()?;
         single_instance()
     })?;
     let paths = Paths::detect()?;
-    if !options.quiet {
-        println!(
-            "Будут удалены программа, служба и ярлыки. Настройки и список доменов \
-             останутся в {}.",
-            paths.data.display()
-        );
-        pause("Нажмите Enter, чтобы удалить, или закройте окно для отмены.");
-    }
     step("Остановка и удаление службы", |_| remove_service())?;
     step("Закрытие Zapret Desktop", |notes| {
         close_app(&paths.app(), notes)
@@ -273,7 +300,7 @@ fn uninstall(options: &Options) -> Result<()> {
     step("Удаление файлов", |notes| {
         remove_tree(&paths.install, notes)
     })?;
-    println!("\n{PRODUCT} удалён.");
+    report(Event::Info(format!("\n{PRODUCT} удалён.")));
     Ok(())
 }
 
@@ -282,6 +309,7 @@ fn uninstall(options: &Options) -> Result<()> {
 /// it, as Flowseal's service.bat does. WinDivert.dll registers it again on
 /// next use; our service shows the engine as stopped until it is enabled.
 fn stop_windivert() -> Result<()> {
+    report(Event::Plan(2 + DRIVERS.len()));
     let _guard = step("Проверка прав", |_| {
         require_admin()?;
         single_instance()
@@ -299,10 +327,11 @@ fn stop_windivert() -> Result<()> {
             |notes| stop_driver(name, notes),
         )?;
     }
-    println!(
+    report(Event::Info(
         "\nWinDivert остановлен. Обход выключен до перезапуска компьютера или до включения \
          в программе."
-    );
+            .to_owned(),
+    ));
     Ok(())
 }
 
@@ -1087,7 +1116,7 @@ fn remove_inside(dir: &Path, pending: &mut usize) -> Result<()> {
     Ok(())
 }
 
-fn webview2_installed() -> bool {
+pub fn webview2_installed() -> bool {
     let present = |root: RegKey, path: &str| {
         root.open_subkey(path)
             .and_then(|key| key.get_value::<String, _>("pv"))
@@ -1107,6 +1136,15 @@ fn webview2_installed() -> bool {
 fn launch_as_user(paths: &Paths) -> Result<()> {
     Command::new(paths.windows.join("explorer.exe"))
         .arg(paths.app())
+        .spawn()?;
+    Ok(())
+}
+
+/// Opens the WebView2 download page in the user's browser, not elevated.
+pub fn open_webview2_download() -> Result<()> {
+    let windows = known_folder(&::windows::Win32::UI::Shell::FOLDERID_Windows)?;
+    Command::new(windows.join("explorer.exe"))
+        .arg(WEBVIEW2_DOWNLOAD)
         .spawn()?;
     Ok(())
 }
