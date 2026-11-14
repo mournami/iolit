@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppManifest",
+  "type": "object",
+  "properties": {
+    "installer": {
+      "description": "`Zapret-Desktop-Setup-<version>.exe` and its hash.",
+      "$ref": "#/$defs/FileHash"
+    },
+    "product": {
+      "description": "Always [`PRODUCT`].",
+      "type": "string"
+    },
+    "schema": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "version": {
+      "description": "Application version, dot-separated numbers (`0.2.0`).",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "product",
+    "version",
+    "installer"
+  ],
+  "$defs": {
+    "FileHash": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Relative path with `/` separators.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "Lowercase hex SHA-256.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ]
+    }
+  }
+}

@@ -10,7 +10,7 @@ use std::{
     },
 };
 use tokio::sync::Mutex;
-use zapret_core::{Health, Operation, ServiceStatus};
+use zapret_core::{AppUpdate, Health, Operation, ServiceStatus};
 
 /// What an operation does.
 pub enum Mode {
@@ -29,6 +29,10 @@ pub struct OperationManager {
     pub(crate) recovery_path: PathBuf,
     /// Result of the background check, see `crate::health`.
     pub health: Mutex<Health>,
+    /// Application update state, see `crate::app_update`.
+    pub app: Mutex<AppUpdate>,
+    /// Asks the application updater to run the downloaded installer.
+    pub install_app: tokio::sync::Notify,
 }
 
 impl OperationManager {
@@ -39,6 +43,8 @@ impl OperationManager {
             cancelled: AtomicBool::new(false),
             recovery_path: data.join("selection-recovery.json"),
             health: Mutex::new(Health::default()),
+            app: Mutex::new(AppUpdate::default()),
+            install_app: tokio::sync::Notify::new(),
         }
     }
 

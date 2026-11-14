@@ -23,6 +23,9 @@ pub enum DaemonCommand {
     /// Selection only for the checks the background check found broken,
     /// keeping the current strategy for everything else.
     RepairStrategy,
+    /// Runs the downloaded and verified installer of a newer application
+    /// version (`Snapshot::app`). The service and the window restart.
+    UpdateApp,
     CancelOperation,
     Doctor,
     AddDomain {
@@ -239,6 +242,22 @@ pub struct Snapshot {
     pub bundle: BundleStatus,
     #[serde(default)]
     pub health: Health,
+    #[serde(default)]
+    pub app: AppUpdate,
+}
+
+/// Application updates: found and downloaded by the service, installed only
+/// when the user asks (`UpdateApp`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+pub struct AppUpdate {
+    /// Newer version downloaded and verified, waiting for `UpdateApp`.
+    pub available: Option<String>,
+    /// The installer is running; the service is about to restart.
+    pub installing: bool,
+    /// Unix seconds.
+    #[ts(type = "number | null")]
+    pub last_check: Option<u64>,
+    pub error: Option<String>,
 }
 
 /// Background check while the bypass is on: every 10 minutes and after the

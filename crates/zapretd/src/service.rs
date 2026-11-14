@@ -304,6 +304,7 @@ impl<E: Engine + 'static> Daemon<E> {
                     operation: self.operations.operation.lock().await.clone(),
                     bundle: controller.bundle.clone(),
                     health: self.operations.health.lock().await.clone(),
+                    app: self.operations.app.lock().await.clone(),
                 }))
             }
             DaemonCommand::Diagnose
@@ -329,6 +330,20 @@ impl<E: Engine + 'static> Daemon<E> {
                         mode,
                     )
                     .await?;
+                Ok(DaemonResponse::Empty(()))
+            }
+            DaemonCommand::UpdateApp => {
+                let app = self.operations.app.lock().await.clone();
+                if app.available.is_none() {
+                    bail!("Новой версии приложения пока нет");
+                }
+                if !app.installing {
+                    if self.operations.gate.try_lock().is_err() {
+                        bail!("Дождитесь завершения проверки или отмените её");
+                    }
+                    // The updater verifies the installer again and starts it.
+                    self.operations.install_app.notify_one();
+                }
                 Ok(DaemonResponse::Empty(()))
             }
             DaemonCommand::CancelOperation => {

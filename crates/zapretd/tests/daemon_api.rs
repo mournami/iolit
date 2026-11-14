@@ -371,3 +371,48 @@ async fn composite_strategy_survives_a_service_restart() {
     controller.set_composite(None).unwrap();
     assert!(!data.join("composite.json").exists());
 }
+
+#[tokio::test]
+async fn update_app_only_when_a_download_waits() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("bundle");
+    let data = dir.path().join("data");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("strategies.json"),
+        serde_json::to_vec(&vec![Strategy {
+            id: "general".into(),
+            name: "General".into(),
+            description: String::new(),
+            supported: true,
+            arguments: vec!["--test".into()],
+        }])
+        .unwrap(),
+    )
+    .unwrap();
+    let controller = Controller::new(root, data.clone(), TestEngine::default()).unwrap();
+    let daemon = Daemon {
+        controller: Arc::new(Mutex::new(controller)),
+        operations: Arc::new(OperationManager::new(data)),
+    };
+    assert!(daemon.dispatch(DaemonCommand::UpdateApp).await.is_err());
+
+    daemon.operations.app.lock().await.available = Some("0.2.0".into());
+    {
+        let _selection = daemon.operations.gate.lock().await;
+        assert!(daemon.dispatch(DaemonCommand::UpdateApp).await.is_err());
+    }
+    daemon.dispatch(DaemonCommand::UpdateApp).await.unwrap();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        daemon.operations.install_app.notified(),
+    )
+    .await
+    .unwrap();
+    let DaemonResponse::Snapshot(snapshot) =
+        daemon.dispatch(DaemonCommand::Snapshot).await.unwrap()
+    else {
+        panic!()
+    };
+    assert_eq!(snapshot.app.available.as_deref(), Some("0.2.0"));
+}

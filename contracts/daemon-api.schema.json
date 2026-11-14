@@ -44,6 +44,41 @@
         "ok"
       ]
     },
+    "AppUpdate": {
+      "description": "Application updates: found and downloaded by the service, installed only\nwhen the user asks (`UpdateApp`).",
+      "type": "object",
+      "properties": {
+        "available": {
+          "description": "Newer version downloaded and verified, waiting for `UpdateApp`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "installing": {
+          "description": "The installer is running; the service is about to restart.",
+          "type": "boolean"
+        },
+        "last_check": {
+          "description": "Unix seconds.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "installing"
+      ]
+    },
     "BundleStatus": {
       "description": "Strategy bundle in use and the state of signed bundle updates.",
       "type": "object",
@@ -218,6 +253,20 @@
             "cmd": {
               "type": "string",
               "const": "repair_strategy"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cmd"
+          ]
+        },
+        {
+          "description": "Runs the downloaded and verified installer of a newer application\nversion (`Snapshot::app`). The service and the window restart.",
+          "type": "object",
+          "properties": {
+            "cmd": {
+              "type": "string",
+              "const": "update_app"
             }
           },
           "additionalProperties": false,
@@ -724,6 +773,15 @@
     "Snapshot": {
       "type": "object",
       "properties": {
+        "app": {
+          "$ref": "#/$defs/AppUpdate",
+          "default": {
+            "available": null,
+            "error": null,
+            "installing": false,
+            "last_check": null
+          }
+        },
         "bundle": {
           "$ref": "#/$defs/BundleStatus",
           "default": {

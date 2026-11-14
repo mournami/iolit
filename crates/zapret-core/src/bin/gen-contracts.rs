@@ -19,6 +19,12 @@ fn main() -> Result<()> {
     let schema =
         serde_json::to_string_pretty(&schemars::schema_for!(zapret_core::targets::TargetList))?;
     fs::write(root.join("contracts/targets.schema.json"), schema + "\n")?;
+    let schema =
+        serde_json::to_string_pretty(&schemars::schema_for!(zapret_core::app_update::AppManifest))?;
+    fs::write(
+        root.join("contracts/app-manifest.schema.json"),
+        schema + "\n",
+    )?;
     let config = Config::default();
     let declarations = [
         DaemonCommand::decl(&config),
@@ -32,6 +38,7 @@ fn main() -> Result<()> {
         Operation::decl(&config),
         BundleStatus::decl(&config),
         Health::decl(&config),
+        AppUpdate::decl(&config),
         Snapshot::decl(&config),
         DoctorCheck::decl(&config),
         DoctorResult::decl(&config),

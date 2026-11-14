@@ -20,6 +20,7 @@ async fn snapshot() -> ApiResult<Snapshot> {
             operation: Operation::default(),
             bundle: BundleStatus::default(),
             health: Default::default(),
+            app: Default::default(),
         }))
 }
 #[tauri::command]
@@ -51,6 +52,10 @@ async fn repair_strategy() -> ApiResult<()> {
     request_command(DaemonCommand::RepairStrategy)
         .await
         .map_err(msg)
+}
+#[tauri::command]
+async fn update_app() -> ApiResult<()> {
+    request_command(DaemonCommand::UpdateApp).await.map_err(msg)
 }
 #[tauri::command]
 async fn cancel_operation() -> ApiResult<()> {
@@ -154,6 +159,7 @@ pub fn run() {
             diagnose,
             select_strategy,
             repair_strategy,
+            update_app,
             cancel_operation,
             add_domain,
             remove_domain,

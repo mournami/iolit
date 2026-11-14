@@ -206,6 +206,20 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
                 controller.lock().await.bundle.error = error;
             }
         }
+        match HttpFetch::new() {
+            Ok(fetch) => {
+                let updater = Arc::new(crate::app_update::AppUpdater::new(
+                    operations.clone(),
+                    install.join(crate::app_update::DIR),
+                    fetch,
+                    key,
+                    vec![crate::app_update::DEFAULT_SOURCE.into()],
+                    zapret_core::VERSION,
+                ));
+                tokio::spawn(updater.run());
+            }
+            Err(e) => operations.app.lock().await.error = Some(format!("{e:#}")),
+        }
     }
     tokio::spawn(crate::health::run(
         operations.clone(),
