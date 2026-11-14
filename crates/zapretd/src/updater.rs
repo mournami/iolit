@@ -1,4 +1,5 @@
-//! Signed strategy bundle updates.
+//! Signed strategy bundle updates, installed automatically and silently
+//! (owner's decision, 14.11.2026); worse checks after the switch roll back.
 //!
 //! Bundles live next to the service executable (`<install>/bundles`), which only
 //! administrators can write. `%ProgramData%` is not used for them: standard users
@@ -29,10 +30,18 @@ const MAX_MANIFEST: usize = 1 << 20;
 const MAX_ARCHIVE: usize = 64 << 20;
 pub const FIRST_CHECK: Duration = Duration::from_secs(120);
 pub const INTERVAL: Duration = Duration::from_secs(6 * 3600);
+/// Next attempt after an operation held the switch back.
+pub const RETRY: Duration = Duration::from_secs(10 * 60);
 
-/// Public key baked in at build time. Without it this build never updates bundles.
+/// Public half of the signing key, committed in the repository. The private
+/// half exists only as the `BUNDLE_SIGNING_KEY` CI secret and with the owner.
+/// The same key signs application updates (`crate::app_update`).
+const PUBLIC_KEY: &str = include_str!("../../../resources/bundle-public-key.txt");
+
+/// Key that downloads must be signed with. `None` only if the committed file
+/// is broken; such a build never updates.
 pub fn public_key() -> Option<[u8; 32]> {
-    decode_key(option_env!("ZAPRET_BUNDLE_PUBLIC_KEY")?)
+    decode_key(PUBLIC_KEY)
 }
 
 pub fn decode_key(text: &str) -> Option<[u8; 32]> {
@@ -275,9 +284,13 @@ impl<E: Engine, F: Fetch, P: Probes> Updater<E, F, P> {
             _ = self.trigger.notified() => {}
         }
         loop {
-            let _ = self.check().await;
+            // A bundle that waited for a selection to finish goes in soon after.
+            let wait = match self.check().await {
+                Ok(Outcome::Busy) => RETRY,
+                _ => INTERVAL,
+            };
             tokio::select! {
-                _ = tokio::time::sleep(INTERVAL) => {}
+                _ = tokio::time::sleep(wait) => {}
                 _ = self.trigger.notified() => {}
             }
         }
