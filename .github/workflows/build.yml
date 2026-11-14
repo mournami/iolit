@@ -61,7 +61,7 @@ jobs:
         run: |
           cargo run -p zapret-core --bin gen-contracts --locked
           if ($LASTEXITCODE -ne 0) { throw 'Contract generation failed' }
-          git diff --exit-code -- contracts/daemon-api.schema.json contracts/bundle-manifest.schema.json ui/src/generated/api.ts
+          git diff --exit-code -- contracts/daemon-api.schema.json contracts/bundle-manifest.schema.json contracts/targets.schema.json ui/src/generated/api.ts
           if ($LASTEXITCODE -ne 0) { throw 'Generated contracts are stale' }
       - run: npm run desktop:build -- --no-bundle
       - name: Build the Rust installer
@@ -140,7 +140,7 @@ jobs:
       - run: npm run build
       - run: cargo test --workspace --locked
       - run: cargo run -p zapret-core --bin gen-contracts --locked
-      - run: git diff --exit-code -- contracts/daemon-api.schema.json contracts/bundle-manifest.schema.json ui/src/generated/api.ts
+      - run: git diff --exit-code -- contracts/daemon-api.schema.json contracts/bundle-manifest.schema.json contracts/targets.schema.json ui/src/generated/api.ts
       - working-directory: engines/macos
         run: go test ./... && go test -race ./internal/...
       - run: python3 scripts/prepare_engines.py --platform macos

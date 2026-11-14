@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TargetList",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "description": "Format version; only 1 exists.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Target"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "targets"
+  ],
+  "$defs": {
+    "Check": {
+      "oneOf": [
+        {
+          "description": "TLS handshake and the first 64 KB of an HTTPS page.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "https"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "url"
+          ]
+        },
+        {
+          "description": "A STUN binding request over UDP.",
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "stun"
+            },
+            "port": {
+              "type": "integer",
+              "format": "uint16",
+              "maximum": 65535,
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "host",
+            "port"
+          ]
+        }
+      ]
+    },
+    "Slot": {
+      "description": "Profiles a check depends on; `targets.json` names them per service.",
+      "oneOf": [
+        {
+          "description": "TCP 443 to `list-google.txt`: YouTube.",
+          "type": "string",
+          "const": "google"
+        },
+        {
+          "description": "TCP 80/443 to `list-general.txt`: Discord, other blocked sites.",
+          "type": "string",
+          "const": "general_tcp"
+        },
+        {
+          "description": "Discord media ports to `discord.media`.",
+          "type": "string",
+          "const": "discord_media"
+        },
+        {
+          "description": "UDP voice ports with the Discord/STUN payload filter.",
+          "type": "string",
+          "const": "discord_voice"
+        },
+        {
+          "description": "TCP to addresses in `ipset-all.txt`: Cloudflare and others by IP.",
+          "type": "string",
+          "const": "ipset_tcp"
+        }
+      ]
+    },
+    "Target": {
+      "type": "object",
+      "properties": {
+        "check": {
+          "$ref": "#/$defs/Check"
+        },
+        "id": {
+          "description": "Stable id, also used by the interface (`youtube`, `discord`, ...).",
+          "type": "string"
+        },
+        "name": {
+          "description": "Shown to the user.",
+          "type": "string"
+        },
+        "slots": {
+          "description": "Strategy profiles this service depends on; empty: needs no bypass\n(the plain internet check).",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Slot"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "check"
+      ]
+    }
+  }
+}

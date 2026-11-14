@@ -10,7 +10,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use zapret_core::{bundle::extract_tar_gz, compiler};
+use zapret_core::{bundle::extract_tar_gz, compiler, targets};
 
 const USAGE: &str = "usage:
   zbuild prepare-windows [--root DIR] [--flowseal-url URL --flowseal-sha256 HEX]
@@ -210,6 +210,10 @@ fn prepare_windows(root: &Path, source: Option<(&str, &str)>) -> Result<()> {
         target.join("strategies.json"),
         compiler::catalog_json(&catalog)?,
     )?;
+    // Checks travel with the strategies and are signed with them.
+    let targets = fs::read(root.join("resources").join(targets::FILE))?;
+    targets::TargetList::parse(&targets).context("resources/targets.json")?;
+    fs::write(target.join(targets::FILE), targets)?;
     fs::copy(
         root.join("licenses/Flowseal-MIT.txt"),
         target.join("LICENSE-flowseal.txt"),

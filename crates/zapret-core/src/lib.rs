@@ -6,6 +6,7 @@ pub mod ipc;
 #[cfg(feature = "network")]
 pub mod probe;
 pub mod strategy;
+pub mod targets;
 
 pub mod api;
 pub use api::*;

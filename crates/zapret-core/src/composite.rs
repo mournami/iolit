@@ -9,14 +9,19 @@
 //! swaps the profiles in each service's slots for the ones of that service's
 //! strategy. The `--wf-*` options (which packets reach winws at all) stay
 //! from the base and are the same in every Flowseal strategy.
-use crate::Strategy;
+use crate::{Strategy, targets::TargetList};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 pub const ID: &str = "composite";
 pub const NAME: &str = "Подобрано по сервисам";
 
-/// Profiles a check depends on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Profiles a check depends on; `targets.json` names them per service.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum Slot {
     /// TCP 443 to `list-google.txt`: YouTube.
     Google,
@@ -28,29 +33,6 @@ pub enum Slot {
     DiscordVoice,
     /// TCP to addresses in `ipset-all.txt`: Cloudflare and others by IP.
     IpsetTcp,
-}
-
-/// Slots each check (probe id) depends on. Checks not listed (internet)
-/// need no bypass.
-pub fn slots(check: &str) -> &'static [Slot] {
-    match check {
-        "youtube" => &[Slot::Google],
-        "discord" => &[Slot::GeneralTcp, Slot::DiscordMedia],
-        "udp" => &[Slot::DiscordVoice],
-        "cloudflare" => &[Slot::IpsetTcp],
-        _ => &[],
-    }
-}
-
-/// How a check is named in the composite's description.
-fn label(check: &str) -> &str {
-    match check {
-        "youtube" => "YouTube",
-        "discord" => "Discord",
-        "udp" => "голос Discord",
-        "cloudflare" => "Cloudflare",
-        other => other,
-    }
 }
 
 fn has(profile: &[String], prefix: &str, needle: &str) -> bool {
@@ -95,13 +77,17 @@ fn profiles(strategy: &Strategy) -> (Vec<String>, Vec<Vec<String>>) {
 
 /// The composite of `base` with each check's slots taken from its winner
 /// (`check id → strategy`). `None` when nothing differs from `base`.
-pub fn compose(base: &Strategy, winners: &BTreeMap<String, &Strategy>) -> Option<Strategy> {
+pub fn compose(
+    base: &Strategy,
+    winners: &BTreeMap<String, &Strategy>,
+    targets: &TargetList,
+) -> Option<Strategy> {
     let mut chosen: BTreeMap<Slot, &Strategy> = BTreeMap::new();
     for (check, strategy) in winners {
         if strategy.id == base.id {
             continue;
         }
-        for slot in slots(check) {
+        for slot in targets.slots(check) {
             chosen.entry(*slot).or_insert(strategy);
         }
     }
@@ -132,8 +118,11 @@ pub fn compose(base: &Strategy, winners: &BTreeMap<String, &Strategy>) -> Option
     }
     let mut parts = vec![format!("основа {}", base.name)];
     for (check, strategy) in winners {
-        if strategy.id != base.id && slots(check).iter().any(|s| used.contains_key(s)) {
-            parts.push(format!("{}: {}", label(check), strategy.name));
+        if strategy.id != base.id && targets.slots(check).iter().any(|s| used.contains_key(s)) {
+            let name = targets
+                .get(check)
+                .map_or(check.as_str(), |t| t.name.as_str());
+            parts.push(format!("{name}: {}", strategy.name));
         }
     }
     Some(Strategy {
@@ -171,7 +160,7 @@ mod tests {
         let a = strategy("a", "multisplit", "fakedsplit");
         let b = strategy("b", "fake", "split2");
         let winners = BTreeMap::from([("youtube".to_string(), &b), ("discord".to_string(), &a)]);
-        let composite = compose(&a, &winners).unwrap();
+        let composite = compose(&a, &winners, &TargetList::built_in()).unwrap();
         assert_eq!(composite.id, ID);
         let text = composite.arguments.join(" ");
         assert!(text.starts_with("--wf-tcp=80,443 --wf-udp=443 --filter-udp=443"));
@@ -188,7 +177,7 @@ mod tests {
     fn nothing_to_swap_gives_no_composite() {
         let a = strategy("a", "multisplit", "fakedsplit");
         let winners = BTreeMap::from([("youtube".to_string(), &a), ("internet".to_string(), &a)]);
-        assert!(compose(&a, &winners).is_none());
+        assert!(compose(&a, &winners, &TargetList::built_in()).is_none());
     }
 
     #[test]
@@ -213,7 +202,7 @@ mod tests {
         let general = catalog.iter().find(|s| s.id == "general").unwrap();
         let alt = catalog.iter().find(|s| s.id == "general-alt").unwrap();
         let winners = BTreeMap::from([("youtube".to_string(), alt)]);
-        let composite = compose(general, &winners).unwrap();
+        let composite = compose(general, &winners, &TargetList::built_in()).unwrap();
         // Same number of profiles; only the Google profile changed.
         let (_, before) = profiles(general);
         let (_, after) = profiles(&composite);

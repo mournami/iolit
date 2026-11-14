@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "targets": [
+    {
+      "id": "internet",
+      "name": "Интернет",
+      "check": { "kind": "https", "url": "https://www.gstatic.com/generate_204" }
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "check": { "kind": "https", "url": "https://www.youtube.com/" },
+      "slots": ["google"]
+    },
+    {
+      "id": "discord",
+      "name": "Discord API",
+      "check": { "kind": "https", "url": "https://discord.com/api/v10/gateway" },
+      "slots": ["general_tcp", "discord_media"]
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "check": { "kind": "https", "url": "https://www.cloudflare.com/cdn-cgi/trace" },
+      "slots": ["ipset_tcp"]
+    },
+    {
+      "id": "udp",
+      "name": "UDP / STUN",
+      "check": { "kind": "stun", "host": "stun.l.google.com", "port": 19302 },
+      "slots": ["discord_voice"]
+    }
+  ]
+}
