@@ -2,7 +2,21 @@
   import Icon from '../Icon.svelte';
   import { app, bundleLine, plural } from '../store.svelte';
   import { theme, type ThemeChoice } from '../theme.svelte';
+  import { appearance, DEFAULT_ACCENT, DEFAULT_BG } from '../appearance.svelte';
+  import ColorPicker from './ColorPicker.svelte';
+  import FontPicker from './FontPicker.svelte';
+  import IconCropper from './IconCropper.svelte';
   import Mark from './Mark.svelte';
+
+  let cropping = $state(false);
+  const BG_PRESETS = [
+    '#000000', '#0b0d0c', '#0d1117', '#111827', '#14161f', '#1a1b26', '#1e1e2e', '#1f1d2b',
+    '#18181b', '#202225', '#1b2420', '#2b1d24', '#ffffff', '#f6f7f6', '#f5f1e8', '#eef2f7',
+  ];
+  const ACCENT_PRESETS = [
+    '#3ee387', '#22c55e', '#a3e635', '#facc15', '#f59e0b', '#fb923c', '#f87171', '#f472b6',
+    '#e879f9', '#a78bfa', '#818cf8', '#60a5fa', '#38bdf8', '#22d3ee', '#2dd4bf', '#f2f5f3',
+  ];
 
   let selected = $state('');
   const dns = $derived(app.service?.secure_dns);
@@ -112,15 +126,24 @@
       </div>
     </section>
 
-    <section class="panel rows" aria-label="Окно и данные">
+    <section class="panel rows" aria-labelledby="look-title">
+      <div class="row head-row">
+        <h2 class="h2" id="look-title">Оформление</h2>
+        {#if appearance.custom}
+          <button class="link" onclick={appearance.reset}>Сбросить всё</button>
+        {/if}
+      </div>
       <div class="row">
-        <h2 class="row-k" id="theme-label">Тема</h2>
+        <div>
+          <h2 class="row-k" id="theme-label">Тема</h2>
+          {#if appearance.bg}<p class="row-d">Сейчас тему задаёт свой цвет фона</p>{/if}
+        </div>
         <div class="seg" role="radiogroup" aria-labelledby="theme-label">
           {#each themes as t (t.id)}
             <button
               role="radio"
-              aria-checked={theme.choice === t.id}
-              class:on={theme.choice === t.id}
+              aria-checked={!appearance.bg && theme.choice === t.id}
+              class:on={!appearance.bg && theme.choice === t.id}
               onclick={() => theme.set(t.id)}
             >
               <Icon name={t.icon} size={14} />{t.label}
@@ -128,6 +151,61 @@
           {/each}
         </div>
       </div>
+      <div class="row">
+        <div>
+          <h2 class="row-k">Фон</h2>
+          <p class="row-d">Основной цвет окна. Панели, линии и текст подстраиваются под него.</p>
+        </div>
+        <ColorPicker
+          label="Цвет фона"
+          value={appearance.bg}
+          fallback={theme.resolved === 'light' ? '#ffffff' : DEFAULT_BG}
+          presets={BG_PRESETS}
+          onchange={appearance.setBg}
+        />
+      </div>
+      <div class="row">
+        <div>
+          <h2 class="row-k">Акцент</h2>
+          <p class="row-d">Цвет включённого обхода, кнопок и отметок «работает».</p>
+        </div>
+        <ColorPicker
+          label="Цвет акцента"
+          value={appearance.accent}
+          fallback={DEFAULT_ACCENT}
+          presets={ACCENT_PRESETS}
+          against={appearance.surface(theme.resolved)}
+          onchange={appearance.setAccent}
+        />
+      </div>
+      <div class="row">
+        <div>
+          <h2 class="row-k">Шрифт</h2>
+          <p class="row-d">Журнал и коды остаются моноширинными.</p>
+        </div>
+        <FontPicker value={appearance.font} onchange={appearance.setFont} />
+      </div>
+      <div class="row">
+        <div class="icon-row">
+          <span class="icon-preview"><Mark size={36} /></span>
+          <div>
+            <h2 class="row-k">Значок</h2>
+            <p class="row-d">Картинка слева от названия в шапке. Любой размер, обрежете квадрат сами.</p>
+            {#if appearance.storageError}<p class="row-d bad">{appearance.storageError}</p>{/if}
+          </div>
+        </div>
+        <div class="icon-actions">
+          {#if appearance.icon}
+            <button class="btn sm ghost" onclick={() => appearance.setIcon(null)}>Убрать</button>
+          {/if}
+          <button class="btn sm" onclick={() => (cropping = true)}>
+            <Icon name="upload" size={15} />{appearance.icon ? 'Заменить' : 'Загрузить'}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel rows" aria-label="Данные">
       <div class="row">
         <div>
           <h2 class="row-k">Телеметрия</h2>
@@ -208,6 +286,15 @@
       </div>
     </section>
   </div>
+  {#if cropping}
+    <IconCropper
+      onsave={(png) => {
+        appearance.setIcon(png);
+        cropping = false;
+      }}
+      onclose={() => (cropping = false)}
+    />
+  {/if}
   <footer class="about">
     <Mark size={22} />
     <div>
@@ -271,6 +358,31 @@
     white-space: nowrap;
   }
   .value.bad {
+    color: var(--red);
+  }
+  .head-row {
+    padding-bottom: 6px !important;
+  }
+  .icon-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .icon-preview {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--raise);
+    border: 1px solid var(--line);
+  }
+  .icon-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .row-d.bad {
     color: var(--red);
   }
   .locked {
