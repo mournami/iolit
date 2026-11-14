@@ -11,6 +11,7 @@
   };
   const results = $derived([...(op?.results ?? [])].sort((a, b) => rank(a.id) - rank(b.id)));
   const failed = $derived(results.filter((r) => !r.ok).length);
+  const dnsWarning = $derived(results.some((r) => r.ok && r.warning));
 
   const summary = $derived.by(() => {
     if (op?.busy) return op.total ? `${op.stage}, ${op.current} из ${op.total}` : op.stage || 'Проверяем…';
@@ -102,14 +103,17 @@
             {#each results as r (r.id)}
               <tr>
                 <td>
-                  <span class="mark" class:bad={!r.ok}>
-                    <Icon name={r.ok ? 'check' : 'close'} size={13} stroke={3} />
+                  <span class="mark" class:bad={!r.ok} class:warn={r.ok && r.warning}>
+                    <Icon name={!r.ok ? 'close' : r.warning ? 'alert' : 'check'} size={13} stroke={r.warning ? 2.4 : 3} />
                   </span>
-                  <span class="sr-only">{r.ok ? 'Прошла' : 'Не подтверждена'}</span>
+                  <span class="sr-only">{!r.ok ? 'Не подтверждена' : r.warning ? 'Прошла с предупреждением' : 'Прошла'}</span>
                 </td>
                 <td class="what">
                   <span class="name">{r.name}</span>
                   <span class="detail">{r.detail}</span>
+                  {#if r.warning}
+                    <span class="detail warn-text">{r.warning}</span>
+                  {/if}
                 </td>
                 <td><span class="proto">{r.protocol}</span></td>
                 <td class="lat num">
@@ -121,6 +125,17 @@
         </table>
       {:else}
         <p class="empty">{op?.busy ? 'Результаты появятся по ходу проверки.' : 'Здесь появятся результаты. Нажмите «Проверить».'}</p>
+      {/if}
+      {#if dnsWarning}
+        <div class="alert warn dns-hint">
+          <Icon name="info" size={16} />
+          <p>
+            Чтобы сайты открывались в браузере, включите защищённый DNS. Windows 11: «Параметры» → «Сеть и
+            Интернет» → ваше подключение → «Назначение DNS-сервера» → «Изменить» → «Вручную», DNS
+            <span class="mono">1.1.1.1</span> и <span class="mono">1.0.0.1</span>, «DNS через HTTPS». В Chrome и
+            Edge: «Конфиденциальность и безопасность» → «Использовать безопасный DNS».
+          </p>
+        </div>
       {/if}
       <p class="note">
         <Icon name="info" size={15} />
@@ -275,6 +290,17 @@
   .mark.bad {
     background: var(--red-soft);
     color: var(--red);
+  }
+  .dns-hint {
+    margin: 4px 20px 14px;
+    font-size: 12.5px;
+  }
+  .mark.warn {
+    background: var(--amber-soft);
+    color: var(--amber);
+  }
+  .detail.warn-text {
+    color: var(--amber);
   }
   .what {
     min-width: 0;

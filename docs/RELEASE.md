@@ -648,3 +648,33 @@ from `println`/Enter prompts to events shown in a window.
 Not verified: the installer window on real Windows (WebView2 crashes under
 Wine), UAC and SmartScreen flow, auto-launch of the app, uninstall from Apps,
 the no-WebView2 message, `--quiet` console output in CI.
+
+## 2026-11-14: DNS failures no longer fail strategy selection
+
+Second tester's recording: our YouTube check failed on every strategy with
+`dns error … (os error 11001)` while Flowseal's `test zapret.ps1` (curl in the
+user session) reached `https://www.youtube.com` with TLS 1.2/1.3 OK on the
+same PC, and `general (ALT11)` worked. The check mixed a DNS problem with the
+DPI result, so selection rejected all 22 strategies.
+
+- HTTPS probe: on a DNS error the host (fixed check host only) is resolved
+  through DNS-over-HTTPS by IP (`1.1.1.1`, then `8.8.8.8`) and checked at that
+  address. Passing there counts as passed, with a new optional
+  `ProbeResult.warning` (contracts regenerated). Failing there reports both.
+- UI: Checks shows an amber mark, the warning, and how to turn on secure DNS
+  (Windows 11 and Chrome/Edge); Overview shows "Мешает DNS" for that service.
+- Not known: why the service (LocalSystem) gets NXDOMAIN when the user's curl
+  does not. To ask the tester: `nslookup www.youtube.com`, VPN or DNS apps,
+  hosts file.
+
+| Check (Arch Linux) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
+| `cargo xwin clippy -p zapret-core -p zapretd --target x86_64-pc-windows-msvc -- -D warnings` | Passed |
+| `cargo test --workspace --locked` | 49 passed, 0 failed (new: DoH answer parsing, DNS error detection) |
+| `npm run check` / `npm run build` | 0 errors / 0 warnings; build passed |
+| Vite + Playwright, mocked IPC with a DNS warning | Checks and Overview screenshots, no page errors |
+| Windows cross-build (`build.sh`) | Passed |
+
+Not verified: the DoH fallback on a Windows PC with broken DNS.
