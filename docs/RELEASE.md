@@ -577,3 +577,34 @@ frame off on Windows) and window permissions (minimise, maximise, close, drag).
 Not verified: the real Tauri window on any OS (frameless window, drag,
 snap, maximise, close-to-exit on Windows), fonts and theme inside WebView2,
 clipboard copy of the log, and the redesign against a running service.
+
+## 2026-11-14: first Windows run of the redesign, pipe busy fix
+
+Installer `Zapret-Desktop-Setup.exe` cross-built on Arch (cargo-xwin) and run
+by three external testers on Windows (unsigned build). Wine with WebView2 157
+crashes on start, so Wine is not a test environment.
+
+| Tester | Result |
+| --- | --- |
+| A (screen recording) | Install, service, frameless window, title buttons, overview, Checks, Settings work. Bypass on with `general (ALT)`: YouTube, Discord, UDP, Cloudflare checks pass; YouTube, SoundCloud, Twitch open in the browser. |
+| B | Works (no details reported). |
+| C | Checks: YouTube fails on DNS (`os error 11001`, host unknown) for all 22 strategies, other checks pass; selection restores the original setting. The system resolver cannot resolve YouTube, which the packet engine cannot fix. |
+
+Bug found by tester A: opening Settings showed "Служба Zapret не установлена
+или не запущена" while the service was running. Settings loads domains and the
+log in parallel with the 2 s status refresh; the daemon created the next pipe
+instance only after accepting a client, so a parallel client got
+`ERROR_PIPE_BUSY`, reported as a missing service. Fixed on both sides: the
+daemon opens the next instance before serving a client, and the client retries
+`ERROR_PIPE_BUSY` for up to 2.5 s.
+
+| Check (Arch Linux) | Result |
+| --- | --- |
+| `cargo fmt --all --check` | Passed |
+| `cargo xwin clippy -p zapretd -p zapret-core --target x86_64-pc-windows-msvc -- -D warnings` | Passed |
+| `cargo test --workspace` | Passed |
+| Windows build (`build.sh`) | Passed |
+
+Not verified: the pipe fix on Windows (needs a retest of Settings).
+Open: strategy selection keeps trying all strategies when the failure is DNS;
+it could stop early and suggest changing DNS.

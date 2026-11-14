@@ -196,22 +196,24 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
         controller: controller.clone(),
         operations: operations.clone(),
     });
-    let mut first = true;
+    let create = |first: bool| -> Result<_> {
+        let security = Security::new()?;
+        Ok(unsafe {
+            ServerOptions::new()
+                .first_pipe_instance(first)
+                .reject_remote_clients(true)
+                .create_with_security_attributes_raw(
+                    zapret_core::WINDOWS_PIPE,
+                    &security.attributes as *const _ as *mut _,
+                )
+        }?)
+    };
+    let mut next = create(true)?;
     loop {
-        let pipe = {
-            let security = Security::new()?;
-            unsafe {
-                ServerOptions::new()
-                    .first_pipe_instance(first)
-                    .reject_remote_clients(true)
-                    .create_with_security_attributes_raw(
-                        zapret_core::WINDOWS_PIPE,
-                        &security.attributes as *const _ as *mut _,
-                    )
-            }?
-        };
-        first = false;
-        tokio::select! {r=pipe.connect()=>r?,_=shutdown.changed()=>break}
+        tokio::select! {r=next.connect()=>r?,_=shutdown.changed()=>break}
+        // Open the next instance before serving this client, so a parallel
+        // request never finds the pipe without a listener (ERROR_PIPE_BUSY).
+        let pipe = std::mem::replace(&mut next, create(false)?);
         let daemon = daemon.clone();
         tokio::spawn(async move {
             let outcome = tokio::time::timeout(Duration::from_secs(20), async {

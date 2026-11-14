@@ -43,8 +43,8 @@ async fn exchange(message: Value) -> Result<Value> {
         bail!("Ответил процесс без системных прав. Соединение отклонено.");
     }
     #[cfg(windows)]
-    let stream = tokio::net::windows::named_pipe::ClientOptions::new()
-        .open(crate::WINDOWS_PIPE)
+    let stream = open_windows_pipe()
+        .await
         .context("Служба Zapret не установлена или не запущена. Повторите установку приложения.")?;
     #[cfg(windows)]
     verify_windows_server(&stream)?;
@@ -83,6 +83,23 @@ async fn exchange(message: Value) -> Result<Value> {
         );
     }
     Ok(response.get("data").cloned().unwrap_or(Value::Null))
+}
+
+/// All pipe instances can be briefly taken by parallel requests; wait for a free
+/// one instead of reporting a missing service.
+#[cfg(windows)]
+async fn open_windows_pipe() -> std::io::Result<tokio::net::windows::named_pipe::NamedPipeClient> {
+    const ERROR_PIPE_BUSY: i32 = 231;
+    let mut attempts = 0;
+    loop {
+        match tokio::net::windows::named_pipe::ClientOptions::new().open(crate::WINDOWS_PIPE) {
+            Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY) && attempts < 50 => {
+                attempts += 1;
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            result => return result,
+        }
+    }
 }
 
 #[cfg(windows)]
