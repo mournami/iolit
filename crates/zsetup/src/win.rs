@@ -99,11 +99,25 @@ struct Options {
     mode: Mode,
     /// No window: for scripts, CI and the uninstall entry's quiet command.
     quiet: bool,
+    /// Started by the service to update the app: quiet, puts the previous
+    /// version back on failure, then opens the window in the user's session.
+    update: bool,
+}
+
+/// What a successful install does next.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum After {
+    Nothing,
+    /// The window installer is run by the user: open the app as that user.
+    OpenApp,
+    /// Run by the service as SYSTEM: open the app in the signed-in session.
+    Reopen,
 }
 
 fn parse_args(args: impl Iterator<Item = String>) -> Result<Options> {
     let mut mode = None;
     let mut quiet = false;
+    let mut update = false;
     for arg in args {
         let next = match arg.as_str() {
             "--uninstall" => Mode::Uninstall,
@@ -112,15 +126,27 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Options> {
                 quiet = true;
                 continue;
             }
-            _ => bail!("Неизвестный параметр {arg}. Можно: --uninstall, --stop-windivert, --quiet"),
+            "--update" => {
+                update = true;
+                quiet = true;
+                continue;
+            }
+            _ => bail!(
+                "Неизвестный параметр {arg}. Можно: --uninstall, --stop-windivert, --quiet, --update"
+            ),
         };
         if mode.replace(next).is_some() {
             bail!("Укажите только одно действие");
         }
     }
+    let mode = mode.unwrap_or(Mode::Install);
+    if update && mode != Mode::Install {
+        bail!("--update только для установки");
+    }
     Ok(Options {
-        mode: mode.unwrap_or(Mode::Install),
+        mode,
         quiet,
+        update,
     })
 }
 
@@ -137,7 +163,12 @@ pub fn main(payload: &'static [u8]) -> ExitCode {
     }
     attach_console();
     println!("{PRODUCT} {VERSION}\n");
-    match run(options.mode, payload, false) {
+    let after = if options.update {
+        After::Reopen
+    } else {
+        After::Nothing
+    };
+    match run(options.mode, payload, after) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             println!("\nНе получилось: {e:#}");
@@ -155,10 +186,10 @@ fn attach_console() {
     }
 }
 
-/// Runs one action; `launch` opens the app after a successful install.
-pub fn run(mode: Mode, payload: &[u8], launch: bool) -> Result<()> {
+/// Runs one action; `after` says what follows a successful install.
+pub fn run(mode: Mode, payload: &[u8], after: After) -> Result<()> {
     match mode {
-        Mode::Install => install(payload, launch),
+        Mode::Install => install(payload, after),
         Mode::Uninstall => uninstall(),
         Mode::StopDriver => stop_windivert(),
     }
@@ -226,8 +257,8 @@ pub fn data_dir() -> Option<PathBuf> {
     Paths::detect().ok().map(|paths| paths.data)
 }
 
-fn install(bytes: &[u8], launch: bool) -> Result<()> {
-    report(Event::Plan(10));
+fn install(bytes: &[u8], after: After) -> Result<()> {
+    report(Event::Plan(11));
     let _guard = step("Проверка системы", |_| {
         require_admin()?;
         reject_arm()?;
@@ -242,25 +273,48 @@ fn install(bytes: &[u8], launch: bool) -> Result<()> {
     step("Выгрузка драйвера WinDivert", |notes| {
         release_driver(&paths.install, false, notes)
     })?;
-    let record = step("Копирование файлов", |notes| {
-        copy_files(&paths, entries, notes)
+    let backup = step("Копия прежней версии", |notes| {
+        backup_files(&paths, notes)
     })?;
-    step("Защита папки данных", |notes| {
-        secure_data_dir(&paths.data, notes)
-    })?;
-    step("Регистрация службы", |_| {
-        register_service(&paths)
-    })?;
-    step(
-        "Ярлыки и запись в «Приложения»",
-        |notes| {
-            if let Err(e) = create_shortcuts(&paths) {
-                notes.push(format!("ярлыки не созданы: {e:#}"));
+    let installed = (|| {
+        let record = step("Копирование файлов", |notes| {
+            copy_files(&paths, entries, notes)
+        })?;
+        step("Защита папки данных", |notes| {
+            secure_data_dir(&paths.data, notes)
+        })?;
+        step("Регистрация службы", |_| {
+            register_service(&paths)
+        })?;
+        step(
+            "Ярлыки и запись в «Приложения»",
+            |notes| {
+                if let Err(e) = create_shortcuts(&paths) {
+                    notes.push(format!("ярлыки не созданы: {e:#}"));
+                }
+                register_uninstall(&paths, &record)
+            },
+        )?;
+        step("Запуск службы", |_| start_service())
+    })();
+    if let Err(e) = installed {
+        if let Some(backup) = &backup {
+            let restored = step("Возврат прежней версии", |notes| {
+                restore_files(&paths, backup, notes)
+            });
+            if after == After::Reopen && restored.is_ok() {
+                let _ = reopen_app(&paths);
             }
-            register_uninstall(&paths, &record)
-        },
-    )?;
-    step("Запуск службы", |_| start_service())?;
+            return Err(match restored {
+                Ok(()) => e.context("прежняя версия возвращена"),
+                Err(r) => e.context(format!("прежнюю версию вернуть не удалось: {r:#}")),
+            });
+        }
+        return Err(e);
+    }
+    if let Some(backup) = backup {
+        let _ = fs::remove_dir_all(backup);
+    }
     report(Event::Info(format!(
         "\n{PRODUCT} установлен в {}.\nОбход выключен, пока его не включат в программе.",
         paths.install.display()
@@ -271,10 +325,144 @@ fn install(bytes: &[u8], launch: bool) -> Result<()> {
              установите его: {WEBVIEW2_DOWNLOAD}"
         )));
     }
-    if launch && let Err(e) = launch_as_user(&paths) {
+    let opened = match after {
+        After::Nothing => Ok(()),
+        After::OpenApp => launch_as_user(&paths),
+        After::Reopen => reopen_app(&paths),
+    };
+    if let Err(e) = opened {
         report(Event::Note(format!(
             "Не удалось открыть программу ({e:#}); она есть в меню «Пуск»."
         )));
+    }
+    Ok(())
+}
+
+/// Folder with the files of the version being replaced, inside the
+/// admin-only install folder.
+const BACKUP: &str = ".previous";
+
+/// Copies the files the previous installer recorded, so a failed update can
+/// put them back. `None` on a first install.
+fn backup_files(paths: &Paths, notes: &mut Vec<String>) -> Result<Option<PathBuf>> {
+    let Ok(bytes) = fs::read(paths.record()) else {
+        return Ok(None);
+    };
+    let record = match Record::parse(&bytes) {
+        Ok(record) => record,
+        Err(e) => {
+            notes.push(format!(
+                "старый список файлов не прочитан, копии не будет: {e:#}"
+            ));
+            return Ok(None);
+        }
+    };
+    let backup = paths.install.join(BACKUP);
+    if backup.exists() {
+        fs::remove_dir_all(&backup)?;
+    }
+    for file in &record.files {
+        let source = payload::join(&paths.install, file);
+        let target = payload::join(&backup, file);
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if let Err(e) = fs::copy(&source, &target) {
+            notes.push(format!("{file} не скопирован: {e}"));
+        }
+    }
+    fs::write(backup.join("installed.json"), &bytes)?;
+    notes.push(format!("версия {}", record.version));
+    Ok(Some(backup))
+}
+
+/// Puts the backed-up version back and starts its service.
+fn restore_files(paths: &Paths, backup: &Path, notes: &mut Vec<String>) -> Result<()> {
+    let _ = stop_service();
+    let bytes = fs::read(backup.join("installed.json"))?;
+    let old = Record::parse(&bytes)?;
+    // Files only the new version added.
+    if let Ok(new) = fs::read(paths.record())
+        .map_err(anyhow::Error::from)
+        .and_then(|b| Record::parse(&b))
+    {
+        for stale in new.stale(&old) {
+            remove_or_schedule(&payload::join(&paths.install, stale), notes);
+        }
+    }
+    for file in &old.files {
+        if let Ok(data) = fs::read(payload::join(backup, file)) {
+            write_replacing(&payload::join(&paths.install, file), &data, notes)?;
+        }
+    }
+    fs::write(paths.record(), &bytes)?;
+    register_service(paths)?;
+    start_service()?;
+    let _ = fs::remove_dir_all(backup);
+    Ok(())
+}
+
+/// Opens the app in the session of the user at the screen. The updater runs
+/// as SYSTEM, which has no desktop of its own.
+fn reopen_app(paths: &Paths) -> Result<()> {
+    use windows_sys::Win32::System::{
+        Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock},
+        RemoteDesktop::{WTSGetActiveConsoleSessionId, WTSQueryUserToken},
+        Threading::{
+            CREATE_UNICODE_ENVIRONMENT, CreateProcessAsUserW, PROCESS_INFORMATION, STARTUPINFOW,
+        },
+    };
+    let app = paths.app();
+    let application = wide(&app);
+    let mut command_line = wide(format!("\"{}\"", app.display()));
+    let directory = wide(&paths.install);
+    let mut desktop = wide("winsta0\\default");
+    unsafe {
+        let session = WTSGetActiveConsoleSessionId();
+        if session == u32::MAX {
+            bail!("никто не вошёл в систему");
+        }
+        let mut token: HANDLE = std::ptr::null_mut();
+        if WTSQueryUserToken(session, &mut token) == 0 {
+            return Err(io::Error::last_os_error()).context("нет пользователя у экрана");
+        }
+        let token = Handle(token);
+        let mut environment = std::ptr::null_mut();
+        let has_environment = CreateEnvironmentBlock(&mut environment, token.0, 0) != 0;
+        let mut startup: STARTUPINFOW = std::mem::zeroed();
+        startup.cb = size_of::<STARTUPINFOW>() as u32;
+        startup.lpDesktop = desktop.as_mut_ptr();
+        let mut process: PROCESS_INFORMATION = std::mem::zeroed();
+        let ok = CreateProcessAsUserW(
+            token.0,
+            application.as_ptr(),
+            command_line.as_mut_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            0,
+            if has_environment {
+                CREATE_UNICODE_ENVIRONMENT
+            } else {
+                0
+            },
+            if has_environment {
+                environment
+            } else {
+                std::ptr::null()
+            },
+            directory.as_ptr(),
+            &startup,
+            &mut process,
+        );
+        let error = io::Error::last_os_error();
+        if has_environment {
+            DestroyEnvironmentBlock(environment);
+        }
+        if ok == 0 {
+            return Err(error.into());
+        }
+        CloseHandle(process.hProcess);
+        CloseHandle(process.hThread);
     }
     Ok(())
 }

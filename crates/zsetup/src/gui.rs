@@ -224,7 +224,7 @@ fn window(mode: Mode, payload: &'static [u8]) -> anyhow::Result<ExitCode> {
 
 fn start(mode: Mode, payload: &'static [u8], proxy: EventLoopProxy<UserEvent>) {
     std::thread::spawn(move || {
-        let result = win::run(mode, payload, true);
+        let result = win::run(mode, payload, win::After::OpenApp);
         let done = match &result {
             Ok(()) => json!({ "type": "done", "ok": true }),
             Err(e) => json!({ "type": "done", "ok": false, "error": format!("{e:#}") }),
