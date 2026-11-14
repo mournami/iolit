@@ -191,9 +191,15 @@
       <div class="fact">
         <dt>Изменено пакетов</dt>
         <dd>
-          <span class="fact-v num">{app.running && service ? formatCount(service.modified_packets) : '0'}</span>
           {#if app.running && service?.packets}
+            <span class="fact-v num">{formatCount(service.modified_packets)}</span>
             <span class="fact-sub num">из {formatCount(service.packets)}</span>
+          {:else if app.running}
+            <!-- winws reports no counters; a zero here would look like a fault. -->
+            <span class="fact-v">—</span>
+            <span class="fact-sub">движок не сообщает</span>
+          {:else}
+            <span class="fact-v num">0</span>
           {/if}
         </dd>
       </div>

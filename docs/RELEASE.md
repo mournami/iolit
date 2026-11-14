@@ -678,3 +678,21 @@ DPI result, so selection rejected all 22 strategies.
 | Windows cross-build (`build.sh`) | Passed |
 
 Not verified: the DoH fallback on a Windows PC with broken DNS.
+
+## 2026-11-14: second tester, new installer and DNS fallback
+
+Recording from the tester with the DNS problem, new `Zapret-Desktop-Setup.exe`
+(installer window, DoH fallback):
+
+- Installer window on Windows 11 (build 26200): installed over the previous
+  version, showed "Готово" and opened the app. First real run of the window.
+- Overview with `general-alt11`: all 4 checks pass, YouTube "Мешает DNS"
+  (about 450 ms) instead of failing; also with the bypass off.
+- Cause on this PC: `nslookup www.youtube.com` against Cloudflare
+  `2606:4700:4700::1111` without encryption gives "No response from server";
+  with automatic DNS the router (MikroTik) answers nothing either. Plain DNS
+  queries for YouTube are dropped on the way; DoH works. The browser opens
+  YouTube (it uses secure DNS).
+- "Изменено пакетов" always showed 0: winws reports no counters and the
+  service sends zero. The overview now shows "—, движок не сообщает" while
+  running without counters.
