@@ -1,5 +1,6 @@
 //! Embeds the payload made by `zbuild installer-payload` (path in
-//! ZAPRET_SETUP_PAYLOAD) and asks Windows for administrator rights at launch.
+//! ZAPRET_SETUP_PAYLOAD), the icon, and a manifest that asks Windows for
+//! administrator rights at launch.
 use std::{env, fs, path::PathBuf};
 
 fn main() {
@@ -14,13 +15,45 @@ fn main() {
         // installer refuses to run.
         None => fs::write(&out, b"").expect("empty payload"),
     }
-    let windows = env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows");
-    let msvc = env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc");
-    if windows && msvc {
-        // Program Files, services and HKLM need elevation; UAC asks once at start.
-        println!("cargo:rustc-link-arg-bins=/MANIFEST:EMBED");
-        println!(
-            "cargo:rustc-link-arg-bins=/MANIFESTUAC:level='requireAdministrator' uiAccess='false'"
-        );
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        let icon = "../../src-tauri/icons/icon.ico";
+        println!("cargo:rerun-if-changed={icon}");
+        let mut res = tauri_winres::WindowsResource::new();
+        res.set_icon(icon)
+            .set("FileDescription", "Установка Zapret Desktop")
+            .set("ProductName", "Zapret Desktop")
+            .set_manifest(MANIFEST);
+        res.compile().expect("Windows resources");
     }
 }
+
+/// Program Files, services and HKLM need elevation: UAC asks once at start.
+/// Common Controls 6 and per-monitor DPI keep message boxes and the window sharp.
+const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0"
+        processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
+    </dependentAssembly>
+  </dependency>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+</assembly>
+"#;
