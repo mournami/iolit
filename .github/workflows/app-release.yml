@@ -1,0 +1,91 @@
+name: App release
+# Publishes the application update that installed copies offer behind
+# «Обновить» (owner's decision, 14.11.2026). Run by hand after raising the
+# version in Cargo.toml. Files go to the rolling release `app`, which is never
+# marked latest: `releases/latest` belongs to strategy bundles.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: app-release
+  cancel-in-progress: false
+jobs:
+  release:
+    name: Build, sign and publish the installer
+    runs-on: windows-2022
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the signing key
+        shell: bash
+        env:
+          KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::Нужен ключ подписи: секрет репозитория BUNDLE_SIGNING_KEY."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-phase0-rust-${{ hashFiles('Cargo.lock') }}
+      - run: npm ci
+      - run: npm run build
+      - run: cargo test --workspace --locked
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          cargo run -p zbuild --locked -- prepare-windows
+          if ($LASTEXITCODE -ne 0) { throw 'Engine preparation failed' }
+          cargo build --release -p zapretd --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Service build failed' }
+          Copy-Item target/release/zapretd.exe resources/runtime/zapretd.exe -Force
+          npm run desktop:build -- --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop build failed' }
+          cargo run -p zbuild --locked -- installer-payload --app target/release/zapret-desktop.exe --service target/release/zapretd.exe --out work/installer-payload.tar.gz
+          if ($LASTEXITCODE -ne 0) { throw 'Installer payload failed' }
+          $env:ZAPRET_SETUP_PAYLOAD = (Resolve-Path work/installer-payload.tar.gz).Path
+          cargo build --release -p zsetup --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
+      - name: Sign and publish
+        shell: bash
+        env:
+          ZAPRET_BUNDLE_SIGNING_KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          zbuild=target/debug/zbuild.exe
+          if [ "$($zbuild public-key | tr -d '\r')" != "$(tr -d '[:space:]' < resources/bundle-public-key.txt)" ]; then
+            echo "::error::Секрет BUNDLE_SIGNING_KEY не соответствует resources/bundle-public-key.txt"
+            exit 1
+          fi
+          mkdir -p work/previous
+          previous=()
+          if gh release view app --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if gh release download app --repo "$GITHUB_REPOSITORY" --pattern app-manifest.json --dir work/previous; then
+              previous=(--previous work/previous/app-manifest.json)
+            fi
+          else
+            gh release create app --repo "$GITHUB_REPOSITORY" --latest=false --target "$GITHUB_SHA" \
+              --title "Zapret Desktop: обновления приложения" \
+              --notes "Отсюда установленные копии берут обновление приложения. Установщик для новой установки — последний файл Zapret-Desktop-Setup-*.exe."
+          fi
+          $zbuild app-release --installer target/release/zapret-setup.exe --out work/app "${previous[@]}"
+          installer=$(cd work/app && ls Zapret-Desktop-Setup-*.exe)
+          # The installer first: a manifest never names a missing file.
+          gh release upload app --repo "$GITHUB_REPOSITORY" --clobber "work/app/$installer"
+          gh release upload app --repo "$GITHUB_REPOSITORY" --clobber work/app/app-manifest.json
+          for old in $(gh release view app --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' \
+              | grep '^Zapret-Desktop-Setup-.*\.exe$' | grep -vxF "$installer"); do
+            gh release delete-asset app "$old" --repo "$GITHUB_REPOSITORY" --yes
+          done
+          echo "Published $installer"
