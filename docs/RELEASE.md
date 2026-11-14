@@ -902,3 +902,15 @@ Still open in phase 1:
 - Doctor's light check every 10 minutes and on network change, re-selection
   of only the broken service.
 - Signed bundle channel: needs the owner's production key decision.
+
+## 2026-11-14: owner reports the exit criterion met by testers
+
+Owner's report: YouTube and Discord work in Russia for 3+ external testers.
+Recorded as reported; no recordings or logs were attached to this entry.
+
+Still to write down for the phase 1 gate (line "Providers" above):
+
+- the provider of each tester (3+ different ones, one mobile network);
+- which build they ran (installers before or after `phase1/mvp`) and which
+  strategy was active;
+- how long strategy selection took (criterion: under 3 minutes).
