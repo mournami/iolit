@@ -1,7 +1,7 @@
 <script lang="ts">
   import { native } from '../api';
   import Icon from '../Icon.svelte';
-  import { app, bundleLine, formatClock, formatCount, formatUptime, plural } from '../store.svelte';
+  import { app, bundleLine, formatClock, formatUptime, plural } from '../store.svelte';
   import type { ProbeResult } from '../types';
 
   const service = $derived(app.service);
@@ -189,17 +189,15 @@
         <dd><span class="fact-v">{service?.engine || '—'}</span></dd>
       </div>
       <div class="fact">
-        <dt>Изменено пакетов</dt>
+        <dt>DNS</dt>
         <dd>
-          {#if app.running && service?.packets}
-            <span class="fact-v num">{formatCount(service.modified_packets)}</span>
-            <span class="fact-sub num">из {formatCount(service.packets)}</span>
-          {:else if app.running}
-            <!-- winws reports no counters; a zero here would look like a fault. -->
-            <span class="fact-v">—</span>
-            <span class="fact-sub">движок не сообщает</span>
+          <!-- winws reports no packet counters, so this tile shows DNS, which often decides whether a site opens. -->
+          {#if service?.secure_dns.enabled}
+            <span class="fact-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
+            <span class="fact-sub">через HTTPS для всех программ</span>
           {:else}
-            <span class="fact-v num">0</span>
+            <span class="fact-v">Системный</span>
+            <span class="fact-sub">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
           {/if}
         </dd>
       </div>

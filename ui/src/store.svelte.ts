@@ -241,4 +241,3 @@ function formatAgo(secs: number) {
 /** «23:21» for a check finished today. */
 export const formatClock = (d: Date) => d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-export const formatCount = (n: number) => n.toLocaleString('ru-RU');
