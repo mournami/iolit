@@ -22,8 +22,9 @@ use zapret_core::{
     bundle::{self, Manifest, SignedManifest},
 };
 
+/// Rolling pre-release `bundle`; `releases/latest` belongs to app versions.
 pub const DEFAULT_SOURCE: &str =
-    "https://github.com/mournami/zapret13231/releases/latest/download/";
+    "https://github.com/mournami/zapret13231/releases/download/bundle/";
 pub const MANIFEST_NAME: &str = "manifest.json";
 const STATE_FILE: &str = "state.json";
 const MAX_MANIFEST: usize = 1 << 20;
