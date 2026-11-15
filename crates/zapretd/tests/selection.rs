@@ -508,3 +508,53 @@ async fn repair_that_breaks_a_working_service_is_rolled_back() {
     assert_eq!(fake.active, "a");
     assert!(fake.running);
 }
+
+/// Every round waits for the check timeout, as with a DPI stall.
+struct StalledProbes;
+impl Probes for StalledProbes {
+    async fn run(&self) -> Vec<ProbeResult> {
+        tokio::time::sleep(std::time::Duration::from_secs(7)).await;
+        vec![ProbeResult {
+            id: "test".into(),
+            name: "test".into(),
+            protocol: "TCP".into(),
+            ok: false,
+            latency_ms: 7000,
+            detail: String::new(),
+            warning: None,
+        }]
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn selection_stops_taking_candidates_to_finish_within_three_minutes() {
+    let data = tempfile::tempdir().unwrap();
+    let mut fake = FakeBackend::new(true);
+    fake.catalog = Some(
+        (1..=30)
+            .map(|i| Strategy {
+                id: format!("candidate-{i}"),
+                name: format!("candidate-{i}"),
+                description: String::new(),
+                supported: true,
+                arguments: vec!["--test".into()],
+            })
+            .collect(),
+    );
+    let backend = Arc::new(Mutex::new(fake));
+    let state = Arc::new(OperationManager::new(data.path().into()));
+    let started = tokio::time::Instant::now();
+    let error = selector::auto_select(&state, &backend, &StalledProbes, None)
+        .await
+        .unwrap_err()
+        .to_string();
+    let took = started.elapsed();
+    assert!(took < std::time::Duration::from_secs(180), "took {took:?}");
+    // Baseline at 0-7 s, then one 7 s round per candidate until 140 s.
+    assert!(
+        error.contains("Подбор ограничен 3 минутами: проверено 19 из 30 стратегий."),
+        "{error}"
+    );
+    assert_eq!(backend.lock().await.active, "original");
+    assert!(backend.lock().await.running);
+}

@@ -6,8 +6,14 @@ use std::{
     future::Future,
     sync::{Arc, atomic::Ordering},
 };
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::Duration};
 use zapret_core::{ProbeResult, ServiceStatus, Strategy, composite, targets::TargetList};
+
+/// No new candidate starts after this. One more candidate (engine start up to
+/// 7 s, a round up to 7 s) and the two final rounds of the chosen strategy fit
+/// in the rest, so selection ends within 3 minutes, the phase 1 target. With 22
+/// Flowseal strategies and every check stalled, the list would take about 3:15.
+pub const CANDIDATE_DEADLINE: Duration = Duration::from_secs(140);
 
 pub trait Backend: Send {
     fn status(&mut self) -> Result<ServiceStatus>;
@@ -124,9 +130,11 @@ pub async fn auto_select<B: Backend, P: Probes>(
     let recovery_path = state.recovery_path.clone();
     tokio::fs::write(&recovery_path, serde_json::to_vec(&original)?).await?;
     state.operation.lock().await.total = candidates.len();
-    let started_at = std::time::Instant::now();
+    let started_at = tokio::time::Instant::now();
     // Candidates whose engine did not start, with the first line of the reason.
     let mut skipped = Vec::new();
+    // Candidates tried before the time limit stopped the search.
+    let mut stopped_after: Option<usize> = None;
     // Checks that nothing made pass, for the final notice.
     let mut unhelped: Vec<String> = Vec::new();
     // Always roll back on cancellation, failed probes, or a service/IPC error.
@@ -173,6 +181,10 @@ pub async fn auto_select<B: Backend, P: Probes>(
         for (index, s) in candidates.iter().enumerate() {
             if state.cancelled.load(Ordering::Acquire) {
                 return Ok(None);
+            }
+            if started_at.elapsed() >= CANDIDATE_DEADLINE {
+                stopped_after = Some(index);
+                break;
             }
             // A repair already knows how the running strategy does.
             if focus.is_some() && s.id == original.strategy {
@@ -284,6 +296,12 @@ pub async fn auto_select<B: Backend, P: Probes>(
     .await;
     let elapsed = started_at.elapsed().as_secs();
     let took = format!("Подбор занял {} мин {} с.", elapsed / 60, elapsed % 60);
+    let limit = stopped_after.map(|tried| {
+        format!(
+            "Подбор ограничен 3 минутами: проверено {tried} из {} стратегий.",
+            candidates.len()
+        )
+    });
     match outcome {
         Ok(Some(winner)) if !state.cancelled.load(Ordering::Acquire) => {
             if winner != composite::ID {
@@ -291,6 +309,7 @@ pub async fn auto_select<B: Backend, P: Probes>(
                 backend.lock().await.set_composite(None)?;
             }
             let mut notes = vec![took];
+            notes.extend(limit.clone());
             if !unhelped.is_empty() {
                 notes.push(format!(
                     "Не помогла ни одна стратегия: {}. Возможно, блокировка по адресу, обход её не снимает.",
@@ -320,6 +339,10 @@ pub async fn auto_select<B: Backend, P: Probes>(
                 anyhow::anyhow!("Не удалось восстановить исходную настройку: {e:#}")
             })?;
             tokio::fs::remove_file(&recovery_path).await?;
+            let took = match &limit {
+                Some(limit) => format!("{took} {limit}"),
+                None => took,
+            };
             match other {
                 Err(e) => Err(e),
                 _ if state.cancelled.load(Ordering::Acquire) => Ok(()),
