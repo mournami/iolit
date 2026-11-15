@@ -15,3 +15,10 @@
 
 /src-tauri/gen/
 /scripts/__pycache__/
+
+# Project plan, release log and agent rules stay with the developers, not on GitHub.
+/AGENTS.md
+/docs/ARCHITECTURE.md
+/docs/RELEASE.md
+/docs/PHASE-0-REPORT.md
+/docs/ACCEPTANCE.md

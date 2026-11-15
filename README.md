@@ -2,8 +2,7 @@
 
 Open-source desktop application for local DPI circumvention on Windows and macOS.
 The intended product is commercial quality, including TCP and UDP. Current builds
-are **development builds, not a certified production release**. See
-[`docs/RELEASE.md`](docs/RELEASE.md) for measured results and remaining gates.
+are **development builds, not a certified production release**.
 
 ## Components
 
@@ -86,7 +85,7 @@ cd engines/macos && go test ./... && go test -race ./internal/...
 
 Privileged packet-path tests are separate from unit tests and must be run on real
 machines. A successful TLS/STUN probe does not prove video playback or a Discord
-voice call. See `docs/ACCEPTANCE.md` for the actual release criteria.
+voice call. Release criteria are checked on real machines before each release.
 
 ## Recovery and uninstall
 
@@ -112,5 +111,5 @@ publish their complete source under the same license. The license was MIT until
 2026-11-15; copies taken before that date keep their MIT terms.
 macOS engine and Flowseal data: MIT, original notices retained.
 WinDivert: LGPLv3/GPLv2 alternatives; its own license and source obligations apply.
-See `licenses/THIRD-PARTY.md`. An intended commercial release must finish the
-third-party source/notice packaging review in `docs/RELEASE.md`.
+See `licenses/THIRD-PARTY.md`. An intended commercial release must first finish a
+review of third-party source and notice packaging.
