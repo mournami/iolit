@@ -41,8 +41,9 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-phase0-rust-${{ hashFiles('Cargo.lock') }}
       - run: npm ci
       - run: npm run build
-      - run: cargo test --workspace --locked
-      - name: Build the installer
+      # The desktop crate bundles the prepared runtime and the service, so
+      # both must exist before the workspace tests compile it.
+      - name: Prepare the engine and the service resource
         shell: pwsh
         run: |
           cargo run -p zbuild --locked -- prepare-windows
@@ -50,6 +51,10 @@ jobs:
           cargo build --release -p zapretd --locked
           if ($LASTEXITCODE -ne 0) { throw 'Service build failed' }
           Copy-Item target/release/zapretd.exe resources/runtime/zapretd.exe -Force
+      - run: cargo test --workspace --locked
+      - name: Build the installer
+        shell: pwsh
+        run: |
           npm run desktop:build -- --no-bundle
           if ($LASTEXITCODE -ne 0) { throw 'Desktop build failed' }
           cargo run -p zbuild --locked -- installer-payload --app target/release/zapret-desktop.exe --service target/release/zapretd.exe --out work/installer-payload.tar.gz
