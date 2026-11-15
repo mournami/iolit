@@ -106,7 +106,11 @@ under `%ProgramData%/ZapretDesktop`.
 
 ## Licensing
 
-Application: MIT. macOS engine and Flowseal data: MIT, original notices retained.
+Application: GNU GPL version 3 only (`GPL-3.0-only`, full text in `LICENSE`),
+copyright 2026 Zapret Desktop contributors. Forks and redistributed builds must
+publish their complete source under the same license. The license was MIT until
+2026-11-15; copies taken before that date keep their MIT terms.
+macOS engine and Flowseal data: MIT, original notices retained.
 WinDivert: LGPLv3/GPLv2 alternatives; its own license and source obligations apply.
 See `licenses/THIRD-PARTY.md`. An intended commercial release must finish the
 third-party source/notice packaging review in `docs/RELEASE.md`.

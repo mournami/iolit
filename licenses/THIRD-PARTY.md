@@ -33,7 +33,7 @@ in the redistribution review. Do not treat the complete Windows bundle as MIT.
 
 Exact package versions in Cargo.lock, package-lock.json and engines/macos/go.sum.
 Generate their full notices for each production artifact. No third-party license
-is replaced by the application's own MIT license.
+is replaced by the application's own GPLv3 license.
 
 ## Interface fonts and icons
 

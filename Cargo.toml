@@ -5,7 +5,7 @@ members = ["crates/zapret-core", "crates/zapretd", "crates/zbuild", "crates/zset
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "MIT"
+license = "GPL-3.0-only"
 rust-version = "1.88"
 
 [workspace.dependencies]

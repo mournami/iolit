@@ -19,6 +19,11 @@ fn files(root: &Path, app: &Path, service: &Path) -> Result<BTreeMap<String, Pat
         &mut files,
     )?;
     bundle::walk(&root.join("licenses"), "licenses", &mut files)?;
+    // GPLv3 requires a copy of the license with every binary we distribute.
+    files.insert("LICENSE.txt".to_owned(), root.join("LICENSE"));
+    if !root.join("LICENSE").is_file() {
+        bail!("No LICENSE in {}", root.display());
+    }
     for required in [
         "runtime/windows/strategies.json",
         "runtime/windows/bin/winws.exe",
@@ -71,6 +76,7 @@ mod tests {
             ("resources/runtime/windows/bin/winws.exe", "winws"),
             ("resources/runtime/windows/lists/list-general-user.txt", ""),
             ("licenses/WinDivert-LICENSE", "license"),
+            ("LICENSE", "gpl"),
             ("app.exe", "app"),
             ("zapretd.exe", "service"),
         ] {
@@ -92,6 +98,7 @@ mod tests {
         assert_eq!(
             found,
             [
+                ("LICENSE.txt", "gpl"),
                 ("licenses/WinDivert-LICENSE", "license"),
                 ("runtime/windows/bin/winws.exe", "winws"),
                 ("runtime/windows/lists/list-general-user.txt", ""),
@@ -104,6 +111,9 @@ mod tests {
         // Deterministic: the same inputs give the same bytes.
         payload(root, &root.join("app.exe"), &root.join("zapretd.exe"), &out).unwrap();
         assert_eq!(fs::read(&out).unwrap(), bytes);
+        fs::remove_file(root.join("LICENSE")).unwrap();
+        assert!(payload(root, &root.join("app.exe"), &root.join("zapretd.exe"), &out).is_err());
+        fs::write(root.join("LICENSE"), "gpl").unwrap();
         fs::remove_file(root.join("resources/runtime/windows/bin/winws.exe")).unwrap();
         assert!(payload(root, &root.join("app.exe"), &root.join("zapretd.exe"), &out).is_err());
     }
