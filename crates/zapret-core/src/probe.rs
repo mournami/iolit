@@ -3,10 +3,34 @@ use crate::{
     targets::{Check, TargetList},
 };
 use std::{
+    collections::HashMap,
     net::{IpAddr, SocketAddr},
+    sync::Mutex,
     time::{Duration, Instant},
 };
 use tokio::net::UdpSocket;
+
+/// Hosts the system DNS did not know, with the addresses a public resolver
+/// gave. Selection runs the checks once per strategy; without this every round
+/// would wait for the system DNS and DoH again (up to 17 s more per strategy).
+/// Short enough that turning secure DNS on shows up in the next checks.
+type AddressCache = HashMap<String, (Instant, Vec<SocketAddr>)>;
+static DOH_CACHE: Mutex<Option<AddressCache>> = Mutex::new(None);
+const DOH_CACHE_TTL: Duration = Duration::from_secs(5 * 60);
+
+fn cached_addresses(host: &str) -> Option<Vec<SocketAddr>> {
+    let cache = DOH_CACHE.lock().ok()?;
+    let (at, addresses) = cache.as_ref()?.get(host)?;
+    (at.elapsed() < DOH_CACHE_TTL).then(|| addresses.clone())
+}
+
+fn remember_addresses(host: &str, addresses: &[SocketAddr]) {
+    if let Ok(mut cache) = DOH_CACHE.lock() {
+        cache
+            .get_or_insert_with(HashMap::new)
+            .insert(host.to_owned(), (Instant::now(), addresses.to_vec()));
+    }
+}
 
 /// Runs every check of `targets` in parallel; results sorted by id.
 pub async fn run(targets: &TargetList) -> Vec<ProbeResult> {
@@ -35,17 +59,28 @@ pub async fn run(targets: &TargetList) -> Vec<ProbeResult> {
 async fn http_probe(id: &str, name: &str, url: &str) -> ProbeResult {
     let start = Instant::now();
     let mut warning = None;
-    let mut result = fetch(url, None).await;
+    let host = reqwest::Url::parse(url)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_owned));
+    // A host the system DNS recently failed goes straight to the known address.
+    let known = host.as_deref().and_then(cached_addresses);
+    let mut result = if known.is_some() {
+        Err(anyhow::anyhow!("dns error: known from an earlier check"))
+    } else {
+        fetch(url, None).await
+    };
     // A DNS failure says nothing about DPI: ask a public resolver over HTTPS
     // and check the service by that address, so strategy selection measures
     // the bypass. The DNS problem is reported separately.
     if let Err(error) = &result
         && is_dns_failure(error)
-        && let Some(host) = reqwest::Url::parse(url)
-            .ok()
-            .and_then(|u| u.host_str().map(str::to_owned))
-        && let Some(addresses) = resolve_over_https(&host).await
+        && let Some(host) = host
+        && let Some(addresses) = match known {
+            Some(addresses) => Some(addresses),
+            None => resolve_over_https(&host).await,
+        }
     {
+        remember_addresses(&host, &addresses);
         result = match fetch(url, Some((&host, &addresses))).await {
             Ok(detail) => {
                 warning = Some(DNS_WARNING.to_owned());
@@ -248,6 +283,15 @@ async fn stun_probe(id: &str, name: &str, host: &str, port: u16) -> ProbeResult 
 mod tests {
     use super::*;
     use std::io::{Error, ErrorKind};
+
+    #[test]
+    fn addresses_from_secure_dns_are_reused_between_rounds() {
+        let address: SocketAddr = "203.0.113.7:443".parse().unwrap();
+        assert!(cached_addresses("cache-test.invalid").is_none());
+        remember_addresses("cache-test.invalid", &[address]);
+        assert_eq!(cached_addresses("cache-test.invalid"), Some(vec![address]));
+        assert!(cached_addresses("other.invalid").is_none());
+    }
 
     #[test]
     fn failure_detail_names_the_underlying_cause() {
