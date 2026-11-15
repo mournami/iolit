@@ -1,10 +1,17 @@
 name: App release
-# Publishes the application update that installed copies offer behind
-# «Обновить» (owner's decision, 14.11.2026). Run by hand after raising the
-# version in Cargo.toml. Files go to the rolling release `app`, which is never
-# marked latest: `releases/latest` belongs to strategy bundles.
+# Publishes an application version (owner's decisions, 14.11 and 15.11.2026).
+# Run by hand after raising the version in Cargo.toml. Two places:
+# - release `vX.Y.Z`, marked latest: the plain download for people, one file
+#   Zapret-Desktop-Setup.exe, so `releases/latest` always shows the app;
+# - rolling pre-release `app`: the signed manifest and installer that installed
+#   copies offer behind «Обновить».
 on:
   workflow_dispatch:
+    inputs:
+      notes:
+        description: Что нового в этой версии (по-русски, для страницы релиза)
+        type: string
+        default: ''
 permissions:
   contents: write
 concurrency:
@@ -66,6 +73,8 @@ jobs:
         shell: bash
         env:
           ZAPRET_BUNDLE_SIGNING_KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
+          NOTES: ${{ inputs.notes }}
+          APP_NOTES: Служебный релиз, отсюда установленные копии берут обновление. Чтобы скачать программу, откройте последний релиз «Zapret Desktop X.Y.Z».
         run: |
           set -euo pipefail
           zbuild=target/debug/zbuild.exe
@@ -80,10 +89,12 @@ jobs:
               previous=(--previous work/previous/app-manifest.json)
             fi
           else
-            gh release create app --repo "$GITHUB_REPOSITORY" --latest=false --target "$GITHUB_SHA" \
-              --title "Zapret Desktop: обновления приложения" \
-              --notes "Отсюда установленные копии берут обновление приложения. Установщик для новой установки — последний файл Zapret-Desktop-Setup-*.exe."
+            gh release create app --repo "$GITHUB_REPOSITORY" --latest=false --prerelease --target "$GITHUB_SHA" \
+              --title "Служебный: обновления приложения" --notes "$APP_NOTES"
           fi
+          # Keeps the service channel out of the way of people looking for a download.
+          gh release edit app --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+            --title "Служебный: обновления приложения" --notes "$APP_NOTES"
           $zbuild app-release --installer target/release/zapret-setup.exe --out work/app "${previous[@]}"
           installer=$(cd work/app && ls Zapret-Desktop-Setup-*.exe)
           # The installer first: a manifest never names a missing file.
@@ -93,4 +104,20 @@ jobs:
               | grep '^Zapret-Desktop-Setup-.*\.exe$' | grep -vxF "$installer"); do
             gh release delete-asset app "$old" --repo "$GITHUB_REPOSITORY" --yes
           done
-          echo "Published $installer"
+          version=${installer#Zapret-Desktop-Setup-}
+          version=${version%.exe}
+          mkdir -p work/public
+          cp "work/app/$installer" work/public/Zapret-Desktop-Setup.exe
+          sha=$(sha256sum work/public/Zapret-Desktop-Setup.exe | cut -d' ' -f1)
+          {
+            if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
+            echo "Скачайте **Zapret-Desktop-Setup.exe** ниже и запустите. Windows 10 и 11, 64 бита."
+            echo
+            echo "Уже установленная программа предложит обновиться сама: кнопка «Обновить» на главном экране."
+            echo
+            echo "SHA-256: \`$sha\`"
+          } > work/public/notes.md
+          gh release create "v$version" --repo "$GITHUB_REPOSITORY" --latest --target "$GITHUB_SHA" \
+            --title "Zapret Desktop $version" --notes-file work/public/notes.md \
+            work/public/Zapret-Desktop-Setup.exe
+          echo "Published $installer and release v$version"
