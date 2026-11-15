@@ -107,6 +107,9 @@ jobs:
           if (Test-Path (Join-Path $folder 'zapret-desktop.exe')) { throw 'App still present after uninstall' }
           sc.exe query WinDivert | Out-Null
           if ($LASTEXITCODE -ne 1060) { throw "Our WinDivert driver service is still registered ($LASTEXITCODE)" }
+          # 1060 above is the expected result; the runner would otherwise end
+          # the step with sc.exe's exit code.
+          exit 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
