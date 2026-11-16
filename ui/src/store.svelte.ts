@@ -5,7 +5,7 @@ import type { BundleStatus, DoctorCheck, DoctorResult, Snapshot } from './types'
 export type Page = 'overview' | 'checks' | 'settings';
 
 /** Command currently waiting for the service, used to word the busy state. */
-type Pending = 'enable' | 'disable' | 'strategy' | 'install' | 'diagnose' | 'select' | 'cancel' | 'doctor' | 'dns' | 'update' | null;
+type Pending = 'enable' | 'disable' | 'strategy' | 'install' | 'diagnose' | 'select' | 'cancel' | 'doctor' | 'dns' | 'update' | 'telegram' | null;
 
 class AppState {
   page = $state<Page>('overview');
@@ -120,6 +120,38 @@ class AppState {
       await this.refresh();
     } catch (e) {
       this.error = String(e);
+    }
+  };
+
+  get telegram() {
+    return this.data?.telegram;
+  }
+  /** The local proxy for Telegram Desktop; it has its own switch. */
+  setTelegram = async (enabled: boolean) => {
+    if (!(await this.#run('set_telegram_proxy', { enabled }, 'telegram'))) return;
+    this.notice = enabled
+      ? 'Прокси для Telegram включён. Осталось подключить Telegram: нажмите «Открыть в Telegram».'
+      : 'Прокси для Telegram выключен. Если Telegram перестал подключаться, отключите в нём этот прокси.';
+  };
+  /** Opens Telegram Desktop on its "add proxy" prompt. */
+  openTelegram = async () => {
+    this.error = '';
+    this.notice = '';
+    try {
+      await api('open_telegram');
+      this.notice = 'В Telegram должно открыться окно с прокси. Нажмите в нём «Подключить».';
+    } catch (e) {
+      this.error = String(e);
+    }
+  };
+  copyTelegramLink = async () => {
+    const link = this.data?.telegram.link;
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      this.notice = 'Ссылка скопирована. Отправьте её себе в «Избранное» в Telegram и нажмите на неё.';
+    } catch (e) {
+      this.error = `Не удалось скопировать ссылку: ${e}`;
     }
   };
 

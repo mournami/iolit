@@ -8,7 +8,7 @@ export function createHttpTransport(baseUrl: string, token: string): Transport {
   if (!['http:', 'https:'].includes(base.protocol)) throw new Error('Нужен HTTP-адрес службы');
   return {
     async call<T>(command: Parameters<Transport['call']>[0], args?: Record<string, unknown>): Promise<T> {
-      if (command === 'install_service' || command === 'export_report') {
+      if (command === 'install_service' || command === 'export_report' || command === 'open_telegram') {
         throw new Error('Эта команда доступна только в настольном приложении');
       }
       const response = await fetch(new URL(`/api/${command}`, base), {

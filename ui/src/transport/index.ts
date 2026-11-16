@@ -1,7 +1,7 @@
 import { tauriTransport } from './tauri';
 import type { DaemonCommand } from '../generated/api';
 
-export type Command = DaemonCommand['cmd'] | 'install_service' | 'export_report';
+export type Command = DaemonCommand['cmd'] | 'install_service' | 'export_report' | 'open_telegram';
 export interface Transport {
   call<T>(command: Command, args?: Record<string, unknown>): Promise<T>;
 }

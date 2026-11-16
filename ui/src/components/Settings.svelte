@@ -20,6 +20,7 @@
 
   let selected = $state('');
   const dns = $derived(app.service?.secure_dns);
+  const tg = $derived(app.telegram);
   let domain = $state('');
 
   // Load the lists once the service answers, not on every refresh.
@@ -124,6 +125,61 @@
         </div>
         <span class="value" class:bad={updates.value === 'Ошибка'}>{updates.value}</span>
       </div>
+    </section>
+
+    <section class="panel rows" aria-labelledby="tg-title">
+      <div class="row">
+        <div>
+          <h2 class="row-k" id="tg-title">Telegram</h2>
+          <p class="row-d">
+            {#if tg?.running}
+              Прокси работает на этом компьютере, порт 1443. Перед выключением отключите его в Telegram:
+              «Настройки» → «Продвинутые настройки» → «Тип соединения».
+            {:else}
+              Локальный прокси для Telegram Desktop: трафик идёт по WebSocket напрямую к серверам Telegram, без
+              сторонних серверов. Работает и при выключенном обходе.
+            {/if}
+          </p>
+          {#if tg?.error}<p class="row-d bad">{tg.error}</p>{/if}
+        </div>
+        <button
+          class="btn sm"
+          class:primary={!tg?.enabled}
+          disabled={!app.installed || app.pending !== null}
+          onclick={() => app.setTelegram(!tg?.enabled)}
+        >
+          {app.pending === 'telegram' ? 'Подождите…' : tg?.enabled ? 'Выключить' : 'Включить'}
+        </button>
+      </div>
+      {#if tg?.running}
+        <div class="row">
+          <div>
+            <h2 class="row-k">Подключить Telegram</h2>
+            <p class="row-d">
+              Нажмите «Открыть в Telegram» и подтвердите прокси. Если окно не появилось, скопируйте ссылку, отправьте
+              её себе в «Избранное» и нажмите на неё. Достаточно одного раза.
+            </p>
+            <p class="row-d">
+              {#if tg.active}
+                Сейчас {tg.active} {plural(tg.active, 'соединение', 'соединения', 'соединений')} Telegram.
+              {:else}
+                Telegram пока не подключён к прокси.
+              {/if}
+              {#if tg.websocket || tg.direct || tg.failed}
+                С момента включения: через WebSocket {tg.websocket}, напрямую {tg.direct}, не удалось {tg.failed}.
+              {/if}
+            </p>
+          </div>
+          <div class="icon-actions">
+            <button class="btn sm ghost" onclick={app.copyTelegramLink}>
+              <Icon name="copy" size={15} />Копировать ссылку
+            </button>
+            <button class="btn sm" onclick={app.openTelegram}>
+              <Icon name="send" size={15} />Открыть в Telegram
+            </button>
+          </div>
+        </div>
+      {/if}
     </section>
 
     <section class="panel rows" aria-labelledby="look-title">
