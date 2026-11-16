@@ -291,6 +291,7 @@ fn with_composite(mut catalog: Vec<Strategy>, data: &std::path::Path) -> Vec<Str
 pub struct Daemon<E: Engine> {
     pub controller: Arc<Mutex<Controller<E>>>,
     pub operations: Arc<OperationManager>,
+    pub telegram: Arc<crate::telegram::Manager>,
 }
 impl<E: Engine + 'static> Daemon<E> {
     pub async fn dispatch(&self, command: DaemonCommand) -> Result<DaemonResponse> {
@@ -305,7 +306,13 @@ impl<E: Engine + 'static> Daemon<E> {
                     bundle: controller.bundle.clone(),
                     health: self.operations.health.lock().await.clone(),
                     app: self.operations.app.lock().await.clone(),
+                    telegram: self.telegram.status().await,
                 }))
+            }
+            // Its own switch: no engine restart, so no need to wait for a check.
+            DaemonCommand::SetTelegramProxy { enabled } => {
+                self.telegram.set(enabled).await?;
+                Ok(DaemonResponse::Empty(()))
             }
             DaemonCommand::Diagnose
             | DaemonCommand::SelectStrategy

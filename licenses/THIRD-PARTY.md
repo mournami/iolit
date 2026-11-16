@@ -15,6 +15,15 @@ Windows binary/data bundle: Flowseal release 1.10.4, SHA256 in
 the revision providing that license is recorded separately in the lockfile.
 Underlying engines: https://github.com/bol-van/zapret (MIT).
 
+## tg-ws-proxy
+
+`crates/zapretd/src/telegram/` is a Rust port of the core of
+https://github.com/Flowseal/tg-ws-proxy (release 1.11.4): the MTProto
+obfuscation handshake, re-encryption, packet splitting, the WebSocket client and
+the gateway addresses. MIT, copyright Flowseal; license copied as
+`tg-ws-proxy-MIT.txt`. Not ported: the Cloudflare proxy and worker routes, HTTP/2
+media, Fake TLS, the tray application. No upstream code or binary is shipped.
+
 ## WinDivert
 
 https://github.com/basil00/WinDivert. Redistributed unmodified as part of the

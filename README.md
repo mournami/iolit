@@ -10,6 +10,8 @@ are **development builds, not a certified production release**.
 - `src-tauri/`: unprivileged Rust desktop application, tray, diagnostics and selection.
 - `crates/zapret-core/`: IPC, input validation, connectivity probes and manifest verification.
 - `crates/zapretd/`: Windows SCM service, winws supervision and protected local named pipe.
+  `src/telegram/` is an optional local MTProto proxy for Telegram Desktop, a Rust
+  port of the core of `Flowseal/tg-ws-proxy`.
 - `engines/macos/`: MIT-licensed fork of `naladwepo/zapret-for-mac`, pinned to commit
   `763790eb671b7bc5d89399b8af46ebed70a39f0d`. Native PF-log/BPF packet transport;
   **no silent fallback to the TCP-only proxy**. Original attribution and tests retained.
@@ -72,6 +74,22 @@ without a window and without opening the app, printing each step and its
 duration to the calling console. Source profiles are imported without running upstream batch scripts:
 `zbuild` compiles the pinned Flowseal `.bat` files with the Rust strategy
 compiler. Windows on ARM is not supported by this WinDivert build.
+
+## Telegram proxy
+
+Off by default, with its own switch in Settings, independent of the bypass. The
+service listens on `127.0.0.1:1443` and carries Telegram Desktop's MTProto
+traffic over a WebSocket (TLS) to Telegram's own gateway
+(`kws*.web.telegram.org`), or over plain TCP to the datacenter when a datacenter
+has no gateway. The traffic stays encrypted by Telegram end to end; the proxy
+only re-wraps the transport. Upstream's Cloudflare fallback is deliberately left
+out, so no third-party server takes part; the price is that media from some
+datacenters may not load where direct TCP to Telegram is blocked. The secret in
+the `tg://proxy` link is created on the computer and stays in the service data.
+
+Checked from a development machine only (`cargo test -p zapretd --test telegram
+-- --ignored` gets Telegram's answer to a key exchange through the proxy). Not
+yet checked with Telegram Desktop on a restricted network.
 
 ## Checks
 

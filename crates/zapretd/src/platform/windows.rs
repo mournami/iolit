@@ -229,9 +229,14 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
         },
         shutdown.clone(),
     ));
+    let telegram = Arc::new(crate::telegram::Manager::new(
+        controller.lock().await.data.clone(),
+    ));
+    telegram.restore().await;
     let daemon = Arc::new(Daemon {
         controller: controller.clone(),
         operations: operations.clone(),
+        telegram,
     });
     let create = |first: bool| -> Result<_> {
         let security = Security::new()?;

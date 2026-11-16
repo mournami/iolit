@@ -13,6 +13,16 @@ tokio.workspace = true
 zapret-core = { workspace = true, features = ["network"] }
 reqwest.workspace = true
 base64 = "0.22"
+# Local Telegram proxy (`src/telegram`): MTProto obfuscation and TLS to the
+# WebSocket gateway. rustls and ring are the ones reqwest already builds.
+sha2.workspace = true
+hex.workspace = true
+aes = "0.8"
+ctr = "0.9"
+getrandom = { version = "0.3", features = ["std"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+webpki-roots = "1"
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.8"

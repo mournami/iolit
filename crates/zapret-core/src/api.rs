@@ -44,6 +44,11 @@ pub enum DaemonCommand {
     SetSecureDns {
         enabled: bool,
     },
+    /// Local MTProto proxy for Telegram Desktop on `127.0.0.1`; independent of
+    /// `Enable`/`Disable` and kept across restarts.
+    SetTelegramProxy {
+        enabled: bool,
+    },
 }
 
 // One short-lived value per request; boxing the snapshot would buy nothing.
@@ -244,6 +249,43 @@ pub struct Snapshot {
     pub health: Health,
     #[serde(default)]
     pub app: AppUpdate,
+    #[serde(default)]
+    pub telegram: TelegramProxy,
+}
+
+/// Local proxy that carries Telegram Desktop's traffic to Telegram's own
+/// WebSocket gateway, see `SetTelegramProxy`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
+pub struct TelegramProxy {
+    /// Turned on by the user; kept across restarts.
+    pub enabled: bool,
+    /// The local port is open.
+    pub running: bool,
+    /// `tg://proxy` link with this computer's secret. Never part of reports.
+    pub link: Option<String>,
+    /// Telegram connections open now.
+    pub active: u32,
+    /// Connections since the proxy started: through the WebSocket gateway,
+    /// straight to a datacenter, and those that reached neither.
+    pub websocket: u32,
+    pub direct: u32,
+    pub failed: u32,
+    /// Why an enabled proxy is not running.
+    pub error: Option<String>,
+}
+
+impl TelegramProxy {
+    /// The link, if it is what the service makes: a local address and a hex
+    /// secret. Checked before the desktop app hands it to the system.
+    pub fn own_link(&self) -> Option<&str> {
+        let link = self.link.as_deref()?;
+        let rest = link.strip_prefix("tg://proxy?server=127.0.0.1&port=")?;
+        let (port, secret) = rest.split_once("&secret=dd")?;
+        (port.parse::<u16>().is_ok()
+            && secret.len() == 32
+            && secret.bytes().all(|b| b.is_ascii_hexdigit()))
+        .then_some(link)
+    }
 }
 
 /// Application updates: found and downloaded by the service, installed only

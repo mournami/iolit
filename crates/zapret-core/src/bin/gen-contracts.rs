@@ -39,6 +39,7 @@ fn main() -> Result<()> {
         BundleStatus::decl(&config),
         Health::decl(&config),
         AppUpdate::decl(&config),
+        TelegramProxy::decl(&config),
         Snapshot::decl(&config),
         DoctorCheck::decl(&config),
         DoctorResult::decl(&config),

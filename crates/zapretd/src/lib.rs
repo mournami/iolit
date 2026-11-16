@@ -8,4 +8,5 @@ pub mod platform;
 pub mod secure_dns;
 pub mod selector;
 pub mod service;
+pub mod telegram;
 pub mod updater;

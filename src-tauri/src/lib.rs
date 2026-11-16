@@ -21,6 +21,7 @@ async fn snapshot() -> ApiResult<Snapshot> {
             bundle: BundleStatus::default(),
             health: Default::default(),
             app: Default::default(),
+            telegram: Default::default(),
         }))
 }
 #[tauri::command]
@@ -74,6 +75,40 @@ async fn set_secure_dns(enabled: bool) -> ApiResult<()> {
     request_command(DaemonCommand::SetSecureDns { enabled })
         .await
         .map_err(msg)
+}
+#[tauri::command]
+async fn set_telegram_proxy(enabled: bool) -> ApiResult<()> {
+    request_command(DaemonCommand::SetTelegramProxy { enabled })
+        .await
+        .map_err(msg)
+}
+/// Hands the service's own `tg://proxy` link to the system, which opens
+/// Telegram Desktop on its "add proxy" prompt. The link is asked from the
+/// service here and checked, never taken from the window.
+#[tauri::command]
+async fn open_telegram() -> ApiResult<()> {
+    let snapshot: Snapshot = request_command(DaemonCommand::Snapshot)
+        .await
+        .map_err(msg)?;
+    let link = snapshot
+        .telegram
+        .own_link()
+        .ok_or("Сначала включите прокси для Telegram")?;
+    #[cfg(windows)]
+    let mut command = {
+        let mut command = tokio::process::Command::new("rundll32.exe");
+        command.arg("url.dll,FileProtocolHandler");
+        command
+    };
+    #[cfg(not(windows))]
+    let mut command = tokio::process::Command::new("/usr/bin/open");
+    let status = command.arg(link).status().await.map_err(msg)?;
+    if !status.success() {
+        return Err(
+            "Telegram не открылся. Скопируйте ссылку и откройте её в Telegram вручную.".into(),
+        );
+    }
+    Ok(())
 }
 #[tauri::command]
 async fn remove_domain(domain: String) -> ApiResult<()> {
@@ -164,6 +199,8 @@ pub fn run() {
             add_domain,
             remove_domain,
             set_secure_dns,
+            set_telegram_proxy,
+            open_telegram,
             domains,
             doctor,
             logs,

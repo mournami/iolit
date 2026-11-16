@@ -63,6 +63,7 @@ async fn commands_preserve_preferences_busy_gate_and_report_privacy() {
     let daemon = Daemon {
         controller: Arc::new(Mutex::new(controller)),
         operations: Arc::new(OperationManager::new(data.clone())),
+        telegram: Arc::new(zapretd::telegram::Manager::new(data.clone())),
     };
     let DaemonResponse::Snapshot(initial) = daemon.dispatch(DaemonCommand::Snapshot).await.unwrap()
     else {
@@ -238,6 +239,7 @@ async fn user_domains_are_listed_removed_and_applied_without_restart() {
             Controller::new(root, data.clone(), engine).unwrap(),
         )),
         operations: Arc::new(OperationManager::new(data.clone())),
+        telegram: Arc::new(zapretd::telegram::Manager::new(data.clone())),
     };
     let domains = || async {
         match daemon.dispatch(DaemonCommand::Domains).await.unwrap() {
@@ -316,7 +318,8 @@ async fn doctor_reports_a_broken_engine_and_missing_files() {
         controller: Arc::new(Mutex::new(
             Controller::new(root, data.clone(), TestEngine::default()).unwrap(),
         )),
-        operations: Arc::new(OperationManager::new(data)),
+        operations: Arc::new(OperationManager::new(data.clone())),
+        telegram: Arc::new(zapretd::telegram::Manager::new(data.clone())),
     };
     let DaemonResponse::Doctor(result) = daemon.dispatch(DaemonCommand::Doctor).await.unwrap()
     else {
@@ -393,7 +396,8 @@ async fn update_app_only_when_a_download_waits() {
     let controller = Controller::new(root, data.clone(), TestEngine::default()).unwrap();
     let daemon = Daemon {
         controller: Arc::new(Mutex::new(controller)),
-        operations: Arc::new(OperationManager::new(data)),
+        operations: Arc::new(OperationManager::new(data.clone())),
+        telegram: Arc::new(zapretd::telegram::Manager::new(data.clone())),
     };
     assert!(daemon.dispatch(DaemonCommand::UpdateApp).await.is_err());
 
