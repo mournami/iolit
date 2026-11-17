@@ -6,6 +6,7 @@ pub mod doctor;
 pub mod ipc;
 #[cfg(feature = "network")]
 pub mod probe;
+pub mod redact;
 pub mod strategy;
 pub mod targets;
 
