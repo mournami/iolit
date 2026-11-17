@@ -23,8 +23,14 @@ use zapret_core::{
 };
 
 /// Rolling pre-release `bundle`; `releases/latest` belongs to app versions.
-pub const DEFAULT_SOURCE: &str =
-    "https://github.com/mournami/zapret13231/releases/download/bundle/";
+/// Where bundles come from, tried in order: the GitHub release, then the
+/// same signed files on the `mirror-bundle` branch through two other hosts,
+/// for networks where github.com does not answer.
+pub const DEFAULT_SOURCES: [&str; 3] = [
+    "https://github.com/mournami/zapret13231/releases/download/bundle/",
+    "https://raw.githubusercontent.com/mournami/zapret13231/mirror-bundle/",
+    "https://cdn.jsdelivr.net/gh/mournami/zapret13231@mirror-bundle/",
+];
 pub const MANIFEST_NAME: &str = "manifest.json";
 const STATE_FILE: &str = "state.json";
 const MAX_MANIFEST: usize = 1 << 20;
@@ -50,11 +56,11 @@ pub fn decode_key(text: &str) -> Option<[u8; 32]> {
 }
 
 /// `bundle-sources.json` next to the service (admin-only): a JSON array of https
-/// base URLs ending in `/`, tried in order. Without it, GitHub Releases.
+/// base URLs ending in `/`, tried in order. Without it, `DEFAULT_SOURCES`.
 pub fn load_sources(install: &Path) -> Result<Vec<String>> {
     let file = install.join("bundle-sources.json");
     if !file.try_exists()? {
-        return Ok(vec![DEFAULT_SOURCE.into()]);
+        return Ok(DEFAULT_SOURCES.map(String::from).to_vec());
     }
     validate_sources(serde_json::from_slice(&fs::read(file)?)?)
 }

@@ -213,7 +213,9 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
                     install.join(crate::app_update::DIR),
                     fetch,
                     key,
-                    vec![crate::app_update::DEFAULT_SOURCE.into()],
+                    crate::app_update::DEFAULT_SOURCES
+                        .map(String::from)
+                        .to_vec(),
                     zapret_core::VERSION,
                 ));
                 tokio::spawn(updater.run());

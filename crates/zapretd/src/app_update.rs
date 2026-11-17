@@ -20,7 +20,13 @@ use zapret_core::{
     bundle::SignedManifest,
 };
 
-pub const DEFAULT_SOURCE: &str = "https://github.com/mournami/zapret13231/releases/download/app/";
+/// The GitHub release, then the `mirror-app` branch through two other hosts
+/// (see `updater::DEFAULT_SOURCES`).
+pub const DEFAULT_SOURCES: [&str; 3] = [
+    "https://github.com/mournami/zapret13231/releases/download/app/",
+    "https://raw.githubusercontent.com/mournami/zapret13231/mirror-app/",
+    "https://cdn.jsdelivr.net/gh/mournami/zapret13231@mirror-app/",
+];
 pub const DIR: &str = "updates";
 const INSTALLER: &str = "Zapret-Desktop-Setup.exe";
 const MAX_MANIFEST: usize = 1 << 20;

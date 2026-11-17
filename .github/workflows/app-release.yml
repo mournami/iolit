@@ -137,3 +137,5 @@ jobs:
             --title "Zapret Desktop $version" --notes-file work/public/notes.md \
             work/public/Zapret-Desktop-Setup.exe
           echo "Published $installer and release v$version"
+          # The same pair for clients that cannot reach github.com.
+          sh scripts/push_mirror.sh mirror-app work/app/app-manifest.json "work/app/$installer"

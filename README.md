@@ -20,6 +20,9 @@ are **development builds, not a certified production release**.
 
 The application uses no relay server, subscription service or telemetry endpoint.
 Network diagnostics contact Google/YouTube, Discord and Cloudflare on request.
+Updates come from this repository's GitHub releases; where github.com does not
+answer, the same signed files are read through raw.githubusercontent.com and
+jsDelivr. The client checks the signature, so these mirrors need no trust.
 Raw logs stay local and may contain network addresses. «Сохранить отчёт» writes a
 text file only where the user chooses: service state, the update log, Windows
 service events and the engine log tail, with IP addresses, user domains and the

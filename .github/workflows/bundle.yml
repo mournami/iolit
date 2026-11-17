@@ -179,3 +179,27 @@ jobs:
               | grep '^bundle-.*\.tar\.gz$' | grep -vxF "$archive"); do
             gh release delete-asset bundle "$old" --repo "$GITHUB_REPOSITORY" --yes
           done
+      - name: Mirror the published bundle
+        # Runs every hour, so the mirror also catches up after a failed run.
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/mirror
+          gh release download bundle --repo "$GITHUB_REPOSITORY" --clobber --dir work/mirror \
+            --pattern manifest.json --pattern 'bundle-*.tar.gz'
+          files=(work/mirror/manifest.json work/mirror/bundle-*.tar.gz)
+          if git fetch -q --depth 1 origin mirror-bundle 2>/dev/null; then
+            if git show FETCH_HEAD:manifest.json | cmp -s - work/mirror/manifest.json; then
+              echo "The mirror already holds this bundle"
+              exit 0
+            fi
+            # Keep the archive the mirror pointed to until now: a cached older
+            # manifest on jsDelivr still finds its archive.
+            previous=$(git show FETCH_HEAD:manifest.json | jq -r .payload | base64 -d | jq -r .archive.path)
+            if [[ "$previous" == bundle-*.tar.gz && ! -e "work/mirror/$previous" ]] \
+                && git show "FETCH_HEAD:$previous" > "work/mirror/$previous" 2>/dev/null; then
+              files+=("work/mirror/$previous")
+            fi
+          fi
+          sh scripts/push_mirror.sh mirror-bundle "${files[@]}"
+
