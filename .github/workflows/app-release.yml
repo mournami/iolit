@@ -112,7 +112,7 @@ jobs:
           gh release edit app --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
             --title "Служебный: обновления приложения" --notes "$APP_NOTES"
           $zbuild app-release --installer target/release/zapret-setup.exe --out work/app "${previous[@]}"
-          installer=$(cd work/app && ls Iolit-Setup-*.exe)
+          installer=$(cd work/app && ls Zapret-Desktop-Setup-*.exe)
           # The installer first: a manifest never names a missing file.
           gh release upload app --repo "$GITHUB_REPOSITORY" --clobber "work/app/$installer"
           gh release upload app --repo "$GITHUB_REPOSITORY" --clobber work/app/app-manifest.json
@@ -120,7 +120,7 @@ jobs:
               | grep -E '^(Iolit|Zapret-Desktop)-Setup-.*\.exe$' | grep -vxF "$installer"); do
             gh release delete-asset app "$old" --repo "$GITHUB_REPOSITORY" --yes
           done
-          version=${installer#Iolit-Setup-}
+          version=${installer#Zapret-Desktop-Setup-}
           version=${version%.exe}
           mkdir -p work/public
           cp "work/app/$installer" work/public/Iolit-Setup.exe

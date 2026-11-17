@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "installer": {
-      "description": "`Iolit-Setup-<version>.exe` and its hash.",
+      "description": "`Zapret-Desktop-Setup-<version>.exe` and its hash.",
       "$ref": "#/$defs/FileHash"
     },
     "product": {

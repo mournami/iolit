@@ -21,13 +21,17 @@ pub struct AppManifest {
     pub product: String,
     /// Application version, dot-separated numbers (`0.2.0`).
     pub version: String,
-    /// `Iolit-Setup-<version>.exe` and its hash.
+    /// `Zapret-Desktop-Setup-<version>.exe` and its hash.
     pub installer: FileHash,
 }
 
-/// File name of the installer for `version` in the release.
+/// File name of the installer for `version` in the `app` release. Like
+/// [`PRODUCT`] it keeps the old name for good: every installed version
+/// rejects a manifest whose installer is named otherwise, so a new name would
+/// cut all of them off from updates. People never see it; the public release
+/// carries the same file as `Iolit-Setup.exe`.
 pub fn installer_name(version: &str) -> String {
-    format!("Iolit-Setup-{version}.exe")
+    format!("Zapret-Desktop-Setup-{version}.exe")
 }
 
 fn valid_version(version: &str) -> bool {
@@ -99,6 +103,13 @@ pub fn verify(envelope: &SignedManifest, key: &[u8; 32]) -> Result<AppManifest> 
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn update_file_names_stay_what_installed_versions_accept() {
+        // Versions up to 0.2.6 check exactly this name and this product.
+        assert_eq!(installer_name("0.3.0"), "Zapret-Desktop-Setup-0.3.0.exe");
+        assert_eq!(PRODUCT, "zapret-desktop-windows");
+    }
     use super::*;
     use base64::{Engine, engine::general_purpose::STANDARD};
     use ed25519_dalek::{Signer, SigningKey};
