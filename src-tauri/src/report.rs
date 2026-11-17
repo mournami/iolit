@@ -128,7 +128,8 @@ async fn local_facts(out: &mut String, install: Option<&Path>) {
         return;
     };
     section(out, "Установка", install_record(install));
-    let updates = install.join("updates");
+    // The service keeps downloads next to its own exe, in runtime\updates.
+    let updates = install.join("runtime").join("updates");
     let listing = match std::fs::read_dir(&updates) {
         Ok(entries) => entries
             .flatten()
@@ -153,7 +154,11 @@ async fn local_facts(out: &mut String, install: Option<&Path>) {
             tail(&updates.join("update-log.txt"))
         ),
     );
-    section(out, "События служб Windows", service_events(&system).await);
+    section(
+        out,
+        "События служб Windows (время местное, хоть и с пометкой Z)",
+        service_events(&system).await,
+    );
 }
 
 #[cfg(not(windows))]
@@ -254,12 +259,48 @@ async fn run(program: &Path, args: &[&str]) -> String {
         .kill_on_drop(true);
     let limit = std::time::Duration::from_secs(15);
     match tokio::time::timeout(limit, command.output()).await {
-        Ok(Ok(output)) => {
-            let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
-            text.push_str(&String::from_utf8_lossy(&output.stderr));
-            text
-        }
+        Ok(Ok(output)) => console_text(&output.stdout) + &console_text(&output.stderr),
         Ok(Err(e)) => format!("{} не запустился: {e}\n", program.display()),
         Err(_) => format!("{} не ответил за 15 с\n", program.display()),
+    }
+}
+
+/// Console tools write in the OEM code page, CP866 on Russian Windows.
+/// UTF-8 output stays as it is.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn console_text(bytes: &[u8]) -> String {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.to_owned();
+    }
+    bytes
+        .iter()
+        .map(|&b| match b {
+            0x00..=0x7F => b as char,
+            // А..Я, а..п
+            0x80..=0xAF => char::from_u32(0x0410 + u32::from(b - 0x80)).unwrap_or('?'),
+            // р..я
+            0xE0..=0xEF => char::from_u32(0x0440 + u32::from(b - 0xE0)).unwrap_or('?'),
+            0xF0 => 'Ё',
+            0xF1 => 'ё',
+            // Box drawing and other symbols.
+            _ => '?',
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::console_text;
+
+    #[test]
+    fn cp866_console_output_is_readable() {
+        // "Имя_службы: ZapretDesktop" and "Состояние : 4 RUNNING" from sc.exe.
+        let name = [
+            0x88, 0xAC, 0xEF, 0x5F, 0xE1, 0xAB, 0xE3, 0xA6, 0xA1, 0xEB, 0x3A, 0x20,
+        ];
+        assert_eq!(console_text(&name), "Имя_службы: ");
+        let state = [0x91, 0xAE, 0xE1, 0xE2, 0xAE, 0xEF, 0xAD, 0xA8, 0xA5, 0xF1];
+        assert_eq!(console_text(&state), "Состояниеё");
+        assert_eq!(console_text("уже UTF-8".as_bytes()), "уже UTF-8");
     }
 }
