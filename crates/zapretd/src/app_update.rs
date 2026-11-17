@@ -20,12 +20,12 @@ use zapret_core::{
     bundle::SignedManifest,
 };
 
-/// The GitHub release, then the `mirror-app` branch through two other hosts
-/// (see `updater::DEFAULT_SOURCES`).
-pub const DEFAULT_SOURCES: [&str; 3] = [
+/// The GitHub release, then the `mirror-app` branch on
+/// raw.githubusercontent.com. jsDelivr is not used here: it serves the
+/// manifest but answers 403 for the installer (checked 2026-11-17).
+pub const DEFAULT_SOURCES: [&str; 2] = [
     "https://github.com/mournami/zapret13231/releases/download/app/",
     "https://raw.githubusercontent.com/mournami/zapret13231/mirror-app/",
-    "https://cdn.jsdelivr.net/gh/mournami/zapret13231@mirror-app/",
 ];
 pub const DIR: &str = "updates";
 const INSTALLER: &str = "Zapret-Desktop-Setup.exe";
