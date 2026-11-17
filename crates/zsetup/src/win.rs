@@ -266,7 +266,16 @@ fn install(bytes: &[u8], after: After) -> Result<()> {
     })?;
     let entries = step("Проверка файлов установщика", |_| payload::parse(bytes))?;
     let paths = Paths::detect()?;
-    step("Остановка службы", |_| stop_service())?;
+    // A service up to 0.2.2 that started this update keeps its operation gate
+    // until its own install timeout (180 s) runs out and only then stops.
+    let stop_wait = if after == After::Reopen {
+        UPDATE_STOP_WAIT
+    } else {
+        STOP_WAIT
+    };
+    step("Остановка службы", |_| {
+        stop_service(stop_wait)
+    })?;
     step("Закрытие Zapret Desktop", |notes| {
         close_app(&paths.app(), notes)
     })?;
@@ -378,7 +387,7 @@ fn backup_files(paths: &Paths, notes: &mut Vec<String>) -> Result<Option<PathBuf
 
 /// Puts the backed-up version back and starts its service.
 fn restore_files(paths: &Paths, backup: &Path, notes: &mut Vec<String>) -> Result<()> {
-    let _ = stop_service();
+    let _ = stop_service(STOP_WAIT);
     let bytes = fs::read(backup.join("installed.json"))?;
     let old = Record::parse(&bytes)?;
     // Files only the new version added.
@@ -736,11 +745,15 @@ fn delete_service(service: &Service) -> Result<()> {
     }
 }
 
-fn stop_service() -> Result<()> {
+const STOP_WAIT: Duration = Duration::from_secs(30);
+/// Longer than `zapretd::app_update::INSTALL_TIMEOUT` (180 s), see `install`.
+const UPDATE_STOP_WAIT: Duration = Duration::from_secs(240);
+
+fn stop_service(wait: Duration) -> Result<()> {
     let manager = manager(ServiceManagerAccess::CONNECT)?;
     let access = ServiceAccess::QUERY_STATUS | ServiceAccess::STOP;
     if let Some(service) = open_service(&manager, SERVICE, access)? {
-        wait_stopped(&service, Duration::from_secs(30))?;
+        wait_stopped(&service, wait)?;
     }
     Ok(())
 }

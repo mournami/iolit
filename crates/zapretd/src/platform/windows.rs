@@ -306,7 +306,14 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
         });
     }
     operations.cancel();
-    let _gate = operations.gate.lock().await;
+    // A running app update holds the gate until the installer stops this
+    // service, which is happening now: waiting for it would hold the stop
+    // until the update gives up.
+    let _gate = if operations.app.lock().await.installing {
+        None
+    } else {
+        Some(operations.gate.lock().await)
+    };
     controller.lock().await.stop()?;
     Ok(())
 }
