@@ -243,19 +243,31 @@ pub async fn auto_select<B: Backend, P: Probes>(
             .find(|r| fixed(r) == top)
             .map(|r| r.id.clone())
             .expect("a winner implies a round");
-        let base = match (&focus, &current) {
-            (Some(_), Some(current)) => current,
-            _ => candidates
-                .iter()
-                .find(|s| s.id == base_id)
-                .expect("candidate"),
-        };
         let donors: BTreeMap<String, &Strategy> = winners
             .iter()
             .filter_map(|(check, id)| {
                 Some((check.clone(), candidates.iter().find(|s| &s.id == id)?))
             })
             .collect();
+        let base = match (&focus, &current) {
+            (Some(_), Some(current)) => current,
+            _ => {
+                let best = candidates
+                    .iter()
+                    .find(|s| s.id == base_id)
+                    .expect("candidate");
+                // A winner without per-service profiles (one profile for all
+                // TCP) cannot lend them to another base, but can be the base
+                // itself: take the first base that every winner can complete.
+                std::iter::once(best)
+                    .chain(rounds.iter().filter_map(|r| {
+                        let s = donors.values().find(|s| s.id == r.id)?;
+                        Some(*s)
+                    }))
+                    .find(|b| composite::unfilled(b, &donors, &targets).is_empty())
+                    .unwrap_or(best)
+            }
+        };
         let tested = match composite::compose(base, &donors, &targets) {
             Some(assembled) => {
                 backend.lock().await.set_composite(Some(assembled))?;

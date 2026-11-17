@@ -353,6 +353,20 @@ fn flowseal_like(id: &str, google: &str, general: &str) -> Strategy {
     }
 }
 
+/// One profile for every TCP connection, like Flowseal's "general (ALT5)".
+fn catch_all_like(id: &str) -> Strategy {
+    Strategy {
+        id: id.into(),
+        name: id.into(),
+        description: String::new(),
+        supported: true,
+        arguments: "--wf-tcp=80,443 --filter-tcp=80,443 --dpi-desync=syndata"
+            .split_whitespace()
+            .map(String::from)
+            .collect(),
+    }
+}
+
 fn service_setup(
     passes: Vec<(&'static str, Vec<&'static str>)>,
 ) -> (
@@ -404,6 +418,37 @@ async fn services_fixed_by_different_strategies_get_a_composite() {
         backend
             .events
             .contains(&"composite:основа a; YouTube: b".to_string()),
+        "{:?}",
+        backend.events
+    );
+}
+
+#[tokio::test]
+async fn catch_all_winner_becomes_the_composite_base() {
+    // a fixes Discord; b, with one profile for all TCP, fixes YouTube. b has
+    // no YouTube profile to lend, so a cannot be the base: b is, with a's
+    // profiles for Discord in front of its catch-all one.
+    let (_data, backend, state, probes) = service_setup(vec![
+        ("a", vec!["discord"]),
+        ("b", vec!["youtube"]),
+        ("composite", vec!["youtube", "discord"]),
+    ]);
+    backend.lock().await.catalog = Some(vec![
+        flowseal_like("a", "split", "fake"),
+        catch_all_like("b"),
+    ]);
+    selector::auto_select(&state, &backend, &probes, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        state.operation.lock().await.winner.as_deref(),
+        Some("composite")
+    );
+    let backend = backend.lock().await;
+    assert!(
+        backend
+            .events
+            .contains(&"composite:основа b; Discord API: a".to_string()),
         "{:?}",
         backend.events
     );
