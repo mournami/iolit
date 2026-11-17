@@ -133,7 +133,7 @@ fn driver(f: &Facts) -> Option<DoctorCheck> {
             false,
             format!(
                 "Драйвер {} загружен другой программой. Закройте её или остановите WinDivert \
-                 ярлыком «Zapret Desktop — остановить WinDivert», затем включите обход.",
+                 ярлыком «Iolit — остановить WinDivert», затем включите обход.",
                 foreign.join(", ")
             ),
         )
@@ -194,7 +194,7 @@ fn conflicts(f: &Facts) -> DoctorCheck {
             "Другие программы обхода",
             true,
             format!(
-                "Установлена, но остановлена: {}. Не запускайте её вместе с Zapret Desktop.",
+                "Установлена, но остановлена: {}. Не запускайте её вместе с Iolit.",
                 stopped.join(", ")
             ),
         );

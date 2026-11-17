@@ -1,5 +1,9 @@
 # Development
 
+Iolit was called Zapret Desktop until 2026-11-17. The Program Files folder,
+the service key `ZapretDesktop`, the data folder and the crate names keep the
+old name for now.
+
 How the repository is laid out and how to build and check it. For what the
 application does and how to use it, see the [README](../README.md).
 
@@ -57,7 +61,7 @@ Run in Windows 10/11 x64 with Rust MSVC, Node and Visual Studio Build Tools:
 On macOS or Linux, `sh scripts/build_windows_cross.sh` cross-builds the same
 installer with `cargo-xwin` (on this repository's macOS setup also set
 `CC=/usr/bin/clang CXX=/usr/bin/clang++`). Both write
-`outputs/Zapret-Desktop-Setup.exe`.
+`outputs/Iolit-Setup.exe`.
 
 The installer is our own Rust program (`crates/zsetup`), the only installer we
 ship (no NSIS, MSI or Inno). One UAC prompt, then a small window in the app's

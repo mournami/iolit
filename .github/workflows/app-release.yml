@@ -3,7 +3,7 @@ name: App release
 # Run by hand after raising the version in Cargo.toml and after "Desktop build
 # and checks" passed on that commit (the first step refuses otherwise). Two places:
 # - release `vX.Y.Z`, marked latest: the plain download for people, one file
-#   Zapret-Desktop-Setup.exe, so `releases/latest` always shows the app;
+#   Iolit-Setup.exe, so `releases/latest` always shows the app;
 # - rolling pre-release `app`: the signed manifest and installer that installed
 #   copies offer behind «Обновить».
 on:
@@ -90,7 +90,7 @@ jobs:
         env:
           ZAPRET_BUNDLE_SIGNING_KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
           NOTES: ${{ inputs.notes }}
-          APP_NOTES: Служебный релиз, отсюда установленные копии берут обновление. Чтобы скачать программу, откройте последний релиз «Zapret Desktop X.Y.Z».
+          APP_NOTES: Служебный релиз, отсюда установленные копии берут обновление. Чтобы скачать программу, откройте последний релиз «Iolit X.Y.Z».
         run: |
           set -euo pipefail
           zbuild=target/debug/zbuild.exe
@@ -112,30 +112,30 @@ jobs:
           gh release edit app --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
             --title "Служебный: обновления приложения" --notes "$APP_NOTES"
           $zbuild app-release --installer target/release/zapret-setup.exe --out work/app "${previous[@]}"
-          installer=$(cd work/app && ls Zapret-Desktop-Setup-*.exe)
+          installer=$(cd work/app && ls Iolit-Setup-*.exe)
           # The installer first: a manifest never names a missing file.
           gh release upload app --repo "$GITHUB_REPOSITORY" --clobber "work/app/$installer"
           gh release upload app --repo "$GITHUB_REPOSITORY" --clobber work/app/app-manifest.json
           for old in $(gh release view app --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' \
-              | grep '^Zapret-Desktop-Setup-.*\.exe$' | grep -vxF "$installer"); do
+              | grep -E '^(Iolit|Zapret-Desktop)-Setup-.*\.exe$' | grep -vxF "$installer"); do
             gh release delete-asset app "$old" --repo "$GITHUB_REPOSITORY" --yes
           done
-          version=${installer#Zapret-Desktop-Setup-}
+          version=${installer#Iolit-Setup-}
           version=${version%.exe}
           mkdir -p work/public
-          cp "work/app/$installer" work/public/Zapret-Desktop-Setup.exe
-          sha=$(sha256sum work/public/Zapret-Desktop-Setup.exe | cut -d' ' -f1)
+          cp "work/app/$installer" work/public/Iolit-Setup.exe
+          sha=$(sha256sum work/public/Iolit-Setup.exe | cut -d' ' -f1)
           {
             if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
-            echo "Скачайте **Zapret-Desktop-Setup.exe** ниже и запустите. Windows 10 и 11, 64 бита."
+            echo "Скачайте **Iolit-Setup.exe** ниже и запустите. Windows 10 и 11, 64 бита."
             echo
             echo "Уже установленная программа предложит обновиться сама: кнопка «Обновить» на главном экране."
             echo
             echo "SHA-256: \`$sha\`"
           } > work/public/notes.md
           gh release create "v$version" --repo "$GITHUB_REPOSITORY" --latest --target "$GITHUB_SHA" \
-            --title "Zapret Desktop $version" --notes-file work/public/notes.md \
-            work/public/Zapret-Desktop-Setup.exe
+            --title "Iolit $version" --notes-file work/public/notes.md \
+            work/public/Iolit-Setup.exe
           echo "Published $installer and release v$version"
           # The same pair for clients that cannot reach github.com.
           sh scripts/push_mirror.sh mirror-app work/app/app-manifest.json "work/app/$installer"

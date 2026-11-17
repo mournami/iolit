@@ -63,11 +63,15 @@ use winreg::{
     enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
 };
 
-const PRODUCT: &str = "Zapret Desktop";
+/// The name people see (renamed from Zapret Desktop on 2026-11-17).
+const PRODUCT: &str = "Iolit";
+/// Folder in Program Files, the service key and the data folder keep the old
+/// name until the internal rename moves them with their data.
+const INSTALL_DIR: &str = "Zapret Desktop";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const PUBLISHER: &str = "zapret";
+const PUBLISHER: &str = "Iolit";
 const SERVICE: &str = "ZapretDesktop";
-const SERVICE_DISPLAY: &str = "Zapret Desktop Service";
+const SERVICE_DISPLAY: &str = "Iolit";
 const SERVICE_DESCRIPTION: &str =
     "Управление локальным обходом DPI. Приложение работает без прав администратора.";
 /// Kernel driver service that winws creates through WinDivert.dll.
@@ -76,10 +80,17 @@ const DRIVER: &str = "WinDivert";
 const DRIVERS: [&str; 2] = ["WinDivert", "WinDivert14"];
 const APP_EXE: &str = "zapret-desktop.exe";
 const UNINSTALLER: &str = "uninstall.exe";
-/// Same names as the NSIS installer of earlier builds, so this one replaces it.
-const SHORTCUT: &str = "Zapret Desktop.lnk";
-const STOP_SHORTCUT: &str = "Zapret Desktop — остановить WinDivert.lnk";
-const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Zapret Desktop";
+const SHORTCUT: &str = "Iolit.lnk";
+const STOP_SHORTCUT: &str = "Iolit — остановить WinDivert.lnk";
+/// Shortcuts of the versions named Zapret Desktop (and of the NSIS installer
+/// before them), removed on install and uninstall.
+const OLD_SHORTCUTS: [&str; 2] = [
+    "Zapret Desktop.lnk",
+    "Zapret Desktop — остановить WinDivert.lnk",
+];
+const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Iolit";
+const OLD_UNINSTALL_KEY: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Zapret Desktop";
 const NSIS_PRODUCT_KEY: &str = r"Software\zapret\Zapret Desktop";
 const NSIS_MANUFACTURER_KEY: &str = r"Software\zapret";
 /// Owner Administrators; SYSTEM and Administrators only; not inherited.
@@ -317,7 +328,7 @@ fn install(bytes: &[u8], after: After) -> Result<()> {
     })?;
     // The service is stopped from here on: no failure may leave it so.
     let prepared = (|| {
-        step("Закрытие Zapret Desktop", |notes| {
+        step("Закрытие окна программы", |notes| {
             close_app(&paths.app(), notes)
         })?;
         step("Выгрузка драйвера WinDivert", |notes| {
@@ -555,7 +566,7 @@ fn uninstall() -> Result<()> {
         Ok(())
     })?;
     step("Остановка и удаление службы", |_| remove_service())?;
-    step("Закрытие Zapret Desktop", |notes| {
+    step("Закрытие окна программы", |notes| {
         close_app(&paths.app(), notes)
     })?;
     step("Выгрузка драйвера WinDivert", |notes| {
@@ -640,7 +651,7 @@ impl Paths {
             FOLDERID_PublicDesktop, FOLDERID_Windows,
         };
         Ok(Self {
-            install: known_folder(&FOLDERID_ProgramFiles)?.join(PRODUCT),
+            install: known_folder(&FOLDERID_ProgramFiles)?.join(INSTALL_DIR),
             data: known_folder(&FOLDERID_ProgramData)?.join("ZapretDesktop"),
             programs: known_folder(&FOLDERID_CommonPrograms)?,
             desktop: known_folder(&FOLDERID_PublicDesktop)?,
@@ -658,6 +669,13 @@ impl Paths {
     }
     fn uninstaller(&self) -> PathBuf {
         self.install.join(UNINSTALLER)
+    }
+    /// Shortcuts the Zapret Desktop versions made, in both places.
+    fn old_shortcuts(&self) -> Vec<PathBuf> {
+        OLD_SHORTCUTS
+            .iter()
+            .flat_map(|name| [self.programs.join(name), self.desktop.join(name)])
+            .collect()
     }
     fn shortcuts(&self) -> [Shortcut; 3] {
         let app = |link| Shortcut {
@@ -753,7 +771,7 @@ fn single_instance() -> Result<Handle> {
     }
     let handle = Handle(handle);
     if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
-        bail!("установщик Zapret Desktop уже запущен");
+        bail!("установщик {PRODUCT} уже запущен");
     }
     Ok(handle)
 }
@@ -1236,6 +1254,10 @@ fn create_shortcuts(paths: &Paths) -> Result<()> {
         },
         core::{HSTRING, Interface},
     };
+    // Shortcuts under the old name would stay next to the new ones.
+    for link in paths.old_shortcuts() {
+        let _ = fs::remove_file(link);
+    }
     let icon = HSTRING::from(paths.app().as_os_str());
     let folder = HSTRING::from(paths.install.as_os_str());
     unsafe {
@@ -1273,11 +1295,14 @@ fn quoted(path: &Path, arguments: &str) -> OsString {
 
 fn register_uninstall(paths: &Paths, record: &Record) -> Result<()> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    // Values the NSIS installer left under the same name go too.
-    if let Err(e) = hklm.delete_subkey_all(UNINSTALL_KEY)
-        && e.kind() != io::ErrorKind::NotFound
-    {
-        return Err(e.into());
+    // The entry of the Zapret Desktop versions (and of the NSIS installer
+    // before them) goes, so «Приложения» lists the program once.
+    for key in [UNINSTALL_KEY, OLD_UNINSTALL_KEY] {
+        if let Err(e) = hklm.delete_subkey_all(key)
+            && e.kind() != io::ErrorKind::NotFound
+        {
+            return Err(e.into());
+        }
     }
     let (key, _) = hklm.create_subkey(UNINSTALL_KEY)?;
     let size: u64 = record
@@ -1317,18 +1342,25 @@ fn remove_nsis_keys(hklm: &RegKey) {
 }
 
 fn remove_registration(paths: &Paths) -> Result<()> {
-    for shortcut in paths.shortcuts() {
-        if let Err(e) = fs::remove_file(&shortcut.link)
+    let links = paths
+        .shortcuts()
+        .into_iter()
+        .map(|s| s.link)
+        .chain(paths.old_shortcuts());
+    for link in links {
+        if let Err(e) = fs::remove_file(&link)
             && e.kind() != io::ErrorKind::NotFound
         {
-            return Err(anyhow!(e).context(shortcut.link.display().to_string()));
+            return Err(anyhow!(e).context(link.display().to_string()));
         }
     }
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    if let Err(e) = hklm.delete_subkey_all(UNINSTALL_KEY)
-        && e.kind() != io::ErrorKind::NotFound
-    {
-        return Err(e.into());
+    for key in [UNINSTALL_KEY, OLD_UNINSTALL_KEY] {
+        if let Err(e) = hklm.delete_subkey_all(key)
+            && e.kind() != io::ErrorKind::NotFound
+        {
+            return Err(e.into());
+        }
     }
     remove_nsis_keys(&hklm);
     Ok(())

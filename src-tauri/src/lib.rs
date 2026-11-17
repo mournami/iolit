@@ -171,10 +171,7 @@ async fn install_service(app: tauri::AppHandle) -> ApiResult<()> {
     #[cfg(not(target_os = "macos"))]
     {
         let _ = app;
-        Err(
-            "Запустите установщик Zapret Desktop от имени администратора, чтобы установить службу."
-                .into(),
-        )
+        Err("Запустите установщик Iolit от имени администратора, чтобы установить службу.".into())
     }
 }
 
@@ -214,7 +211,7 @@ pub fn run() {
                 menu::{Menu, MenuItem},
                 tray::TrayIconBuilder,
             };
-            let show = MenuItem::with_id(app, "show", "Открыть Zapret", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Открыть Iolit", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выйти из приложения", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             let mut tray =
@@ -238,5 +235,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("Не удалось запустить Zapret Desktop");
+        .expect("Не удалось запустить Iolit");
 }

@@ -15,5 +15,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Installer payload failed' }
 $env:ZAPRET_SETUP_PAYLOAD = (Resolve-Path work/installer-payload.tar.gz).Path
 cargo build --release -p zsetup --locked
 if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
-Copy-Item target/release/zapret-setup.exe outputs/Zapret-Desktop-Setup.exe -Force
-Write-Host 'Installer: outputs/Zapret-Desktop-Setup.exe'
+Copy-Item target/release/zapret-setup.exe outputs/Iolit-Setup.exe -Force
+Write-Host 'Installer: outputs/Iolit-Setup.exe'

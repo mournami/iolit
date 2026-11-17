@@ -28,7 +28,9 @@ pub const DEFAULT_SOURCES: [&str; 2] = [
     "https://raw.githubusercontent.com/mournami/zapret13231/mirror-app/",
 ];
 pub const DIR: &str = "updates";
-const INSTALLER: &str = "Zapret-Desktop-Setup.exe";
+const INSTALLER: &str = "Iolit-Setup.exe";
+/// The name versions up to 0.2.6 downloaded to; cleared with the rest.
+const OLD_INSTALLER: &str = "Zapret-Desktop-Setup.exe";
 const MAX_MANIFEST: usize = 1 << 20;
 const MAX_INSTALLER: usize = 64 << 20;
 pub const FIRST_CHECK: Duration = Duration::from_secs(180);
@@ -106,6 +108,7 @@ impl<F: Fetch> AppUpdater<F> {
     fn clear(&self) {
         let _ = fs::remove_file(self.dir.join(MANIFEST_NAME));
         let _ = fs::remove_file(self.dir.join(INSTALLER));
+        let _ = fs::remove_file(self.dir.join(OLD_INSTALLER));
     }
 
     /// Offers an installer downloaded before the restart, or removes files of

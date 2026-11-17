@@ -50,11 +50,11 @@
   });
 </script>
 
-<svelte:head><title>Zapret Desktop</title></svelte:head>
+<svelte:head><title>Iolit</title></svelte:head>
 
 <div class="shell">
   <header class="titlebar" data-tauri-drag-region>
-    <div class="brand" data-tauri-drag-region><Mark size={20} /><span class="brand-word" data-tauri-drag-region>zapret</span></div>
+    <div class="brand" data-tauri-drag-region><Mark size={20} /><span class="brand-word" data-tauri-drag-region>iolit</span></div>
     <nav class="tabs" aria-label="Разделы">
       {#each pages as p (p.id)}
         <button

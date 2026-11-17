@@ -1,4 +1,4 @@
-//! Signed application updates: the installer of a newer Zapret Desktop.
+//! Signed application updates: the installer of a newer Iolit.
 //!
 //! Published in the rolling GitHub release `app` as `app-manifest.json` (a
 //! [`SignedManifest`] whose payload is an [`AppManifest`]) next to the installer
@@ -21,13 +21,13 @@ pub struct AppManifest {
     pub product: String,
     /// Application version, dot-separated numbers (`0.2.0`).
     pub version: String,
-    /// `Zapret-Desktop-Setup-<version>.exe` and its hash.
+    /// `Iolit-Setup-<version>.exe` and its hash.
     pub installer: FileHash,
 }
 
 /// File name of the installer for `version` in the release.
 pub fn installer_name(version: &str) -> String {
-    format!("Zapret-Desktop-Setup-{version}.exe")
+    format!("Iolit-Setup-{version}.exe")
 }
 
 fn valid_version(version: &str) -> bool {
@@ -55,7 +55,7 @@ impl AppManifest {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != SCHEMA || self.product != PRODUCT {
-            bail!("Это не манифест обновления Zapret Desktop для Windows");
+            bail!("Это не манифест обновления Iolit для Windows");
         }
         if !valid_version(&self.version) {
             bail!("Некорректная версия приложения {:?}", self.version);

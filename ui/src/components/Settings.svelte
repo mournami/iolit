@@ -354,7 +354,7 @@
   <footer class="about">
     <Mark size={22} />
     <div>
-      <p class="about-t">Zapret Desktop {app.data?.version || '0.1.0'}</p>
+      <p class="about-t">Iolit {app.data?.version || '0.1.0'}</p>
       <p class="about-d">Открытый исходный код, лицензия GPLv3. Компоненты движков распространяются по своим лицензиям.</p>
     </div>
   </footer>

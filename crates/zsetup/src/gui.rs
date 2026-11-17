@@ -23,7 +23,7 @@ use wry::{
     http::{Request, Response, header::CONTENT_TYPE},
 };
 
-const TITLE: &str = "Установка Zapret Desktop";
+const TITLE: &str = "Установка Iolit";
 /// The icon `build.rs` embeds (IDI_APPLICATION id).
 const ICON_ID: u16 = 32512;
 
@@ -96,7 +96,7 @@ fn wide(text: &str) -> Vec<u16> {
 /// The app needs it too, so the user installs it once from Microsoft.
 fn without_webview2() -> ExitCode {
     let answer = show(
-        "Для Zapret Desktop нужен компонент Windows «Microsoft Edge WebView2», а в этой \
+        "Для Iolit нужен компонент Windows «Microsoft Edge WebView2», а в этой \
          системе его нет.\n\nОткрыть страницу загрузки Microsoft? После установки \
          компонента запустите этот установщик снова.",
         MB_YESNO | MB_ICONINFORMATION,

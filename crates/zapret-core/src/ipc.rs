@@ -37,7 +37,7 @@ async fn exchange(message: Value) -> Result<Value> {
     #[cfg(unix)]
     let stream = tokio::net::UnixStream::connect(crate::MAC_SOCKET)
         .await
-        .context("Служба Zapret не установлена или недоступна. Запустите установщик службы.")?;
+        .context("Служба Iolit не установлена или недоступна. Запустите установщик службы.")?;
     #[cfg(target_os = "macos")]
     if stream.peer_cred()?.uid() != 0 {
         bail!("Ответил процесс без системных прав. Соединение отклонено.");
@@ -45,7 +45,7 @@ async fn exchange(message: Value) -> Result<Value> {
     #[cfg(windows)]
     let stream = open_windows_pipe()
         .await
-        .context("Служба Zapret не установлена или не запущена. Повторите установку приложения.")?;
+        .context("Служба Iolit не установлена или не запущена. Повторите установку приложения.")?;
     #[cfg(windows)]
     verify_windows_server(&stream)?;
     let mut stream = BufReader::new(stream);

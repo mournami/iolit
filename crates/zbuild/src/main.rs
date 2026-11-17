@@ -239,7 +239,7 @@ fn download(url: &str, path: &Path, digest: &str) -> Result<()> {
     if !path.exists() {
         fs::create_dir_all(path.parent().context("archive path")?)?;
         let bytes = reqwest::blocking::Client::builder()
-            .user_agent("ZapretDesktop-build")
+            .user_agent("Iolit-build")
             .build()?
             .get(url)
             .send()?

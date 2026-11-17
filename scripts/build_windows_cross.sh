@@ -22,5 +22,5 @@ cargo run -p zbuild --locked -- installer-payload \
   --out "$PWD/work/installer-payload.tar.gz"
 ZAPRET_SETUP_PAYLOAD="$PWD/work/installer-payload.tar.gz" \
   cargo xwin build --release -p zsetup --locked --target "$target"
-cp "$out/zapret-setup.exe" outputs/Zapret-Desktop-Setup.exe
-echo "Installer: outputs/Zapret-Desktop-Setup.exe"
+cp "$out/zapret-setup.exe" outputs/Iolit-Setup.exe
+echo "Installer: outputs/Iolit-Setup.exe"

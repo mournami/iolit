@@ -20,8 +20,8 @@ fn main() {
         println!("cargo:rerun-if-changed={icon}");
         let mut res = tauri_winres::WindowsResource::new();
         res.set_icon(icon)
-            .set("FileDescription", "Установка Zapret Desktop")
-            .set("ProductName", "Zapret Desktop")
+            .set("FileDescription", "Установка Iolit")
+            .set("ProductName", "Iolit")
             .set_manifest(MANIFEST);
         res.compile().expect("Windows resources");
     }

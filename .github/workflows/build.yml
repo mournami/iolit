@@ -69,7 +69,7 @@ jobs:
           cargo build --release -p zsetup --locked
           if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
           New-Item -ItemType Directory -Force outputs | Out-Null
-          Copy-Item target/release/zapret-setup.exe outputs/Zapret-Desktop-Setup.exe
+          Copy-Item target/release/zapret-setup.exe outputs/Iolit-Setup.exe
       - name: Install, verify the service, reinstall over it, uninstall
         shell: pwsh
         run: |
@@ -81,7 +81,7 @@ jobs:
             cargo test -p zapret-core --locked --test service_ipc -- --ignored --test-threads=1
             if ($LASTEXITCODE -ne 0) { throw 'Service integration test failed' }
           }
-          $setup = (Resolve-Path outputs/Zapret-Desktop-Setup.exe).Path
+          $setup = (Resolve-Path outputs/Iolit-Setup.exe).Path
           $folder = Join-Path $env:ProgramFiles 'Zapret Desktop'
           Invoke-Setup $setup '--quiet'
           Test-Service
@@ -113,8 +113,8 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: always()
         with:
-          name: Zapret-Desktop-Windows-x64-DEVELOPMENT
-          path: outputs/Zapret-Desktop-Setup.exe
+          name: Iolit-Windows-x64-DEVELOPMENT
+          path: outputs/Iolit-Setup.exe
           if-no-files-found: error
   macos:
     name: Optional frozen macOS package

@@ -9,7 +9,7 @@ export interface Transport {
 export const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const unavailable: Transport = {
   async call() {
-    throw new Error('Откройте приложение Zapret Desktop. Браузерный просмотр не управляет системой.');
+    throw new Error('Откройте приложение Iolit. Браузерный просмотр не управляет системой.');
   },
 };
 

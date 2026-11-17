@@ -19,7 +19,7 @@ pub async fn build() -> String {
         .map_or(0, |d| d.as_secs());
     section(
         &mut out,
-        "Zapret Desktop",
+        "Iolit",
         format!("Версия приложения: {VERSION}\nВремя (unix): {now}"),
     );
     let install = std::env::current_exe()
@@ -224,7 +224,7 @@ async fn service_events(system: &Path) -> String {
     .await;
     let events: Vec<String> = text
         .split("Event[")
-        .filter(|e| e.contains("Zapret") || e.contains("WinDivert"))
+        .filter(|e| e.contains("Zapret") || e.contains("Iolit") || e.contains("WinDivert"))
         .take(20)
         .map(|e| {
             e.lines()
@@ -233,6 +233,7 @@ async fn service_events(system: &Path) -> String {
                     l.starts_with("Date:")
                         || l.starts_with("Event ID:")
                         || l.contains("Zapret")
+                        || l.contains("Iolit")
                         || l.contains("WinDivert")
                 })
                 .collect::<Vec<_>>()
@@ -241,7 +242,7 @@ async fn service_events(system: &Path) -> String {
         .collect();
     if events.is_empty() {
         let head: String = text.chars().take(300).collect();
-        format!("Событий о Zapret нет. Начало ответа:\n{head}")
+        format!("Событий о службе нет. Начало ответа:\n{head}")
     } else {
         events.join("\n\n")
     }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self'">
-<title>Установка Zapret Desktop</title>
+<title>Установка Iolit</title>
 <style>
 /* Same palette and type as the app (ui/src/style.css, dark theme). */
 @font-face { font-family: 'Inter Variable'; font-weight: 100 900; font-display: block;
@@ -133,15 +133,15 @@ const send = (m) => window.ipc && window.ipc.postMessage(m);
 const TEXT = {
   install: {
     ask: null,
-    work: 'Устанавливаем Zapret Desktop',
+    work: 'Устанавливаем Iolit',
     ok: 'Готово',
     okSub: 'Открываем программу. Обход выключен, пока вы не включите его кнопкой.',
     fail: 'Не получилось установить',
   },
   uninstall: {
-    ask: ['Удалить Zapret Desktop?', 'Удалим программу, службу и ярлыки. Настройки и ваши домены останутся' + (S.data ? ' в ' + S.data : '') + '.'],
-    work: 'Удаляем Zapret Desktop',
-    ok: 'Zapret Desktop удалён',
+    ask: ['Удалить Iolit?', 'Удалим программу, службу и ярлыки. Настройки и ваши домены останутся' + (S.data ? ' в ' + S.data : '') + '.'],
+    work: 'Удаляем Iolit',
+    ok: 'Iolit удалён',
     okSub: 'Спасибо, что пользовались.',
     fail: 'Не получилось удалить',
   },
@@ -246,7 +246,7 @@ window.zsetup = (e) => {
   }
 };
 
-$('ver').textContent = 'Zapret Desktop ' + S.version;
+$('ver').textContent = 'Iolit ' + S.version;
 $('min').onclick = () => send('minimize');
 $('close').onclick = () => { if (!running) send('close'); };
 $('bar').addEventListener('mousedown', (ev) => {

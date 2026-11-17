@@ -1,4 +1,4 @@
-//! Zapret Desktop installer for Windows: one small window in the app's
+//! Iolit installer for Windows: one small window in the app's
 //! style, no pages, no choices. It starts installing at once and opens the
 //! app when done. The install folder is fixed; see `win.rs` for the steps and
 //! `gui.rs` for the window.

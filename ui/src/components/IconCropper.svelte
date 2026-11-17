@@ -214,7 +214,7 @@
         <p class="label">Так будет в шапке</p>
         <div class="titlebar-sample">
           <canvas bind:this={previewSmall} class="ic-small"></canvas>
-          <span>zapret</span>
+          <span>iolit</span>
         </div>
         <canvas bind:this={preview} class="ic-big"></canvas>
         <p class="hint">Сохраняется квадрат {ICON_SIZE}×{ICON_SIZE}. Углы скругляются, как у стандартного значка.</p>

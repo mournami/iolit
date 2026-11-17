@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
-description = "Windows installer for Zapret Desktop"
+description = "Windows installer for Iolit"
 
 [[bin]]
 name = "zapret-setup"

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Zapret Desktop
+# Iolit
 
 **YouTube, Discord and Telegram on Windows again, with one installer and one button.**
 
@@ -9,6 +9,8 @@
 ![engine](https://img.shields.io/badge/engine-winws%20%2B%20WinDivert-2e8b57)
 
 English · [Русский](README.ru.md)
+
+<sub>Formerly Zapret Desktop.</sub>
 
 </div>
 
@@ -23,7 +25,7 @@ the ready-made strategies of
 Flowseal. Using them means picking one of 22 `.bat` files by hand, running it
 as administrator, and starting over when the provider changes something.
 
-Zapret Desktop does that part. It installs the same engine as a Windows
+Iolit does that part. It installs the same engine as a Windows
 service, tries the strategies itself, keeps a separate one for each service if
 no single strategy fixes everything, checks in the background that it still
 works, and updates the strategies on its own. Nothing goes through a server of
@@ -32,7 +34,7 @@ computer exactly as before, only its first packets are shaped differently.
 
 ## Quick start
 
-1. Download **`Zapret-Desktop-Setup.exe`** from the
+1. Download **`Iolit-Setup.exe`** from the
    [latest release](https://github.com/mournami/zapret13231/releases/latest).
 2. Run it and confirm the administrator prompt. The installer shows its
    progress and opens the app; there is nothing to choose.
@@ -65,7 +67,7 @@ Russian.
 ## How it works
 
 ```
- Zapret Desktop window  ──named pipe──▶  zapretd service (SYSTEM)  ──▶  winws + WinDivert
+ Iolit window  ──named pipe──▶  zapretd service (SYSTEM)  ──▶  winws + WinDivert
  (no admin rights)                        selection, checks, Doctor,      unmodified engine
                                           updates, secure DNS             binaries, pinned
 ```
@@ -80,12 +82,12 @@ an Ed25519 key built into it.
 
 ## What it changes on your computer
 
-- Installs to `C:\Program Files\Zapret Desktop`, with Start menu and desktop
-  shortcuts and an entry in «Приложения».
-- Registers the **Zapret Desktop Service** (`ZapretDesktop`), started
+- Installs to `C:\Program Files\Zapret Desktop` (the folder keeps the old name
+  for now), with Start menu and desktop shortcuts and an entry in «Приложения».
+- Registers the **Iolit** service (`ZapretDesktop`), started
   automatically. It keeps its settings in `C:\ProgramData\ZapretDesktop`.
 - Loads the **WinDivert** kernel driver while the bypass is on. The shortcut
-  «Zapret Desktop — остановить WinDivert» stops it and the engine at once.
+  «Iolit — остановить WinDivert» stops it and the engine at once.
 - Changes the system DNS **only** when you turn on secure DNS, and restores the
   previous settings when you turn it off.
 - Opens `127.0.0.1:1443` **only** when you turn on the Telegram proxy.
@@ -120,7 +122,7 @@ It is a Rust port of the core of
 
 ## Privacy policy
 
-Zapret Desktop has no telemetry, no accounts and no server of its own. It
+Iolit has no telemetry, no accounts and no server of its own. It
 connects to other systems only for these purposes:
 
 - **Checks**, when you press «Проверить» or «Подобрать стратегию», and every 10
@@ -130,7 +132,7 @@ connects to other systems only for these purposes:
 - **Updates**: the strategy bundle a few minutes after start and then every
   6 hours, the app manifest every 6 hours, from this repository's GitHub
   releases. Where github.com does not answer, the same signed files come from
-  `raw.githubusercontent.com` and `cdn.jsdelivr.net`.
+  `raw.githubusercontent.com` (and, for strategy bundles, `cdn.jsdelivr.net`).
 - **Secure DNS**, only if you turn it on: your DNS queries go to Cloudflare,
   Google or Quad9 instead of your provider.
 - **Telegram proxy**, only if you turn it on: Telegram Desktop's traffic goes to
@@ -142,7 +144,7 @@ Telegram proxy secret. Logs stay on your computer.
 
 ## Uninstall
 
-«Параметры» → «Приложения» → **Zapret Desktop** → «Удалить». The service, the
+«Параметры» → «Приложения» → **Iolit** → «Удалить». The service, the
 driver and the files go; your settings stay in `C:\ProgramData\ZapretDesktop`
 in case you install again, and can be deleted by hand.
 

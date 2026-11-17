@@ -115,7 +115,7 @@ async fn newer_version_is_downloaded_once_and_offered() {
     assert_eq!(app.available.as_deref(), Some("0.2.0"));
     assert!(app.last_check.is_some() && app.error.is_none());
     assert_eq!(
-        std::fs::read(f.updates().join("Zapret-Desktop-Setup.exe")).unwrap(),
+        std::fs::read(f.updates().join("Iolit-Setup.exe")).unwrap(),
         b"setup 0.2.0"
     );
     // Only the manifest is fetched again; a network error keeps the offer.
@@ -149,10 +149,13 @@ async fn same_or_older_version_is_not_offered_and_files_go() {
         vec![SOURCE.into()],
         "0.2.0",
     );
+    // The installer a version before the rename left behind goes too.
+    std::fs::write(f.updates().join("Zapret-Desktop-Setup.exe"), b"old").unwrap();
     // After the update the same release is current: nothing to offer.
     f2.startup().await;
-    assert!(f.operations.app.lock().await.available.is_none());
     assert!(!f.updates().join("Zapret-Desktop-Setup.exe").exists());
+    assert!(f.operations.app.lock().await.available.is_none());
+    assert!(!f.updates().join("Iolit-Setup.exe").exists());
     assert_eq!(f2.check().await.unwrap(), None);
 }
 
@@ -172,7 +175,7 @@ async fn bad_signature_or_hash_writes_nothing() {
     f.fetch.put(&installer_name("0.2.0"), b"tampered".to_vec());
     let err = f.updater.check().await.unwrap_err();
     assert!(format!("{err:#}").contains("Контрольная сумма"), "{err:#}");
-    assert!(!f.updates().join("Zapret-Desktop-Setup.exe").exists());
+    assert!(!f.updates().join("Iolit-Setup.exe").exists());
     assert!(f.operations.app.lock().await.available.is_none());
 }
 
@@ -198,7 +201,7 @@ async fn install_runs_the_verified_installer_only() {
     assert!(!app.installing && app.available.is_some() && app.error.is_some());
 
     // A file changed on disk is never started.
-    std::fs::write(f.updates().join("Zapret-Desktop-Setup.exe"), b"evil").unwrap();
+    std::fs::write(f.updates().join("Iolit-Setup.exe"), b"evil").unwrap();
     assert!(f.updater.install().await.is_err());
     assert_eq!(launched(&f.updates()), 1);
     assert!(f.operations.app.lock().await.available.is_none());

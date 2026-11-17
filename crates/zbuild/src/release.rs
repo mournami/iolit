@@ -117,7 +117,7 @@ pub fn sign_file(manifest: &Path, out: &Path, key: &SigningKey) -> Result<()> {
 }
 
 /// Signed application update for the rolling `app` release: copies the
-/// installer as `Zapret-Desktop-Setup-<version>.exe` (version of this build)
+/// installer as `Iolit-Setup-<version>.exe` (version of this build)
 /// and writes `app-manifest.json` into `out`. With `previous` (the published
 /// manifest) the version must be newer, or clients would never offer it.
 pub fn app_release(

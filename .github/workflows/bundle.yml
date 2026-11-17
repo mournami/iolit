@@ -167,7 +167,7 @@ jobs:
           gh release upload bundle --repo "$GITHUB_REPOSITORY" --clobber work/bundle/manifest.json
           {
             echo "Служебный релиз, отсюда установленные копии сами берут наборы стратегий."
-            echo "Чтобы скачать программу, откройте последний релиз «Zapret Desktop X.Y.Z»."
+            echo "Чтобы скачать программу, откройте последний релиз «Iolit X.Y.Z»."
             echo
             echo "Текущий набор: $VERSION, Flowseal $TAG."
             echo

@@ -111,7 +111,7 @@ async fn fetch(url: &str, resolved: Option<(&str, &[SocketAddr])>) -> anyhow::Re
         .no_proxy()
         .timeout(Duration::from_secs(7))
         .connect_timeout(Duration::from_secs(4))
-        .user_agent("ZapretDesktop/0.1 network-check");
+        .user_agent("Iolit/0.2 network-check");
     if let Some((host, addresses)) = resolved {
         client = client.resolve_to_addrs(host, addresses);
     }

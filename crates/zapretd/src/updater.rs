@@ -212,7 +212,7 @@ impl HttpFetch {
     pub fn new() -> Result<Self> {
         Ok(Self(
             reqwest::Client::builder()
-                .user_agent(concat!("ZapretDesktop/", env!("CARGO_PKG_VERSION")))
+                .user_agent(concat!("Iolit/", env!("CARGO_PKG_VERSION")))
                 .https_only(true)
                 .connect_timeout(Duration::from_secs(15))
                 .timeout(Duration::from_secs(120))

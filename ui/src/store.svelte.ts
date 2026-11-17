@@ -234,7 +234,7 @@ class AppState {
   exportReport = async () => {
     try {
       const path = await save({
-        defaultPath: 'zapret-report.txt',
+        defaultPath: 'iolit-report.txt',
         filters: [{ name: 'Текстовый отчёт', extensions: ['txt'] }],
       });
       if (path) {
