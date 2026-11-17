@@ -162,19 +162,52 @@ pub fn main(payload: &'static [u8]) -> ExitCode {
         return crate::gui::run(options.mode, payload);
     }
     attach_console();
-    println!("{PRODUCT} {VERSION}\n");
     let after = if options.update {
+        // Started by the service with no console: the steps go to a file
+        // next to the downloaded installer.
+        log_to_file();
         After::Reopen
     } else {
         After::Nothing
     };
+    report(Event::Info(format!(
+        "{PRODUCT} {VERSION}, время {}\n",
+        unix_now()
+    )));
     match run(options.mode, payload, after) {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(()) => {
+            report(Event::Info("\nГотово".into()));
+            ExitCode::SUCCESS
+        }
         Err(e) => {
-            println!("\nНе получилось: {e:#}");
+            report(Event::Info(format!("\nНе получилось: {e:#}")));
             ExitCode::FAILURE
         }
     }
+}
+
+/// The update log, in the folder of the running installer
+/// (`<install>\\updates`, written only by administrators).
+const UPDATE_LOG: &str = "update-log.txt";
+
+fn log_to_file() {
+    let Some(path) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| Some(exe.parent()?.join(UPDATE_LOG)))
+    else {
+        return;
+    };
+    let Ok(file) = fs::File::create(path) else {
+        return;
+    };
+    let file = std::sync::Mutex::new(file);
+    set_reporter(Box::new(move |event| {
+        use std::io::Write;
+        if let Ok(mut file) = file.lock() {
+            let _ = file.write_all(event_text(event).as_bytes());
+            let _ = file.flush();
+        }
+    }));
 }
 
 /// The installer is a window app; a quiet run still prints into the console
@@ -223,17 +256,23 @@ fn report(event: Event) {
     if let Some(reporter) = REPORTER.get() {
         return reporter(event);
     }
+    print!("{}", event_text(event));
+}
+
+/// An event as console or log text.
+fn event_text(event: Event) -> String {
     match event {
-        Event::Plan(_) => {}
-        Event::Step(name) => print!("{name}… "),
+        Event::Plan(_) => String::new(),
+        Event::Step(name) => format!("{name}… "),
         Event::StepDone { ok, seconds, notes } => {
             let outcome = if ok { "готово" } else { "ошибка" };
-            println!("{outcome} ({seconds:.1} с)");
+            let mut text = format!("{outcome} ({seconds:.1} с)\n");
             for note in notes {
-                println!("    {note}");
+                text += &format!("    {note}\n");
             }
+            text
         }
-        Event::Note(text) | Event::Info(text) => println!("{text}"),
+        Event::Note(text) | Event::Info(text) => format!("{text}\n"),
     }
 }
 
@@ -273,18 +312,26 @@ fn install(bytes: &[u8], after: After) -> Result<()> {
     } else {
         STOP_WAIT
     };
-    step("Остановка службы", |_| {
+    let had_service = step("Остановка службы", |_| {
         stop_service(stop_wait)
     })?;
-    step("Закрытие Zapret Desktop", |notes| {
-        close_app(&paths.app(), notes)
-    })?;
-    step("Выгрузка драйвера WinDivert", |notes| {
-        release_driver(&paths.install, false, notes)
-    })?;
-    let backup = step("Копия прежней версии", |notes| {
-        backup_files(&paths, notes)
-    })?;
+    // The service is stopped from here on: no failure may leave it so.
+    let prepared = (|| {
+        step("Закрытие Zapret Desktop", |notes| {
+            close_app(&paths.app(), notes)
+        })?;
+        step("Выгрузка драйвера WinDivert", |notes| {
+            release_driver(&paths.install, false, notes)
+        })?;
+        step("Копия прежней версии", |notes| {
+            backup_files(&paths, notes)
+        })
+    })();
+    let backup = match prepared {
+        Ok(backup) => backup,
+        Err(e) if had_service => return Err(restart_previous(&paths, after, e)),
+        Err(e) => return Err(e),
+    };
     let installed = (|| {
         let record = step("Копирование файлов", |notes| {
             copy_files(&paths, entries, notes)
@@ -311,13 +358,18 @@ fn install(bytes: &[u8], after: After) -> Result<()> {
             let restored = step("Возврат прежней версии", |notes| {
                 restore_files(&paths, backup, notes)
             });
-            if after == After::Reopen && restored.is_ok() {
+            if after == After::Reopen {
                 let _ = reopen_app(&paths);
             }
             return Err(match restored {
                 Ok(()) => e.context("прежняя версия возвращена"),
                 Err(r) => e.context(format!("прежнюю версию вернуть не удалось: {r:#}")),
             });
+        }
+        // No copy of the earlier version (its file list was unreadable): the
+        // service that was there gets started on whatever files it has.
+        if had_service {
+            return Err(restart_previous(&paths, after, e));
         }
         return Err(e);
     }
@@ -345,6 +397,21 @@ fn install(bytes: &[u8], after: After) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+/// After a failure with the files unchanged: starts the service that was
+/// stopped and, for an update, opens the window again.
+fn restart_previous(paths: &Paths, after: After, error: anyhow::Error) -> anyhow::Error {
+    let started = step("Запуск службы", |_| start_service());
+    if after == After::Reopen
+        && let Err(e) = reopen_app(paths)
+    {
+        report(Event::Note(format!("Не удалось открыть программу ({e:#})")));
+    }
+    match started {
+        Ok(()) => error.context("служба запущена снова"),
+        Err(e) => error.context(format!("службу запустить не удалось: {e:#}")),
+    }
 }
 
 /// Folder with the files of the version being replaced, inside the
@@ -749,13 +816,15 @@ const STOP_WAIT: Duration = Duration::from_secs(30);
 /// Longer than `zapretd::app_update::INSTALL_TIMEOUT` (180 s), see `install`.
 const UPDATE_STOP_WAIT: Duration = Duration::from_secs(240);
 
-fn stop_service(wait: Duration) -> Result<()> {
+/// `true` when the service was installed.
+fn stop_service(wait: Duration) -> Result<bool> {
     let manager = manager(ServiceManagerAccess::CONNECT)?;
     let access = ServiceAccess::QUERY_STATUS | ServiceAccess::STOP;
-    if let Some(service) = open_service(&manager, SERVICE, access)? {
-        wait_stopped(&service, wait)?;
-    }
-    Ok(())
+    let Some(service) = open_service(&manager, SERVICE, access)? else {
+        return Ok(false);
+    };
+    wait_stopped(&service, wait)?;
+    Ok(true)
 }
 
 fn remove_service() -> Result<()> {
