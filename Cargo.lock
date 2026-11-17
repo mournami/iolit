@@ -5313,7 +5313,7 @@ dependencies = [
 
 [[package]]
 name = "zapret-core"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5337,7 +5337,7 @@ dependencies = [
 
 [[package]]
 name = "zapret-desktop"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "serde",
@@ -5352,7 +5352,7 @@ dependencies = [
 
 [[package]]
 name = "zapretd"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "aes",
  "anyhow",
@@ -5377,7 +5377,7 @@ dependencies = [
 
 [[package]]
 name = "zbuild"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5536,7 +5536,7 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zsetup"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "flate2",
