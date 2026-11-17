@@ -260,7 +260,7 @@ async fn datacenter_without_a_gateway_is_reached_directly() {
 }
 
 #[tokio::test]
-async fn wrong_secret_and_unknown_datacenter_never_reach_telegram() {
+async fn failed_sessions_are_counted_by_reason() {
     let dir = tempfile::tempdir().unwrap();
     let (gateway, mut events) = gateway().await;
     let (manager, proxy, secret) = started(dir.path(), routes(&[(2, gateway)], &[])).await;
@@ -277,17 +277,30 @@ async fn wrong_secret_and_unknown_datacenter_never_reach_telegram() {
     client.write_all(&init).await.unwrap();
     assert_eq!(client.read(&mut [0u8; 16]).await.unwrap(), 0);
 
+    // A client that leaves before its handshake is complete.
+    let mut quitter = TcpStream::connect(proxy).await.unwrap();
+    quitter.write_all(&[0xef; 20]).await.unwrap();
+    drop(quitter);
+
     assert!(events.try_recv().is_err());
     // The counters follow the closed sockets by a moment.
     let mut status = manager.status().await;
     for _ in 0..100 {
-        if status.failed == 2 && status.active == 0 {
+        if status.failed == 3 && status.active == 0 {
             break;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
         status = manager.status().await;
     }
-    assert_eq!((status.active, status.websocket, status.failed), (0, 0, 2));
+    assert_eq!((status.active, status.websocket, status.failed), (0, 0, 3));
+    assert_eq!(
+        (
+            status.failed_handshake,
+            status.failed_secret,
+            status.failed_route
+        ),
+        (1, 1, 1)
+    );
 }
 
 #[tokio::test]

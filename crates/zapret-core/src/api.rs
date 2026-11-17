@@ -270,6 +270,14 @@ pub struct TelegramProxy {
     pub websocket: u32,
     pub direct: u32,
     pub failed: u32,
+    /// Why the failed ones failed: no full 64-byte handshake within 10 s,
+    /// a handshake made with another secret, or no route to the datacenter.
+    #[serde(default)]
+    pub failed_handshake: u32,
+    #[serde(default)]
+    pub failed_secret: u32,
+    #[serde(default)]
+    pub failed_route: u32,
     /// Why an enabled proxy is not running.
     pub error: Option<String>,
 }

@@ -847,6 +847,9 @@
             "enabled": false,
             "error": null,
             "failed": 0,
+            "failed_handshake": 0,
+            "failed_route": 0,
+            "failed_secret": 0,
             "link": null,
             "running": false,
             "websocket": 0
@@ -922,6 +925,25 @@
         "failed": {
           "type": "integer",
           "format": "uint32",
+          "minimum": 0
+        },
+        "failed_handshake": {
+          "description": "Why the failed ones failed: no full 64-byte handshake within 10 s,\na handshake made with another secret, or no route to the datacenter.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "failed_route": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "failed_secret": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
           "minimum": 0
         },
         "link": {

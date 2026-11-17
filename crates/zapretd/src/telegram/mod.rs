@@ -49,7 +49,21 @@ struct Stats {
     active: AtomicU32,
     websocket: AtomicU32,
     direct: AtomicU32,
-    failed: AtomicU32,
+    failed_handshake: AtomicU32,
+    failed_secret: AtomicU32,
+    failed_route: AtomicU32,
+}
+
+/// How a session ended.
+enum Outcome {
+    /// Reached Telegram and was carried until one side closed.
+    Served,
+    /// The client closed or stayed silent before sending its 64-byte init.
+    NoHandshake,
+    /// The init was not made with this proxy's secret, or named no datacenter.
+    WrongSecret,
+    /// Neither the gateway nor the datacenter could be reached.
+    NoRoute,
 }
 
 struct Running {
@@ -179,6 +193,12 @@ impl Manager {
             Some(running) => TelegramProxy {
                 enabled: true,
                 running: true,
+                failed: count(&running.stats.failed_handshake)
+                    + count(&running.stats.failed_secret)
+                    + count(&running.stats.failed_route),
+                failed_handshake: count(&running.stats.failed_handshake),
+                failed_secret: count(&running.stats.failed_secret),
+                failed_route: count(&running.stats.failed_route),
                 link: Some(format!(
                     "tg://proxy?server={}&port={}&secret=dd{}",
                     running.address.ip(),
@@ -188,7 +208,6 @@ impl Manager {
                 active: count(&running.stats.active),
                 websocket: count(&running.stats.websocket),
                 direct: count(&running.stats.direct),
-                failed: count(&running.stats.failed),
                 error: None,
             },
             None => TelegramProxy {
@@ -222,10 +241,16 @@ async fn serve(
                     sessions.spawn(async move {
                         let _permit = permit;
                         stats.active.fetch_add(1, Ordering::Relaxed);
-                        let served = session(client, &secret, &pool, &stats).await;
+                        let outcome = session(client, &secret, &pool, &stats).await;
                         stats.active.fetch_sub(1, Ordering::Relaxed);
-                        if !served {
-                            stats.failed.fetch_add(1, Ordering::Relaxed);
+                        let counter = match outcome {
+                            Outcome::Served => None,
+                            Outcome::NoHandshake => Some(&stats.failed_handshake),
+                            Outcome::WrongSecret => Some(&stats.failed_secret),
+                            Outcome::NoRoute => Some(&stats.failed_route),
+                        };
+                        if let Some(counter) = counter {
+                            counter.fetch_add(1, Ordering::Relaxed);
                         }
                     });
                 }
@@ -235,21 +260,20 @@ async fn serve(
     }
 }
 
-/// One Telegram connection from the handshake to the end. `false` when it
-/// never reached Telegram.
+/// One Telegram connection from the handshake to the end.
 async fn session(
     mut client: TcpStream,
     secret: &[u8; SECRET_LEN],
     pool: &Arc<Pool>,
     stats: &Stats,
-) -> bool {
+) -> Outcome {
     let _ = client.set_nodelay(true);
     let mut init = [0u8; INIT_LEN];
     if !matches!(
         timeout(HANDSHAKE_TIMEOUT, client.read_exact(&mut init)).await,
         Ok(Ok(_))
     ) {
-        return false;
+        return Outcome::NoHandshake;
     }
     let Some(hello) = mtproto::parse_client_init(&init, secret) else {
         let mut sink = vec![0u8; BAD_HANDSHAKE_DRAIN];
@@ -263,7 +287,7 @@ async fn session(
             }
         })
         .await;
-        return false;
+        return Outcome::WrongSecret;
     };
     let relay = mtproto::relay_init(hello.transport, hello.dc_index());
     let ciphers = mtproto::ciphers(&hello, secret, &relay);
@@ -272,16 +296,16 @@ async fn session(
     {
         stats.websocket.fetch_add(1, Ordering::Relaxed);
         bridge_websocket(client, reader, writer, ciphers, hello.transport).await;
-        return true;
+        return Outcome::Served;
     }
     if let Some(mut telegram) = pool.direct(hello.dc, hello.test).await
         && telegram.write_all(&relay).await.is_ok()
     {
         stats.direct.fetch_add(1, Ordering::Relaxed);
         bridge_direct(client, telegram, ciphers).await;
-        return true;
+        return Outcome::Served;
     }
-    false
+    Outcome::NoRoute
 }
 
 /// Client TCP to gateway WebSocket and back, re-encrypting both ways, until

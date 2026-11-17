@@ -87,6 +87,11 @@ active: number,
  */
 websocket: number, direct: number, failed: number, 
 /**
+ * Why the failed ones failed: no full 64-byte handshake within 10 s,
+ * a handshake made with another secret, or no route to the datacenter.
+ */
+failed_handshake: number, failed_secret: number, failed_route: number, 
+/**
  * Why an enabled proxy is not running.
  */
 error: string | null, };
