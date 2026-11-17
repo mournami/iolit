@@ -234,12 +234,13 @@ class AppState {
   exportReport = async () => {
     try {
       const path = await save({
-        defaultPath: 'zapret-diagnostics.json',
-        filters: [{ name: 'Отчёт JSON', extensions: ['json'] }],
+        defaultPath: 'zapret-report.txt',
+        filters: [{ name: 'Текстовый отчёт', extensions: ['txt'] }],
       });
       if (path) {
+        this.notice = 'Собираем отчёт, это до минуты…';
         await api('export_report', { path });
-        this.notice = 'Отчёт сохранён. IP-адреса, ваши домены и журнал соединений в него не попали.';
+        this.notice = 'Отчёт сохранён. IP-адреса и ваши домены в нём заменены звёздочками, его можно пересылать.';
       }
     } catch (e) {
       this.error = String(e);

@@ -1,4 +1,6 @@
 //! Unprivileged desktop shell: one daemon request per action, plus native dialogs.
+mod report;
+
 use std::path::PathBuf;
 use tauri::Manager;
 use zapret_core::{ipc::request_command, *};
@@ -134,11 +136,10 @@ async fn report() -> ApiResult<Report> {
 }
 #[tauri::command]
 async fn export_report(path: PathBuf) -> ApiResult<()> {
-    if path.extension().and_then(|e| e.to_str()) != Some("json") {
-        return Err("Отчёт нужно сохранить как .json".into());
+    if path.extension().and_then(|e| e.to_str()) != Some("txt") {
+        return Err("Отчёт нужно сохранить как .txt".into());
     }
-    let report: Report = request_command(DaemonCommand::Report).await.map_err(msg)?;
-    tokio::fs::write(path, serde_json::to_vec_pretty(&report).map_err(msg)?)
+    tokio::fs::write(path, report::build().await)
         .await
         .map_err(msg)
 }

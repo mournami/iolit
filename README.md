@@ -20,8 +20,11 @@ are **development builds, not a certified production release**.
 
 The application uses no relay server, subscription service or telemetry endpoint.
 Network diagnostics contact Google/YouTube, Discord and Cloudflare on request.
-Raw logs stay local and may contain network addresses. Exported reports omit raw
-logs, error details and user domains. No payment or licensing server is configured.
+Raw logs stay local and may contain network addresses. «Сохранить отчёт» writes a
+text file only where the user chooses: service state, the update log, Windows
+service events and the engine log tail, with IP addresses, user domains and the
+Telegram proxy secret masked. Nothing is sent anywhere. No payment or licensing
+server is configured.
 
 ## Development on macOS
 
