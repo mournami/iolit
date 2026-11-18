@@ -65,9 +65,9 @@ use winreg::{
 
 /// The name people see (renamed from Zapret Desktop on 2026-11-17).
 const PRODUCT: &str = "Iolit";
-/// Folder in Program Files, the service key and the data folder keep the old
-/// name until the internal rename moves them with their data.
-const INSTALL_DIR: &str = "Zapret Desktop";
+// The service key and the data folder keep the old name until the internal
+// rename moves them with their data. The install folder is chosen by
+// `payload::install_dir`: new installations go to `Iolit`, old ones stay.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const PUBLISHER: &str = "Iolit";
 const SERVICE: &str = "ZapretDesktop";
@@ -651,7 +651,7 @@ impl Paths {
             FOLDERID_PublicDesktop, FOLDERID_Windows,
         };
         Ok(Self {
-            install: known_folder(&FOLDERID_ProgramFiles)?.join(INSTALL_DIR),
+            install: payload::install_dir(&known_folder(&FOLDERID_ProgramFiles)?),
             data: known_folder(&FOLDERID_ProgramData)?.join("ZapretDesktop"),
             programs: known_folder(&FOLDERID_CommonPrograms)?,
             desktop: known_folder(&FOLDERID_PublicDesktop)?,

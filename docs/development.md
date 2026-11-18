@@ -1,8 +1,9 @@
 # Development
 
-Iolit was called Zapret Desktop until 2026-11-17. The Program Files folder,
-the service key `ZapretDesktop`, the data folder and the crate names keep the
-old name for now.
+Iolit was called Zapret Desktop until 2026-11-17. New installations go to
+`Program Files\Iolit`; installations made before that stay and are updated in
+`Program Files\Zapret Desktop`. The service key `ZapretDesktop`, the data
+folder and the crate names keep the old name for now.
 
 How the repository is laid out and how to build and check it. For what the
 application does and how to use it, see the [README](../README.md).

@@ -82,7 +82,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Service integration test failed' }
           }
           $setup = (Resolve-Path outputs/Iolit-Setup.exe).Path
-          $folder = Join-Path $env:ProgramFiles 'Zapret Desktop'
+          $folder = Join-Path $env:ProgramFiles 'Iolit'
           Invoke-Setup $setup '--quiet'
           Test-Service
           # The test loaded WinDivert from our folder: the driver keeps
@@ -107,6 +107,17 @@ jobs:
           if (Test-Path (Join-Path $folder 'zapret-desktop.exe')) { throw 'App still present after uninstall' }
           sc.exe query WinDivert | Out-Null
           if ($LASTEXITCODE -ne 1060) { throw "Our WinDivert driver service is still registered ($LASTEXITCODE)" }
+          # An installation made before the rename to Iolit is updated in its
+          # old folder. Its record is what the installer looks for.
+          $old = Join-Path $env:ProgramFiles 'Zapret Desktop'
+          New-Item -ItemType Directory -Force (Join-Path $old 'runtime') | Out-Null
+          Set-Content (Join-Path $old 'install.json') '{"version":"0.3.0","files":[]}'
+          Invoke-Setup $setup '--update'
+          Test-Service
+          if (-not (Test-Path (Join-Path $old 'zapret-desktop.exe'))) { throw 'The old installation was not updated in its folder' }
+          if (Test-Path (Join-Path $folder 'zapret-desktop.exe')) { throw 'The old installation was copied to the new folder' }
+          Invoke-Setup (Join-Path $old 'uninstall.exe') '--uninstall --quiet'
+          if (Test-Path (Join-Path $old 'zapret-desktop.exe')) { throw 'App still present in the old folder after uninstall' }
           # 1060 above is the expected result; the runner would otherwise end
           # the step with sc.exe's exit code.
           exit 0

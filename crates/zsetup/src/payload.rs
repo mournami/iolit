@@ -17,6 +17,27 @@ pub const REQUIRED: [&str; 4] = [
 ];
 /// Record of installed files, kept in the install folder.
 pub const RECORD: &str = "install.json";
+/// Folder in Program Files for new installations.
+pub const INSTALL_DIR: &str = "Iolit";
+/// Folder of installations made under the old name. They stay there: an
+/// update replaces their files in place, and moving a working installation
+/// waits for the internal rename.
+pub const OLD_INSTALL_DIR: &str = "Zapret Desktop";
+
+/// The install folder inside `program_files`: the old one if an installation
+/// is there, the new one otherwise. Both are fixed names, never a path read
+/// from the system.
+pub fn install_dir(program_files: &Path) -> PathBuf {
+    let old = program_files.join(OLD_INSTALL_DIR);
+    let installed = [RECORD, "runtime/zapretd.exe"]
+        .iter()
+        .any(|file| join(&old, file).is_file());
+    if installed {
+        old
+    } else {
+        program_files.join(INSTALL_DIR)
+    }
+}
 
 pub struct Entry {
     /// `/`-separated path relative to the install folder.
@@ -205,6 +226,24 @@ mod tests {
         let text = serde_json::to_vec(&new).unwrap();
         assert_eq!(Record::parse(&text).unwrap(), new);
         assert!(Record::parse(br#"{"version":"1","files":["../x"]}"#).is_err());
+    }
+
+    #[test]
+    fn an_installation_under_the_old_name_keeps_its_folder() {
+        let root = std::env::temp_dir().join(format!("zsetup-dir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let old = root.join(OLD_INSTALL_DIR);
+        let new = root.join(INSTALL_DIR);
+        std::fs::create_dir_all(old.join("runtime")).unwrap();
+        // An empty or leftover folder is not an installation.
+        std::fs::write(old.join("update-log.txt"), "").unwrap();
+        assert_eq!(install_dir(&root), new);
+        std::fs::write(old.join("runtime").join("zapretd.exe"), "").unwrap();
+        assert_eq!(install_dir(&root), old);
+        std::fs::remove_file(old.join("runtime").join("zapretd.exe")).unwrap();
+        std::fs::write(old.join(RECORD), "{}").unwrap();
+        assert_eq!(install_dir(&root), old);
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
