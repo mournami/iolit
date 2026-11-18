@@ -65,9 +65,9 @@ use winreg::{
 
 /// The name people see (renamed from Zapret Desktop on 2026-11-17).
 const PRODUCT: &str = "Iolit";
-// The service key and the data folder keep the old name until the internal
-// rename moves them with their data. The install folder is chosen by
-// `payload::install_dir`: new installations go to `Iolit`, old ones stay.
+// The service key keeps the old name until the internal rename. The install
+// and data folders are chosen by `payload::install_dir` and
+// `payload::data_dir`: new installations use `Iolit`, old ones stay.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const PUBLISHER: &str = "Iolit";
 const SERVICE: &str = "ZapretDesktop";
@@ -650,9 +650,10 @@ impl Paths {
             FOLDERID_CommonPrograms, FOLDERID_ProgramData, FOLDERID_ProgramFiles,
             FOLDERID_PublicDesktop, FOLDERID_Windows,
         };
+        let install = payload::install_dir(&known_folder(&FOLDERID_ProgramFiles)?);
         Ok(Self {
-            install: payload::install_dir(&known_folder(&FOLDERID_ProgramFiles)?),
-            data: known_folder(&FOLDERID_ProgramData)?.join("ZapretDesktop"),
+            data: payload::data_dir(&known_folder(&FOLDERID_ProgramData)?, &install),
+            install,
             programs: known_folder(&FOLDERID_CommonPrograms)?,
             desktop: known_folder(&FOLDERID_PublicDesktop)?,
             windows: known_folder(&FOLDERID_Windows)?,
@@ -1134,7 +1135,7 @@ impl Drop for Descriptor {
     }
 }
 
-/// `%ProgramData%\ZapretDesktop` holds what the SYSTEM service reads: the
+/// The data folder in `%ProgramData%` holds what the SYSTEM service reads: the
 /// enabled flag, the strategy and user domains. Standard users may create
 /// folders in ProgramData, so the folder gets owner Administrators and a
 /// protected ACL. A link or file planted in its place is moved away, never
@@ -1142,7 +1143,8 @@ impl Drop for Descriptor {
 fn secure_data_dir(data: &Path, notes: &mut Vec<String>) -> Result<()> {
     let descriptor = Descriptor::parse(DATA_SDDL)?;
     let mut move_aside = |why: &str| -> Result<()> {
-        let aside = data.with_file_name(format!("ZapretDesktop.untrusted-{}", unix_now()));
+        let name = data.file_name().unwrap_or_default().to_string_lossy();
+        let aside = data.with_file_name(format!("{name}.untrusted-{}", unix_now()));
         move_file(data, &aside, 0).with_context(|| format!("{why}; убрать её не удалось"))?;
         notes.push(format!("{why}; перенесено в {}", aside.display()));
         descriptor.create_dir(data)

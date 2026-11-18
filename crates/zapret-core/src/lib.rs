@@ -17,3 +17,34 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const MAC_SOCKET: &str = "/var/run/zapret-desktop/control.sock";
 pub const WINDOWS_PIPE: &str = r"\\.\pipe\ZapretDesktop.Control.v1";
 pub const MAC_DATA: &str = "/Library/Application Support/Zapret Desktop";
+
+/// Data folder of a Windows installation inside `program_data`. `install` is
+/// the folder that holds the app; the service runs from `install\runtime`.
+/// Installations made under the old name keep `ZapretDesktop`, new ones use
+/// `Iolit`. The choice follows the admin-only install path, never what exists
+/// in ProgramData, where standard users may create folders. The installer
+/// (`zsetup::payload::data_dir`) makes the same choice.
+pub fn windows_data_dir(
+    program_data: &std::path::Path,
+    install: &std::path::Path,
+) -> std::path::PathBuf {
+    let old = install
+        .file_name()
+        .is_some_and(|name| name.eq_ignore_ascii_case("Zapret Desktop"));
+    program_data.join(if old { "ZapretDesktop" } else { "Iolit" })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    #[test]
+    fn windows_data_folder_follows_the_install_folder() {
+        let data = Path::new("data");
+        let dir = |install: &str| super::windows_data_dir(data, Path::new(install));
+        assert_eq!(dir("files/Zapret Desktop"), data.join("ZapretDesktop"));
+        assert_eq!(dir("files/zapret desktop"), data.join("ZapretDesktop"));
+        assert_eq!(dir("files/Iolit"), data.join("Iolit"));
+        assert_eq!(dir("files/Zapret Desktop Other"), data.join("Iolit"));
+    }
+}

@@ -24,6 +24,16 @@ pub const INSTALL_DIR: &str = "Iolit";
 /// waits for the internal rename.
 pub const OLD_INSTALL_DIR: &str = "Zapret Desktop";
 
+/// Data folder inside `program_data` for an installation in `install`: the
+/// same choice `zapret_core::windows_data_dir` makes for the service. It
+/// follows the admin-only install folder, never what exists in ProgramData.
+pub fn data_dir(program_data: &Path, install: &Path) -> PathBuf {
+    let old = install
+        .file_name()
+        .is_some_and(|name| name.eq_ignore_ascii_case(OLD_INSTALL_DIR));
+    program_data.join(if old { "ZapretDesktop" } else { "Iolit" })
+}
+
 /// The install folder inside `program_files`: the old one if an installation
 /// is there, the new one otherwise. Both are fixed names, never a path read
 /// from the system.
@@ -244,6 +254,17 @@ mod tests {
         std::fs::write(old.join(RECORD), "{}").unwrap();
         assert_eq!(install_dir(&root), old);
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn data_folder_follows_the_install_folder() {
+        let data = Path::new("data");
+        let files = Path::new("files");
+        assert_eq!(
+            data_dir(data, &files.join(OLD_INSTALL_DIR)),
+            data.join("ZapretDesktop")
+        );
+        assert_eq!(data_dir(data, &files.join(INSTALL_DIR)), data.join("Iolit"));
     }
 
     #[test]

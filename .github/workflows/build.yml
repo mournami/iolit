@@ -85,6 +85,7 @@ jobs:
           $folder = Join-Path $env:ProgramFiles 'Iolit'
           Invoke-Setup $setup '--quiet'
           Test-Service
+          if (-not (Test-Path (Join-Path $env:ProgramData 'Iolit'))) { throw 'No data folder ProgramData\Iolit' }
           # The test loaded WinDivert from our folder: the driver keeps
           # WinDivert64.sys busy, as on the first tester's PC.
           Invoke-Setup $setup '--quiet'
@@ -116,6 +117,7 @@ jobs:
           Test-Service
           if (-not (Test-Path (Join-Path $old 'zapret-desktop.exe'))) { throw 'The old installation was not updated in its folder' }
           if (Test-Path (Join-Path $folder 'zapret-desktop.exe')) { throw 'The old installation was copied to the new folder' }
+          if (-not (Test-Path (Join-Path $env:ProgramData 'ZapretDesktop'))) { throw 'The old installation did not keep ProgramData\ZapretDesktop' }
           Invoke-Setup (Join-Path $old 'uninstall.exe') '--uninstall --quiet'
           if (Test-Path (Join-Path $old 'zapret-desktop.exe')) { throw 'App still present in the old folder after uninstall' }
           # 1060 above is the expected result; the runner would otherwise end

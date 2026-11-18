@@ -4,7 +4,7 @@
 //! log, Windows service events), adds what the service says when it answers,
 //! and masks IP addresses and the user's domains before the text is saved.
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
 use zapret_core::{ipc::request_command, redact::redact, *};
@@ -49,7 +49,10 @@ pub async fn build() -> String {
     }
     let engine_log = match request_command::<Vec<String>>(DaemonCommand::Logs).await {
         Ok(lines) => lines.join("\n"),
-        Err(e) => format!("Служба не отдала журнал ({e:#}). {}", read_engine_log()),
+        Err(e) => format!(
+            "Служба не отдала журнал ({e:#}). {}",
+            read_engine_log(install.as_deref())
+        ),
     };
     section(&mut out, "Журнал движка (хвост)", engine_log);
     redact(&out, &domains)
@@ -79,18 +82,19 @@ fn tail(path: &Path) -> String {
 
 /// The service keeps the engine log in its data folder, which an ordinary
 /// user may not be allowed to read.
-fn read_engine_log() -> String {
-    let Some(data) = std::env::var_os("ProgramData") else {
+fn read_engine_log(install: Option<&Path>) -> String {
+    let (Some(data), Some(install)) = (std::env::var_os("ProgramData"), install) else {
         return "Папка данных не найдена.".into();
     };
-    tail(&PathBuf::from(data).join("ZapretDesktop").join("engine.log"))
+    tail(&windows_data_dir(Path::new(&data), install).join("engine.log"))
 }
 
 #[cfg(windows)]
 async fn local_facts(out: &mut String, install: Option<&Path>) {
-    let system =
-        PathBuf::from(std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into()))
-            .join("System32");
+    let system = std::path::PathBuf::from(
+        std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into()),
+    )
+    .join("System32");
     let sc = system.join("sc.exe");
     section(
         out,

@@ -7,7 +7,12 @@ use crate::{
     updater::{self, HttpFetch, Store, Updater},
 };
 use anyhow::{Context, Result, bail};
-use std::{ffi::OsString, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::windows::named_pipe::ServerOptions,
@@ -136,11 +141,17 @@ impl Drop for Security {
     }
 }
 
+/// The data folder that belongs to this installation, see
+/// [`zapret_core::windows_data_dir`].
 fn data_dir() -> Result<PathBuf> {
-    Ok(
-        PathBuf::from(std::env::var_os("ProgramData").context("Нет ProgramData")?)
-            .join("ZapretDesktop"),
-    )
+    let exe = std::env::current_exe()?;
+    // zapretd.exe lives in `<install>\runtime`.
+    let install = exe
+        .parent()
+        .and_then(Path::parent)
+        .context("Нет папки программы")?;
+    let program_data = PathBuf::from(std::env::var_os("ProgramData").context("Нет ProgramData")?);
+    Ok(zapret_core::windows_data_dir(&program_data, install))
 }
 
 async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
