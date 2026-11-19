@@ -1,6 +1,11 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
   import { app, bundleLine, formatClock, plural } from '../store.svelte';
+  import Details from './Details.svelte';
+  import Power from './Power.svelte';
+
+  /** Two layouts to compare: `?layout=a` (banner, default) or `?layout=b` (card). */
+  const layout = new URLSearchParams(location.search).get('layout') === 'b' ? 'b' : 'a';
   import type { ProbeResult } from '../types';
 
   const service = $derived(app.service);
@@ -60,187 +65,242 @@
     if (!failed) return `${n === 1 ? 'Проверка пройдена' : `Все ${n} ${plural(n, 'проверка', 'проверки', 'проверок')} пройдены`}${at}`;
     return `${failed} из ${n} ${plural(n, 'проверки', 'проверок', 'проверок')} не прошли${at}`;
   });
+  const dnsWarning = $derived(results.some((r) => r.ok && r.warning));
+  const secureDns = $derived(service?.secure_dns);
 </script>
 
-<div class="ov">
-  {#if app.running && broken.length}
-    <div class="alert warn" role="status">
-      <Icon name="info" size={16} />
-      <p>
-        {broken.join(', ')}
-        {broken.length > 1 ? 'перестали' : 'перестал'} работать: фоновая проверка в {formatClock(
-          new Date((app.health?.checked_at ?? 0) * 1000),
-        )} не прошла дважды. Остальное работает.
-      </p>
-      <button class="btn sm primary" disabled={app.busy} onclick={app.repairStrategy}>
-        <Icon name="wand" size={16} />Починить
-      </button>
-    </div>
-  {/if}
-  {#if app.installed && app.appUpdate?.available}
-    <div class="alert good" role="status">
-      <Icon name="download" size={16} />
-      <p>
-        {#if app.appUpdate.installing}
-          Устанавливаем версию {app.appUpdate.available}. Окно закроется и откроется снова.
-        {:else}
-          Вышла новая версия приложения {app.appUpdate.available}. Она уже скачана и проверена.
-          {#if app.appUpdate.error}<br />{app.appUpdate.error}{/if}
-        {/if}
-      </p>
-      <button class="btn sm primary" disabled={app.busy || app.appUpdate.installing} onclick={app.updateApp}>
-        <Icon name="refresh" size={16} />Обновить
-      </button>
-    </div>
-  {/if}
+<div class="home" class:split={layout === 'b'}>
+  {#if layout === 'b'}<Power variant="card" />{/if}
 
-  <header class="page-h">
-    <h1 class="h1">Обзор</h1>
-  </header>
+  <div class="home-main">
+    {#if layout === 'a'}<Power variant="banner" />{/if}
 
-  <!-- Properties of this computer, read like the fields of a document. -->
-  <dl class="props">
-    <div class="prop">
-      <dt><Icon name="layers" size={16} />Стратегия</dt>
-      <dd>
-        <span class="prop-v" title={activeStrategy?.description || service?.strategy}
-          >{activeStrategy?.name || service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span
-        >
-        {#if app.installed && app.bundle}
-          <span class="muted" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}
-            >{bundleLine(app.bundle)}</span
-          >
-        {/if}
-        {#if app.installed && service?.strategy}
-          <button class="link" disabled={app.busy} onclick={app.selectStrategy}>Подобрать заново</button>
-        {/if}
-      </dd>
-    </div>
-    <div class="prop">
-      <dt><Icon name="cpu" size={16} />Движок</dt>
-      <dd><span class="prop-v">{service?.engine || '—'}</span></dd>
-    </div>
-    <div class="prop">
-      <dt><Icon name="shield" size={16} />DNS</dt>
-      <dd>
-        <!-- winws reports no packet counters, so DNS is shown: it often decides whether a site opens. -->
-        {#if service?.secure_dns.enabled}
-          <span class="prop-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
-          <span class="muted">через HTTPS для всех программ</span>
-        {:else}
-          <span class="prop-v">Системный</span>
-          <span class="muted">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
-        {/if}
-      </dd>
-    </div>
-  </dl>
-
-  <section aria-labelledby="svc-title">
-    <div class="section-h">
-      <div>
-        <h2 class="h2" id="svc-title">Сервисы</h2>
-        <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
+    {#if app.running && broken.length}
+      <div class="alert warn" role="status">
+        <Icon name="info" size={16} />
+        <p>
+          {broken.join(', ')}
+          {broken.length > 1 ? 'перестали' : 'перестал'} работать: фоновая проверка в {formatClock(
+            new Date((app.health?.checked_at ?? 0) * 1000),
+          )} не прошла дважды. Остальное работает.
+        </p>
+        <button class="btn sm primary" disabled={app.busy} onclick={app.repairStrategy}>
+          <Icon name="wand" size={16} />Починить
+        </button>
       </div>
-      <button class="btn sm" disabled={!app.installed || app.busy} onclick={app.diagnose}>
-        <Icon name="refresh" size={16} />{op?.busy ? 'Проверяем…' : 'Проверить'}
-      </button>
-    </div>
-
-    {#if op?.busy}
-      <div class="progress" class:indeterminate={!op.total}>
-        <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
+    {/if}
+    {#if app.installed && app.appUpdate?.available}
+      <div class="alert good" role="status">
+        <Icon name="download" size={16} />
+        <p>
+          {#if app.appUpdate.installing}
+            Устанавливаем версию {app.appUpdate.available}. Окно закроется и откроется снова.
+          {:else}
+            Вышла новая версия приложения {app.appUpdate.available}. Она уже скачана и проверена.
+            {#if app.appUpdate.error}<br />{app.appUpdate.error}{/if}
+          {/if}
+        </p>
+        <button class="btn sm primary" disabled={app.busy || app.appUpdate.installing} onclick={app.updateApp}>
+          <Icon name="refresh" size={16} />Обновить
+        </button>
       </div>
     {/if}
 
-    <ul class="svc-list">
-      {#each rows as row (row.id)}
-        <li class="svc-row {row.status}" title={row.result?.warning ?? row.result?.detail}>
-          <span class="svc-ico">
-            {#if marks[row.id]}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={marks[row.id]} /></svg>
-            {:else}
-              <Icon name={row.icon} size={18} />
-            {/if}
-          </span>
-          <span class="svc-name">{row.name}</span>
-          <span class="svc-detail">{row.hint}</span>
-          <span class="state {row.status}"><i></i>{labels[row.status]}</span>
-          <span class="lat num">
-            {#if row.result?.ok}{row.result.latency_ms}<small>мс</small>{:else}<span class="dash">—</span>{/if}
-          </span>
-        </li>
-      {/each}
-    </ul>
-  </section>
+    <section class="block" aria-labelledby="svc-title">
+      <div class="section-h">
+        <div>
+          <h2 class="h2" id="svc-title">Сервисы</h2>
+          <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
+        </div>
+        <div class="actions">
+          {#if op?.busy}
+            <button class="btn sm" disabled={app.pending === 'cancel'} onclick={app.cancel}>
+              {app.pending === 'cancel' ? 'Останавливаем…' : 'Остановить'}
+            </button>
+          {:else}
+            <button class="btn sm" disabled={!app.installed || app.busy} onclick={app.selectStrategy}>
+              <Icon name="wand" size={16} />Подобрать стратегию
+            </button>
+          {/if}
+          <button class="btn sm primary" disabled={!app.installed || app.busy} onclick={app.diagnose}>
+            <Icon name="refresh" size={16} />{op?.busy ? 'Проверяем…' : 'Проверить'}
+          </button>
+        </div>
+      </div>
 
-  {#if service?.warnings.length}
-    <ul class="warnings">
-      {#each service.warnings as warning}
-        <li class="alert warn"><Icon name="alert" size={16} /><p>{warning}</p></li>
-      {/each}
-    </ul>
-  {/if}
+      {#if op?.busy}
+        <div class="progress" class:indeterminate={!op.total}>
+          <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
+        </div>
+      {/if}
+      {#if op && !op.busy && (op.error || op.notice || op.winner)}
+        {@const chosen = app.data?.strategies.find((s) => s.id === op.winner)}
+        <div class="alert {op.error ? 'bad' : 'good'}" role="status">
+          <Icon name={op.error ? 'alert' : 'check'} size={16} />
+          <p>
+            {#if op.error}{op.error}{/if}
+            {#if op.notice}{op.notice}{/if}
+            {#if op.winner === 'composite'}
+              Включена стратегия, собранная по сервисам ({chosen?.description ?? 'у каждого сервиса своя'}): она дважды
+              прошла проверки.
+            {:else if op.winner}
+              Выбрана и включена стратегия {chosen?.name ?? op.winner}: она дважды прошла проверки.
+            {/if}
+          </p>
+        </div>
+      {/if}
+
+      <ul class="svc-list">
+        {#each rows as row (row.id)}
+          <li class="svc-row {row.status}" title={row.result?.warning ?? row.result?.detail}>
+            <span class="svc-ico">
+              {#if marks[row.id]}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={marks[row.id]} /></svg>
+              {:else}
+                <Icon name={row.icon} size={18} />
+              {/if}
+            </span>
+            <span class="svc-name">{row.name}</span>
+            <span class="svc-detail" class:bad-text={row.status === 'bad'}
+              >{row.status === 'bad' && row.result?.detail ? row.result.detail : row.hint}</span
+            >
+            <span class="state {row.status}"><i></i>{labels[row.status]}</span>
+            <span class="lat num">
+              {#if row.result?.ok}{row.result.latency_ms}<small>мс</small>{:else}<span class="dash">—</span>{/if}
+            </span>
+          </li>
+        {/each}
+      </ul>
+
+      {#if dnsWarning}
+        <div class="alert warn dns-hint">
+          <Icon name="info" size={16} />
+          {#if secureDns?.supported && !secureDns.enabled}
+            <p>
+              Провайдер подменяет адреса сайтов. Включите защищённый DNS, и адреса будут приходить через HTTPS для всех
+              программ. Прежние настройки сохранятся, вернуть их можно в «Настройках».
+            </p>
+            <button class="btn sm primary" disabled={app.busy} onclick={() => app.setSecureDns(true)}>
+              {app.pending === 'dns' ? 'Включаем…' : 'Включить'}
+            </button>
+          {:else if secureDns?.enabled}
+            <p>Защищённый DNS включён. Если предупреждение осталось, проверьте ещё раз через минуту.</p>
+          {:else}
+            <p>
+              В этой версии Windows защищённый DNS для всей системы недоступен. Включите его в браузере: Chrome и Edge
+              «Конфиденциальность и безопасность», «Использовать безопасный DNS»; Firefox «Приватность и защита», «DNS
+              через HTTPS».
+            </p>
+          {/if}
+        </div>
+      {/if}
+    </section>
+
+    <!-- Properties of this computer, read like the fields of a document. -->
+    <dl class="props block">
+      <div class="prop">
+        <dt><Icon name="layers" size={16} />Стратегия</dt>
+        <dd>
+          <span class="prop-v" title={activeStrategy?.description || service?.strategy}
+            >{activeStrategy?.name || service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span
+          >
+          {#if app.installed && app.bundle}
+            <span class="muted" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}
+              >{bundleLine(app.bundle)}</span
+            >
+          {/if}
+        </dd>
+      </div>
+      <div class="prop">
+        <dt><Icon name="cpu" size={16} />Движок</dt>
+        <dd><span class="prop-v">{service?.engine || '—'}</span></dd>
+      </div>
+      <div class="prop">
+        <dt><Icon name="shield" size={16} />DNS</dt>
+        <dd>
+          <!-- winws reports no packet counters, so DNS is shown: it often decides whether a site opens. -->
+          {#if service?.secure_dns.enabled}
+            <span class="prop-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
+            <span class="muted">через HTTPS для всех программ</span>
+          {:else}
+            <span class="prop-v">Системный</span>
+            <span class="muted">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
+          {/if}
+        </dd>
+      </div>
+    </dl>
+
+    <details class="more block">
+      <summary><Icon name="chevron" size={16} />Подробности</summary>
+      <Details />
+    </details>
+
+    {#if service?.warnings.length}
+      <ul class="warnings">
+        {#each service.warnings as warning}
+          <li class="alert warn"><Icon name="alert" size={16} /><p>{warning}</p></li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
 </div>
 
 <style>
-  .ov {
+  .home {
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+  /* Layout B: the brand card beside the content. */
+  .home.split {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    align-items: start;
+    gap: 32px;
+  }
+  .home.split :global(.power.card) {
+    position: sticky;
+    top: 0;
+    min-height: 420px;
+  }
+  .home-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+  }
+  .home-main > :global(.power) {
+    margin-bottom: 32px;
+  }
+  .block {
+    margin-bottom: 32px;
   }
   .warn-text {
     color: var(--amber);
   }
-
-  /* Properties: label column and value, a hover surface per row. */
-  .props {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin: 0 -8px 40px;
-  }
-  .prop {
-    display: grid;
-    grid-template-columns: 160px minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    min-height: 36px;
-    padding: 0 8px;
-    border-radius: 6px;
-  }
-  .prop:hover {
-    background: var(--hover);
-  }
-  .prop dt {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-2);
-  }
-  .prop dd {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 4px 12px;
-    min-width: 0;
-  }
-  .prop-v {
-    font-weight: 500;
-  }
-  .muted {
-    font-size: 13px;
-    color: var(--text-3);
+  .bad-text {
+    color: var(--red);
   }
 
   .section-h {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 12px 16px;
     padding-bottom: 12px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .progress {
     margin-bottom: 8px;
+  }
+  .dns-hint {
+    margin-top: 12px;
+    align-items: center;
   }
 
   /* Services: single-line rows, like items of a list block. */
@@ -281,15 +341,97 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .svc-detail.bad-text {
+    color: var(--red);
+  }
+
+  /* Properties: label column and value, a hover surface per row. */
+  .props {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-inline: -8px;
+  }
+  .prop {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: 6px;
+  }
+  .prop:hover {
+    background: var(--hover);
+  }
+  .prop dt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-2);
+  }
+  .prop dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    min-width: 0;
+  }
+  .prop-v {
+    font-weight: 500;
+  }
+  .muted {
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  /* Details fold away, like a toggle block. */
+  .more summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    height: 32px;
+    margin-left: -8px;
+    padding: 0 10px 0 6px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+  }
+  .more summary::-webkit-details-marker {
+    display: none;
+  }
+  .more summary:hover {
+    background: var(--hover);
+  }
+  .more summary :global(svg) {
+    color: var(--text-2);
+    transform: rotate(-90deg);
+    transition: transform 0.15s;
+  }
+  .more[open] summary :global(svg) {
+    transform: none;
+  }
 
   .warnings {
     list-style: none;
-    margin-top: 16px;
   }
   .warnings .alert {
     margin: 0 0 8px;
   }
 
+  @media (max-width: 860px) {
+    .home.split {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+    }
+    .home.split :global(.power.card) {
+      position: static;
+      min-height: 0;
+    }
+  }
   @media (max-width: 640px) {
     .prop {
       grid-template-columns: 120px minmax(0, 1fr);

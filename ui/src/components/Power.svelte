@@ -1,9 +1,11 @@
 <script lang="ts">
-  // The bypass state and its switch. Lives in the brand side panel, so it is
-  // visible from every page.
+  // The bypass state and its switch on the brand colour: a wide banner above
+  // the services, or a card beside them.
   import { native } from '../api';
   import Icon from '../Icon.svelte';
   import { app, formatUptime } from '../store.svelte';
+
+  let { variant = 'banner' }: { variant?: 'banner' | 'card' } = $props();
 
   const service = $derived(app.service);
   const mode = $derived(
@@ -52,14 +54,16 @@
   });
 </script>
 
-<section class="power" class:on={mode === 'on'} aria-live="polite">
-  {#if mode === 'loading'}
-    <!-- Connecting takes a second or two: one quiet line, not a headline. -->
-    <p class="connecting"><span class="spin"><Icon name="refresh" size={16} /></span>{state.sub}</p>
-  {:else}
-    <h1 class="title">{state.title}</h1>
-    <p class="sub">{pendingText || state.sub}</p>
-  {/if}
+<section class="power {variant}" class:on={mode === 'on'} aria-live="polite">
+  <div class="text">
+    {#if mode === 'loading'}
+      <!-- Connecting takes a second or two: one quiet line, not a headline. -->
+      <p class="connecting"><span class="spin"><Icon name="refresh" size={16} /></span>{state.sub}</p>
+    {:else}
+      <h1 class="title">{state.title}</h1>
+      <p class="sub">{pendingText || state.sub}</p>
+    {/if}
+  </div>
 
   {#if mode === 'on' || mode === 'off'}
     <button
@@ -98,22 +102,81 @@
 
 <style>
   .power {
+    min-width: 0;
+    padding: 24px 28px;
+    border-radius: 16px;
+    background: var(--brand);
+    color: var(--on-brand);
+    transition: background-color 0.3s;
+    /* The title scales with the block, so long words never overflow it. */
+    container-type: inline-size;
+  }
+  .power.on {
+    background: var(--brand-on);
+  }
+
+  /* Banner: text on the left, the switch on the right. */
+  .banner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'text switch' 'actions actions' 'foot foot';
+    align-items: center;
+    column-gap: 24px;
+  }
+  .banner .text {
+    grid-area: text;
+  }
+  .banner .toggle,
+  .banner .badge {
+    grid-area: switch;
+  }
+  .banner .actions {
+    grid-area: actions;
+  }
+  .banner .foot {
+    grid-area: foot;
+    max-width: 60ch;
+    margin-top: 16px;
+  }
+  .banner .title {
+    font-size: min(40px, 7cqi);
+  }
+
+  /* Card: everything stacked, the title at the top, the switch below. */
+  .card {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    padding: 28px 24px;
+  }
+  .card .title {
+    max-width: 8ch;
+    font-size: min(48px, 18cqi);
+  }
+  .card .toggle,
+  .card .badge {
+    margin-top: 28px;
+  }
+  .card .foot {
+    margin-top: auto;
+    padding-top: 24px;
+  }
+
+  .text {
     min-width: 0;
-    /* The title scales with the panel, so long words never overflow it. */
-    container-type: inline-size;
   }
   .title {
-    width: 100%;
-    max-width: 8ch;
     font-family: var(--display);
-    font-size: min(52px, 19cqi);
-    line-height: 1;
+    line-height: 1.05;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--on-brand);
+  }
+  .sub {
+    margin-top: 8px;
+    font-size: 15px;
+    line-height: 20px;
+    color: var(--on-brand-2);
   }
   .connecting {
     display: flex;
@@ -125,15 +188,10 @@
   .connecting span {
     display: flex;
   }
-  .sub {
-    margin-top: 12px;
-    font-size: 15px;
-    color: var(--on-brand-2);
-  }
 
   .toggle {
     position: relative;
-    margin-top: 28px;
+    flex: none;
     width: 104px;
     height: 56px;
     padding: 0;
@@ -175,7 +233,6 @@
     border-radius: 28px;
   }
   .badge {
-    margin-top: 28px;
     width: 56px;
     height: 56px;
     border-radius: 16px;
@@ -211,39 +268,13 @@
   }
 
   .foot {
-    margin-top: 24px;
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 20px;
     color: var(--on-brand-2);
-    max-width: 280px;
   }
 
-  /* Narrow windows: the panel is a band on top, the switch goes right. */
-  @media (max-width: 760px) {
-    .power {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas: 'title switch' 'sub switch' 'actions actions';
-      align-items: center;
-    }
-    .title {
-      grid-area: title;
-      max-width: none;
-      font-size: min(32px, 8cqi);
-    }
-    .sub {
-      grid-area: sub;
-      margin-top: 8px;
-    }
-    .toggle,
-    .badge {
-      grid-area: switch;
-      margin-top: 0;
-    }
-    .actions {
-      grid-area: actions;
-    }
-    .foot {
+  @media (max-width: 640px) {
+    .banner .foot {
       display: none;
     }
   }

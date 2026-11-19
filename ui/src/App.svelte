@@ -6,10 +6,8 @@
   import { theme } from './theme.svelte';
   import { appearance } from './appearance.svelte';
   import { applyWindowIcon } from './windowIcon';
-  import Checks from './components/Checks.svelte';
   import Mark from './components/Mark.svelte';
   import Overview from './components/Overview.svelte';
-  import Power from './components/Power.svelte';
   import Settings from './components/Settings.svelte';
   import WindowControls from './components/WindowControls.svelte';
 
@@ -17,11 +15,9 @@
   const ownFrame = native && navigator.userAgent.includes('Windows');
 
   const pages: { id: Page; label: string; icon: string }[] = [
-    { id: 'overview', label: 'Обзор', icon: 'home' },
-    { id: 'checks', label: 'Проверка', icon: 'activity' },
+    { id: 'overview', label: 'Главная', icon: 'home' },
     { id: 'settings', label: 'Настройки', icon: 'settings' },
   ];
-  const current = $derived(pages.find((p) => p.id === app.page) ?? pages[0]);
 
   const serviceState = $derived(
     !native
@@ -54,44 +50,38 @@
 <svelte:head><title>Iolit</title></svelte:head>
 
 <div class="shell">
-  <aside class="side" class:on={app.running}>
+  <header class="topbar" data-tauri-drag-region>
     <div class="brand" data-tauri-drag-region>
       <Mark size={24} /><span class="brand-word" data-tauri-drag-region>iolit</span>
     </div>
-    <nav class="nav" aria-label="Разделы">
+    <nav class="tabs" aria-label="Разделы">
       {#each pages as p (p.id)}
         <button
           class:on={app.page === p.id}
           aria-current={app.page === p.id ? 'page' : undefined}
           onclick={() => (app.page = p.id)}
         >
-          <Icon name={p.icon} size={18} />{p.label}
+          <Icon name={p.icon} size={16} />{p.label}
         </button>
       {/each}
     </nav>
     <div class="grow" data-tauri-drag-region></div>
-    <Power />
-  </aside>
+    <div class="svc-state {serviceState.tone}" title={serviceState.text}>
+      <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
+    </div>
+    <button
+      class="icon-btn"
+      aria-label={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+      title={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+      onclick={theme.flip}
+    >
+      <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={16} />
+    </button>
+    {#if ownFrame}<WindowControls />{/if}
+  </header>
 
-  <div class="content">
-    <header class="titlebar" data-tauri-drag-region>
-      <p class="crumbs" data-tauri-drag-region><span>Iolit</span><span class="sep">/</span>{current.label}</p>
-      <div class="grow" data-tauri-drag-region></div>
-      <div class="svc-state {serviceState.tone}" title={serviceState.text}>
-        <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
-      </div>
-      <button
-        class="icon-btn"
-        aria-label={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-        title={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-        onclick={theme.flip}
-      >
-        <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={16} />
-      </button>
-      {#if ownFrame}<WindowControls />{/if}
-    </header>
-
-    <main class="main"><div class="page">
+  <main class="main">
+    <div class="page">
       {#if app.error}
         <div class="alert bad" role="alert">
           <Icon name="alert" size={16} />
@@ -113,123 +103,76 @@
 
       {#if app.page === 'overview'}
         <Overview />
-      {:else if app.page === 'checks'}
-        <Checks />
       {:else}
         <Settings />
       {/if}
-    </div></main>
-  </div>
+    </div>
+  </main>
 </div>
 
 <style>
   .shell {
     height: 100vh;
-    display: grid;
-    grid-template-columns: 264px minmax(0, 1fr);
-    padding: 8px 0 8px 8px;
+    display: flex;
+    flex-direction: column;
     background: var(--bg);
   }
 
-  /* The brand panel: a rounded column inside the window, one colour. */
-  .side {
+  .topbar {
+    height: 52px;
+    flex: none;
     display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding: 16px 20px 24px;
-    border-radius: 16px;
-    background: var(--brand);
-    color: var(--on-brand);
-    --mark-bg: #ffffff;
-    transition: background-color 0.3s;
+    align-items: center;
+    gap: 4px;
+    padding: 0 12px 0 20px;
     user-select: none;
-  }
-  .side.on {
-    background: var(--brand-on);
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 12px;
-    height: 32px;
-    padding-left: 4px;
+    gap: 10px;
+    margin-right: 24px;
   }
   .brand-word {
+    font-family: var(--display);
     font-size: 18px;
-    font-weight: 500;
-    line-height: 1;
+    line-height: 24px;
+    font-weight: 600;
   }
-  .nav {
+  .tabs {
     display: flex;
-    flex-direction: column;
     gap: 2px;
-    margin: 24px -8px 0;
   }
-  .nav button {
+  .tabs button {
     height: 32px;
-    padding: 0 8px;
+    padding: 0 12px 0 10px;
     border-radius: 8px;
     border: 0;
     background: none;
     display: flex;
     align-items: center;
-    gap: 10px;
-    text-align: left;
+    gap: 8px;
     font-size: 14px;
     font-weight: 500;
-    color: var(--on-brand-2);
+    color: var(--text-2);
     transition: background-color 0.15s, color 0.15s;
   }
-  .nav button:hover:not(.on) {
-    color: var(--on-brand);
-    background: rgb(255 255 255 / 0.06);
+  .tabs button:hover:not(.on) {
+    color: var(--text);
+    background: var(--hover);
   }
-  .nav button.on {
-    background: rgb(255 255 255 / 0.12);
-    color: var(--on-brand);
-  }
-  .nav button:focus-visible {
-    outline-color: var(--on-brand);
-    outline-offset: -2px;
-    border-radius: 8px;
+  .tabs button.on {
+    color: var(--text);
+    background: var(--raise-2);
   }
   .grow {
     flex: 1;
-  }
-
-  .content {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-  }
-  .titlebar {
-    height: 40px;
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 12px 0 24px;
-    user-select: none;
-  }
-  .crumbs {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-    line-height: 20px;
-    color: var(--text);
-  }
-  .crumbs span {
-    color: var(--text-2);
-  }
-  .crumbs .sep {
-    color: var(--text-3);
   }
   .svc-state {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-right: 8px;
     font-size: 13px;
     color: var(--text-2);
     white-space: nowrap;
@@ -248,46 +191,31 @@
     background: var(--amber);
   }
 
-  /* The page scrolls inside the window; the title bar stays. */
+  /* The page scrolls inside the window; the top bar stays. */
   .main {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 24px 48px 48px;
+    padding: 16px 40px 48px;
   }
   /* Like a document: one readable column, centred in wide windows. */
   .page {
-    max-width: 880px;
+    max-width: 960px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
   }
 
-  /* Narrow windows: the brand panel becomes a band on top. */
   @media (max-width: 760px) {
-    .shell {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto minmax(0, 1fr);
-      padding: 8px 8px 0;
+    .brand {
+      margin-right: 8px;
     }
-    .side {
-      padding: 16px 20px 20px;
-    }
-    .side .grow {
+    .brand-word,
+    .svc-text {
       display: none;
-    }
-    .nav {
-      flex-direction: row;
-      margin: 16px -12px 20px;
-    }
-    .titlebar {
-      padding: 0 12px 0 20px;
     }
     .main {
-      padding: 16px 20px 20px;
-    }
-    .crumbs {
-      display: none;
+      padding: 12px 16px 24px;
     }
   }
 </style>
