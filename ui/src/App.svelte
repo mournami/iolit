@@ -137,8 +137,7 @@
     padding: 20px 28px 28px;
     background: var(--brand);
     color: var(--on-brand);
-    --mark-bg: var(--on-brand);
-    --mark-fg: var(--brand);
+    --mark-bg: rgb(255 255 255 / 0.12);
     transition: background-color 0.3s;
     user-select: none;
   }
