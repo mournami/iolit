@@ -5,8 +5,7 @@
   import Power from './Power.svelte';
   import QuickTiles from './QuickTiles.svelte';
 
-  /** Two layouts to compare: `?layout=a` (banner, default) or `?layout=b` (card). */
-  const layout = new URLSearchParams(location.search).get('layout') === 'b' ? 'b' : 'a';
+  import { layout } from '../layout';
   import type { ProbeResult } from '../types';
 
   const service = $derived(app.service);
@@ -257,15 +256,19 @@
   /* Layout B: the brand card beside the content. */
   .home.split {
     display: grid;
-    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-columns: 340px minmax(0, 1fr);
     align-items: start;
-    gap: 32px;
+    gap: 40px;
+  }
+  /* Beside the card the content keeps a readable width. */
+  .home.split .home-main {
+    max-width: 880px;
   }
   /* The card fills the window height beside the scrolling content. */
   .home.split :global(.power.card) {
     position: sticky;
     top: 0;
-    min-height: calc(100vh - 52px - 16px - 48px);
+    min-height: calc(100vh - 52px - 8px - 20px);
   }
   .home-main {
     display: flex;
