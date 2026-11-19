@@ -55,6 +55,9 @@
 </script>
 
 <section class="power {variant}" class:on={mode === 'on'} aria-live="polite">
+  {#if variant === 'card'}
+    {@render control()}
+  {/if}
   <div class="text">
     {#if mode === 'loading'}
       <!-- Connecting takes a second or two: one quiet line, not a headline. -->
@@ -65,6 +68,11 @@
     {/if}
   </div>
 
+  {#if variant === 'banner'}
+    {@render control()}
+  {/if}
+
+  {#snippet control()}
   {#if mode === 'on' || mode === 'off'}
     <button
       class="toggle"
@@ -81,6 +89,7 @@
   {:else if mode !== 'loading'}
     <span class="badge"><Icon name={mode === 'missing' ? 'download' : 'power'} size={22} /></span>
   {/if}
+  {/snippet}
 
   {#if mode === 'missing'}
     <div class="actions">
@@ -101,18 +110,20 @@
 </section>
 
 <style>
+  /* Off: a quiet dark slab. On: the whole block in the brand colour. */
   .power {
     min-width: 0;
     padding: 24px 28px;
-    border-radius: 16px;
-    background: var(--brand);
-    color: var(--on-brand);
-    transition: background-color 0.3s;
+    border-radius: 20px;
+    background: var(--slab-off);
+    color: var(--text);
+    transition: background-color 0.25s, color 0.25s;
     /* The title scales with the block, so long words never overflow it. */
     container-type: inline-size;
   }
   .power.on {
-    background: var(--brand-on);
+    background: var(--brand);
+    color: var(--on-brand);
   }
 
   /* Banner: text on the left, the switch on the right. */
@@ -142,24 +153,29 @@
     font-size: min(40px, 7cqi);
   }
 
-  /* Card: everything stacked, the title at the top, the switch below. */
+  /* Card, like the first design: the switch at the top, the state in large
+     type at the bottom, a rule and the note under it. */
   .card {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding: 28px 24px;
+    padding: 28px;
+  }
+  .card .text {
+    margin-top: auto;
+    padding-top: 32px;
+    width: 100%;
   }
   .card .title {
     max-width: 8ch;
-    font-size: min(48px, 18cqi);
-  }
-  .card .toggle,
-  .card .badge {
-    margin-top: 28px;
+    font-size: min(56px, 20cqi);
   }
   .card .foot {
-    margin-top: auto;
-    padding-top: 24px;
+    width: 100%;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid currentColor;
+    border-top-color: color-mix(in srgb, currentColor 18%, transparent);
   }
 
   .text {
@@ -167,23 +183,23 @@
   }
   .title {
     font-family: var(--display);
-    line-height: 1.05;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--on-brand);
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -0.03em;
   }
   .sub {
-    margin-top: 8px;
+    margin-top: 16px;
     font-size: 15px;
     line-height: 20px;
-    color: var(--on-brand-2);
+    font-weight: 500;
+    opacity: 0.72;
   }
   .connecting {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 15px;
-    color: var(--on-brand-2);
+    opacity: 0.72;
   }
   .connecting span {
     display: flex;
@@ -197,7 +213,7 @@
     padding: 0;
     border: 0;
     border-radius: 28px;
-    background: rgb(255 255 255 / 0.12);
+    background: var(--line-2);
     transition: background-color 0.25s;
   }
   .knob {
@@ -207,19 +223,20 @@
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: rgb(255 255 255 / 0.5);
+    background: var(--text-3);
     transition: transform 0.25s cubic-bezier(0.3, 0.7, 0.4, 1), background-color 0.25s;
   }
   .toggle:hover:not(:disabled) .knob {
-    background: rgb(255 255 255 / 0.7);
+    background: var(--text-2);
   }
+  /* On: a dark track cut into the card and a light knob, as in the first design. */
   .toggle.on {
-    background: var(--ok);
+    background: #0b0718;
   }
   .toggle.on .knob,
   .toggle.on:hover:not(:disabled) .knob {
     transform: translateX(48px);
-    background: #ffffff;
+    background: var(--on-brand);
   }
   .toggle.moving .knob {
     transform: translateX(24px);
@@ -228,7 +245,7 @@
     opacity: 0.6;
   }
   .toggle:focus-visible {
-    outline-color: var(--on-brand);
+    outline-color: currentColor;
     outline-offset: 4px;
     border-radius: 28px;
   }
@@ -238,8 +255,8 @@
     border-radius: 16px;
     display: grid;
     place-items: center;
-    background: rgb(255 255 255 / 0.1);
-    color: var(--on-brand);
+    background: var(--raise-2);
+    color: var(--text-2);
   }
 
   .actions {
@@ -249,28 +266,28 @@
     margin-top: 20px;
   }
   .btn.light {
-    background: var(--on-brand);
-    color: var(--brand);
+    background: var(--brand);
+    color: var(--on-brand);
   }
   .btn.light :global(svg) {
-    color: var(--brand);
+    color: var(--on-brand);
   }
   .btn.light:hover:not(:disabled) {
-    background: #ffffff;
+    background: color-mix(in srgb, var(--brand) 82%, #ffffff);
   }
   .btn.quiet {
     background: transparent;
-    color: var(--on-brand-2);
+    color: var(--text-2);
   }
   .btn.quiet:hover:not(:disabled) {
-    background: rgb(255 255 255 / 0.08);
-    color: var(--on-brand);
+    background: var(--hover);
+    color: var(--text);
   }
 
   .foot {
     font-size: 13px;
     line-height: 20px;
-    color: var(--on-brand-2);
+    opacity: 0.66;
   }
 
   @media (max-width: 640px) {

@@ -87,7 +87,7 @@ export function readableOn(color: string, bg: string, target = 4.5): string {
 /** Surface, line and text tokens derived from a background colour. */
 export function surfaceTokens(bg: string): Record<string, string> {
   const light = isLight(bg);
-  const text = light ? '#1a1433' : '#f1eefb';
+  const text = light ? '#1a1433' : '#f2f2f3';
   if (light) {
     return {
       '--bg': bg,

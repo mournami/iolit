@@ -1,8 +1,7 @@
 /*
-  Iolit. One brand colour, #32216B (iolite), carries the window: the side
-  panel is painted with it in both themes. The content sits on one calm
-  violet-tinted surface without frames or rules. Green only means "works",
-  red "not confirmed / error", amber a warning.
+  Iolit. Black and neutral greys; the brand colour #32216B (iolite) marks
+  only what matters: the bypass card, the main button, the switch. Green
+  only means "works", red "not confirmed / error", amber a warning.
 */
 :root,
 :root[data-theme='dark'] {
@@ -11,29 +10,29 @@
   --brand-on: #3f2a88;
   --on-brand: #f4f1ff;
   --on-brand-2: rgb(244 241 255 / 0.68);
-  --bg: #100c1f;
-  --panel: #161127;
-  --raise: #1d1733;
-  --raise-2: #261e42;
-  --tab-on: #251c42;
-  --line: rgb(241 238 251 / 0.07);
-  --line-2: rgb(241 238 251 / 0.12);
-  --text: #f1eefb;
-  --text-2: #aaa3c6;
-  --text-3: #8780a8;
-  --g: #b3a2ff;
-  --g-text: #c2b5ff;
-  --g-soft: rgb(179 162 255 / 0.12);
-  --on-g: #1a1040;
+  --bg: #000000;
+  --panel: #0f0f11;
+  --raise: #161618;
+  --raise-2: #1f1f22;
+  --tab-on: #1f1f22;
+  --line: rgb(255 255 255 / 0.07);
+  --line-2: rgb(255 255 255 / 0.12);
+  --text: #f2f2f3;
+  --text-2: #a1a1a8;
+  --text-3: #7c7c84;
+  --g: #32216b;
+  --g-text: #ad9bff;
+  --g-soft: rgb(173 155 255 / 0.12);
+  --on-g: #ffffff;
   --ok: #5fd39a;
   --ok-soft: rgb(95 211 154 / 0.12);
   --red: #ff7a6e;
   --red-soft: rgb(255 122 110 / 0.12);
   --amber: #f2b33d;
   --amber-soft: rgb(242 179 61 / 0.12);
-  --slab-off: #161127;
-  --log-bg: #0c091a;
-  --hover: rgb(241 238 251 / 0.05);
+  --slab-off: #0f0f11;
+  --log-bg: #0a0a0b;
+  --hover: rgb(255 255 255 / 0.05);
 }
 :root[data-theme='light'] {
   color-scheme: light;
@@ -136,7 +135,7 @@ svg { flex-shrink: 0; }
 .btn:disabled { opacity: 0.45; }
 .btn.primary { background: var(--g); border-color: transparent; color: var(--on-g); }
 .btn.primary svg { color: var(--on-g); }
-.btn.primary:hover:not(:disabled) { background: var(--g-text); }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--g) 82%, #ffffff); }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); padding: 0 12px; }
 .btn.ghost:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .btn.sm { height: 28px; padding: 0 10px; font-size: 13px; border-radius: 6px; }

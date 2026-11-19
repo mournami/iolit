@@ -17,8 +17,8 @@ export const FONTS = [
 export type FontId = (typeof FONTS)[number]['id'];
 
 /** Default colours of the dark theme; the light theme keeps its own. */
-export const DEFAULT_BG = '#100c1f';
-export const DEFAULT_ACCENT = '#b3a2ff';
+export const DEFAULT_BG = '#000000';
+export const DEFAULT_ACCENT = '#32216b';
 
 /** The icon is stored as a square PNG of this size. */
 export const ICON_SIZE = 256;
