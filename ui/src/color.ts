@@ -87,7 +87,7 @@ export function readableOn(color: string, bg: string, target = 4.5): string {
 /** Surface, line and text tokens derived from a background colour. */
 export function surfaceTokens(bg: string): Record<string, string> {
   const light = isLight(bg);
-  const text = light ? '#06110a' : '#f2f5f3';
+  const text = light ? '#1a1433' : '#f1eefb';
   if (light) {
     return {
       '--bg': bg,
@@ -128,6 +128,6 @@ export function accentTokens(accent: string, bg: string): Record<string, string>
     '--g': accent,
     '--g-text': readableOn(accent, bg),
     '--g-soft': alpha(accent, 0.11),
-    '--on-g': contrast(accent, '#03140a') >= contrast(accent, '#ffffff') ? '#03140a' : '#ffffff',
+    '--on-g': contrast(accent, '#1a1040') >= contrast(accent, '#ffffff') ? '#1a1040' : '#ffffff',
   };
 }

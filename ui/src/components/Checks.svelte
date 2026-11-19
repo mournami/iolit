@@ -65,7 +65,7 @@
 <div class="chk">
   <div class="main-col">
     {#if op && (op.busy || op.error || op.notice || op.winner)}
-      <section class="panel operation" class:failed={!!op.error} aria-live="polite">
+      <section class="panel band operation" class:failed={!!op.error} aria-live="polite">
         {#if op.busy}
           <div class="progress" class:indeterminate={!op.total}>
             <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
@@ -95,7 +95,7 @@
       </section>
     {/if}
 
-    <section class="panel" aria-label="Результаты проверки">
+    <section class="panel band" aria-label="Результаты проверки">
       {#if results.length}
         <table class="res">
           <thead>
@@ -163,7 +163,7 @@
   </div>
 
   <div class="side">
-    <section class="panel" aria-labelledby="sys-title">
+    <section class="panel band" aria-labelledby="sys-title">
       <div class="panel-h">
         <div>
           <h2 class="h2" id="sys-title">Система</h2>
@@ -191,7 +191,7 @@
     </section>
 
     {#if capRows.length && app.installed}
-      <section class="panel" aria-labelledby="caps-title">
+      <section class="panel band" aria-labelledby="caps-title">
         <div class="panel-h">
           <div>
             <h2 class="h2" id="caps-title">Что умеет движок</h2>
@@ -214,7 +214,7 @@
 <style>
   .chk {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 16px;
     align-items: start;
   }
@@ -281,7 +281,6 @@
   .res td {
     height: 64px;
     padding: 12px 0 12px 16px;
-    border-top: 1px solid var(--line);
     vertical-align: middle;
   }
   .res th:first-child,
@@ -302,8 +301,8 @@
     border-radius: 50%;
     display: grid;
     place-items: center;
-    background: var(--g-soft);
-    color: var(--g-text);
+    background: var(--ok-soft);
+    color: var(--ok);
   }
   .mark.bad {
     background: var(--red-soft);
@@ -357,7 +356,6 @@
     gap: 8px;
     align-items: flex-start;
     padding: 16px 20px;
-    border-top: 1px solid var(--line);
     font-size: 13px;
     line-height: 1.5;
     color: var(--text-2);
@@ -381,7 +379,6 @@
     gap: 16px;
     min-height: 48px;
     padding: 10px 20px;
-    border-top: 1px solid var(--line);
     font-size: 14px;
   }
   .kv dt {
@@ -393,7 +390,6 @@
   }
   .side-empty {
     padding: 16px 20px;
-    border-top: 1px solid var(--line);
     font-size: 13px;
     line-height: 1.5;
     color: var(--text-2);
@@ -413,12 +409,11 @@
     align-items: center;
     gap: 8px;
     background: var(--raise);
-    border: 1px solid var(--line-2);
     font-size: 13px;
     font-weight: 500;
   }
   .caps li :global(svg) {
-    color: var(--g-text);
+    color: var(--ok);
   }
   .caps li.off {
     color: var(--text-3);
@@ -427,7 +422,7 @@
     color: var(--text-3);
   }
 
-  @media (max-width: 1000px) {
+  @media (max-width: 1060px) {
     .chk {
       grid-template-columns: minmax(0, 1fr);
     }

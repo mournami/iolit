@@ -62,7 +62,7 @@
 
 <div class="set">
   <div class="col left">
-    <section class="panel rows" aria-label="Работа обхода">
+    <section class="panel band rows" aria-label="Работа обхода">
       <div class="row">
         <div>
           <h2 class="row-k" id="strategy-label">Стратегия</h2>
@@ -126,7 +126,7 @@
       </div>
     </section>
 
-    <section class="panel rows" aria-labelledby="tg-title">
+    <section class="panel band rows" aria-labelledby="tg-title">
       <div class="row">
         <div>
           <h2 class="row-k" id="tg-title">Telegram</h2>
@@ -180,7 +180,7 @@
       {/if}
     </section>
 
-    <section class="panel rows" aria-labelledby="look-title">
+    <section class="panel band rows" aria-labelledby="look-title">
       <div class="row head-row">
         <h2 class="h2" id="look-title">Оформление</h2>
         {#if appearance.custom}
@@ -259,7 +259,7 @@
       </div>
     </section>
 
-    <section class="panel rows" aria-label="Данные">
+    <section class="panel band rows" aria-label="Данные">
       <div class="row">
         <div>
           <h2 class="row-k">Телеметрия</h2>
@@ -272,7 +272,7 @@
   </div>
 
   <div class="col right">
-    <section class="panel" aria-labelledby="domains-title">
+    <section class="panel band" aria-labelledby="domains-title">
       <div class="panel-h">
         <div>
           <h2 class="h2" id="domains-title">Свои домены</h2>
@@ -321,7 +321,7 @@
       {/if}
     </section>
 
-    <section class="panel" aria-labelledby="log-title">
+    <section class="panel band" aria-labelledby="log-title">
       <div class="panel-h">
         <div>
           <h2 class="h2" id="log-title">Журнал службы</h2>
@@ -388,8 +388,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px 24px;
-    padding: 18px 20px;
-    border-top: 1px solid var(--line);
+    padding: 16px 20px;
   }
   .rows .row:first-child {
     border-top: 0;
@@ -430,7 +429,6 @@
     place-items: center;
     border-radius: 12px;
     background: var(--raise);
-    border: 1px solid var(--line);
   }
   .icon-actions {
     display: flex;
@@ -489,7 +487,6 @@
     gap: 10px;
     min-height: 44px;
     padding: 0 10px 0 20px;
-    border-top: 1px solid var(--line);
     font-size: 14px;
   }
   .domains li.fresh {
@@ -512,7 +509,6 @@
     overflow: auto;
     border-radius: 10px;
     background: var(--log-bg);
-    border: 1px solid var(--line);
     font-family: var(--mono);
     font-size: 12px;
     line-height: 1.75;
@@ -541,7 +537,8 @@
     color: var(--text-3);
   }
 
-  @media (max-width: 1000px) {
+  /* The brand panel takes 300px, so two columns need a wide window. */
+  @media (max-width: 1300px) {
     .set {
       grid-template-columns: minmax(0, 1fr);
       grid-template-areas: 'left' 'right' 'about';

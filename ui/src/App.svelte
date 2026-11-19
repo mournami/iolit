@@ -9,6 +9,7 @@
   import Checks from './components/Checks.svelte';
   import Mark from './components/Mark.svelte';
   import Overview from './components/Overview.svelte';
+  import Power from './components/Power.svelte';
   import Settings from './components/Settings.svelte';
   import WindowControls from './components/WindowControls.svelte';
 
@@ -53,9 +54,11 @@
 <svelte:head><title>Iolit</title></svelte:head>
 
 <div class="shell">
-  <header class="titlebar" data-tauri-drag-region>
-    <div class="brand" data-tauri-drag-region><Mark size={20} /><span class="brand-word" data-tauri-drag-region>iolit</span></div>
-    <nav class="tabs" aria-label="Разделы">
+  <aside class="side" class:on={app.running}>
+    <div class="brand" data-tauri-drag-region>
+      <Mark size={24} /><span class="brand-word" data-tauri-drag-region>iolit</span>
+    </div>
+    <nav class="nav" aria-label="Разделы">
       {#each pages as p (p.id)}
         <button
           class:on={app.page === p.id}
@@ -67,107 +70,146 @@
       {/each}
     </nav>
     <div class="grow" data-tauri-drag-region></div>
-    <div class="svc-state {serviceState.tone}" title={serviceState.text}>
-      <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
-    </div>
-    <button
-      class="icon-btn"
-      aria-label={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-      title={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-      onclick={theme.flip}
-    >
-      <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={16} />
-    </button>
-    {#if ownFrame}<WindowControls />{/if}
-  </header>
+    <Power />
+  </aside>
 
-  <main class="main">
-    {#if app.error}
-      <div class="alert bad" role="alert">
-        <Icon name="alert" size={16} />
-        <p>{app.error}</p>
-        <button class="icon-btn" aria-label="Закрыть сообщение об ошибке" onclick={() => (app.error = '')}>
-          <Icon name="close" size={14} />
-        </button>
+  <div class="content">
+    <header class="titlebar" data-tauri-drag-region>
+      <div class="svc-state {serviceState.tone}" title={serviceState.text}>
+        <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
       </div>
-    {/if}
-    {#if app.notice}
-      <div class="alert good" role="status">
-        <Icon name="check" size={16} />
-        <p>{app.notice}</p>
-        <button class="icon-btn" aria-label="Закрыть уведомление" onclick={() => (app.notice = '')}>
-          <Icon name="close" size={14} />
-        </button>
-      </div>
-    {/if}
+      <div class="grow" data-tauri-drag-region></div>
+      <button
+        class="icon-btn"
+        aria-label={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+        title={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+        onclick={theme.flip}
+      >
+        <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={16} />
+      </button>
+      {#if ownFrame}<WindowControls />{/if}
+    </header>
 
-    {#if app.page === 'overview'}
-      <Overview />
-    {:else if app.page === 'checks'}
-      <Checks />
-    {:else}
-      <Settings />
-    {/if}
-  </main>
+    <main class="main">
+      {#if app.error}
+        <div class="alert bad" role="alert">
+          <Icon name="alert" size={16} />
+          <p>{app.error}</p>
+          <button class="icon-btn" aria-label="Закрыть сообщение об ошибке" onclick={() => (app.error = '')}>
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      {/if}
+      {#if app.notice}
+        <div class="alert good" role="status">
+          <Icon name="check" size={16} />
+          <p>{app.notice}</p>
+          <button class="icon-btn" aria-label="Закрыть уведомление" onclick={() => (app.notice = '')}>
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      {/if}
+
+      {#if app.page === 'overview'}
+        <Overview />
+      {:else if app.page === 'checks'}
+        <Checks />
+      {:else}
+        <Settings />
+      {/if}
+    </main>
+  </div>
 </div>
 
 <style>
   .shell {
     height: 100vh;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
     background: var(--bg);
   }
 
+  /* The brand panel: full height, edge to edge, one colour. */
+  .side {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 20px 28px 28px;
+    background: var(--brand);
+    color: var(--on-brand);
+    --mark-bg: var(--on-brand);
+    --mark-fg: var(--brand);
+    transition: background-color 0.3s;
+    user-select: none;
+  }
+  .side.on {
+    background: var(--brand-on);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 32px;
+  }
+  .brand-word {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 32px -12px 0;
+  }
+  .nav button {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 0;
+    background: none;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--on-brand-2);
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .nav button:hover:not(.on) {
+    color: var(--on-brand);
+    background: rgb(255 255 255 / 0.06);
+  }
+  .nav button.on {
+    background: rgb(255 255 255 / 0.12);
+    color: var(--on-brand);
+  }
+  .nav button:focus-visible {
+    outline-color: var(--on-brand);
+    outline-offset: -2px;
+    border-radius: 10px;
+  }
+  .grow {
+    flex: 1;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
   .titlebar {
     height: 48px;
     flex: none;
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 0 12px 0 20px;
+    padding: 0 12px 0 32px;
     user-select: none;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-right: 24px;
-  }
-  .brand-word {
-    font-size: 16px;
-    font-weight: 500;
-    line-height: 1;
-  }
-  .tabs {
-    display: flex;
-    gap: 2px;
-  }
-  .tabs button {
-    height: 32px;
-    padding: 0 12px;
-    border-radius: 8px;
-    border: 0;
-    background: none;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-2);
-  }
-  .tabs button:hover:not(.on) {
-    color: var(--text);
-  }
-  .tabs button.on {
-    background: var(--tab-on);
-    color: var(--text);
-  }
-  .grow {
-    flex: 1;
   }
   .svc-state {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-right: 8px;
     font-size: 13px;
     color: var(--text-2);
     white-space: nowrap;
@@ -180,7 +222,7 @@
     flex: none;
   }
   .ok .dot {
-    background: var(--g);
+    background: var(--ok);
   }
   .warn .dot {
     background: var(--amber);
@@ -191,21 +233,32 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 4px 20px 20px;
+    padding: 8px 32px 32px;
     display: flex;
     flex-direction: column;
   }
 
+  /* Narrow windows: the brand panel becomes a band on top. */
   @media (max-width: 760px) {
-    .brand {
-      margin-right: 12px;
+    .shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
     }
-    .brand-word,
-    .svc-text {
+    .side {
+      padding: 16px 20px 20px;
+    }
+    .side .grow {
       display: none;
     }
+    .nav {
+      flex-direction: row;
+      margin: 16px -12px 20px;
+    }
+    .titlebar {
+      padding: 0 12px 0 20px;
+    }
     .main {
-      padding: 4px 14px 14px;
+      padding: 8px 20px 20px;
     }
   }
 </style>

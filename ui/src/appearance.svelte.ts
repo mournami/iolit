@@ -18,8 +18,8 @@ export const FONTS = [
 export type FontId = (typeof FONTS)[number]['id'];
 
 /** Default colours of the dark theme; the light theme keeps its own. */
-export const DEFAULT_BG = '#000000';
-export const DEFAULT_ACCENT = '#3ee387';
+export const DEFAULT_BG = '#100c1f';
+export const DEFAULT_ACCENT = '#b3a2ff';
 
 /** The icon is stored as a square PNG of this size. */
 export const ICON_SIZE = 256;
@@ -61,7 +61,7 @@ class Appearance {
 
   /** Background the accent is shown on: the custom one or the theme's. */
   surface(theme: 'dark' | 'light') {
-    return this.bg ?? (theme === 'light' ? '#ffffff' : DEFAULT_BG);
+    return this.bg ?? (theme === 'light' ? '#f7f5fc' : DEFAULT_BG);
   }
 
   /** With a custom background the theme follows its brightness. */

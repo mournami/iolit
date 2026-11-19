@@ -1,57 +1,12 @@
 <script lang="ts">
-  import { native } from '../api';
   import Icon from '../Icon.svelte';
-  import { app, bundleLine, formatClock, formatUptime, plural } from '../store.svelte';
+  import { app, bundleLine, formatClock, plural } from '../store.svelte';
   import type { ProbeResult } from '../types';
 
   const service = $derived(app.service);
   const activeStrategy = $derived(app.data?.strategies.find((s) => s.id === service?.strategy));
   const op = $derived(app.operation);
   const results = $derived(op?.results ?? []);
-  const mode = $derived(
-    !native ? 'preview' : !app.loaded ? 'loading' : !app.installed ? 'missing' : app.running ? 'on' : 'off',
-  );
-
-  const pendingText = $derived(
-    app.pending === 'enable' ? 'Включаем обход…' : app.pending === 'disable' ? 'Выключаем обход…' : '',
-  );
-
-  const slab = $derived.by(() => {
-    switch (mode) {
-      case 'preview':
-        return {
-          title: ['Только', 'просмотр'],
-          sub: 'Здесь ничего не подключается',
-          foot: 'Управлять сетью можно в установленном приложении Iolit.',
-        };
-      case 'loading':
-        return { title: ['Связываемся', 'со службой'], sub: 'Это занимает пару секунд', foot: '' };
-      case 'missing':
-        return {
-          title: ['Служба', 'не найдена'],
-          sub: 'Без неё пакеты не изменяются',
-          foot: 'Системную службу устанавливают один раз, понадобятся права администратора.',
-        };
-      case 'on':
-        return {
-          title: ['Обход', 'включён'],
-          sub: service ? `Работает ${formatUptime(service.uptime_secs)}` : '',
-          foot: 'Пакеты меняются только на этом компьютере. Трафик не уходит на наши серверы, телеметрии нет.',
-        };
-      default:
-        return service?.strategy
-          ? {
-              title: ['Обход', 'выключен'],
-              sub: 'Пакеты не изменяются',
-              foot: 'Включите обход, чтобы приложение начало менять пакеты к заблокированным сервисам.',
-            }
-          : {
-              title: ['Обход', 'выключен'],
-              sub: 'Стратегия ещё не выбрана',
-              foot: 'Подберите её автоматически: приложение проверит варианты и оставит тот, что работает в вашей сети.',
-            };
-    }
-  });
 
   const services = [
     { id: 'youtube', name: 'YouTube', hint: 'Открывается главная страница', icon: 'play' },
@@ -101,311 +56,165 @@
   });
 </script>
 
-<div class="ov" class:on={mode === 'on'}>
-  <section class="slab" aria-live="polite">
-    {#if mode === 'on' || mode === 'off'}
-      <button
-        class="big-toggle"
-        class:on={app.running}
-        class:moving={!!pendingText}
-        role="switch"
-        aria-checked={app.running}
-        aria-label="Обход блокировок"
-        disabled={app.busy}
-        onclick={app.toggle}
-      >
-        <span class="knob"></span>
+<div class="ov">
+  {#if app.running && broken.length}
+    <div class="alert warn" role="status">
+      <Icon name="info" size={16} />
+      <p>
+        {broken.join(', ')}
+        {broken.length > 1 ? 'перестали' : 'перестал'} работать: фоновая проверка в {formatClock(
+          new Date((app.health?.checked_at ?? 0) * 1000),
+        )} не прошла дважды. Остальное работает.
+      </p>
+      <button class="btn sm primary" disabled={app.busy} onclick={app.repairStrategy}>
+        <Icon name="wand" size={16} />Починить
       </button>
-    {:else}
-      <span class="slab-icon"><Icon name={mode === 'missing' ? 'download' : 'power'} size={22} /></span>
-    {/if}
+    </div>
+  {/if}
+  {#if app.installed && app.appUpdate?.available}
+    <div class="alert good" role="status">
+      <Icon name="download" size={16} />
+      <p>
+        {#if app.appUpdate.installing}
+          Устанавливаем версию {app.appUpdate.available}. Окно закроется и откроется снова.
+        {:else}
+          Вышла новая версия приложения {app.appUpdate.available}. Она уже скачана и проверена.
+          {#if app.appUpdate.error}<br />{app.appUpdate.error}{/if}
+        {/if}
+      </p>
+      <button class="btn sm primary" disabled={app.busy || app.appUpdate.installing} onclick={app.updateApp}>
+        <Icon name="refresh" size={16} />Обновить
+      </button>
+    </div>
+  {/if}
 
-    <h1 class="slab-title">{slab.title[0]}<br />{slab.title[1]}</h1>
-    <p class="slab-sub">{pendingText || slab.sub}</p>
+  <header class="page-h">
+    <div>
+      <h1 class="h1">Доступ к сервисам</h1>
+      <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
+    </div>
+    <button class="btn" disabled={!app.installed || app.busy} onclick={app.diagnose}>
+      <Icon name="refresh" size={16} />{op?.busy ? 'Проверяем…' : 'Проверить'}
+    </button>
+  </header>
 
-    {#if mode === 'missing'}
-      <div class="slab-actions">
-        <button class="btn primary" disabled={app.busy} onclick={app.installService}>
-          <Icon name="download" size={15} />{app.pending === 'install' ? 'Открываем установщик…' : 'Установить службу'}
-        </button>
-        <button class="btn ghost" disabled={app.busy} onclick={app.refresh}>Проверить снова</button>
-      </div>
-    {:else if mode === 'off' && !service?.strategy}
-      <div class="slab-actions">
-        <button class="btn primary" disabled={app.busy} onclick={app.selectStrategy}>
-          <Icon name="wand" size={15} />Подобрать стратегию
-        </button>
-      </div>
-    {/if}
+  {#if op?.busy}
+    <div class="progress" class:indeterminate={!op.total}>
+      <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
+    </div>
+  {/if}
 
-    {#if slab.foot}<p class="slab-foot">{slab.foot}</p>{/if}
-  </section>
-
-  <div class="ov-right">
-    {#if app.running && broken.length}
-      <div class="alert warn health" role="status">
-        <Icon name="info" size={16} />
-        <p>
-          {broken.join(', ')}
-          {broken.length > 1 ? 'перестали' : 'перестал'} работать: фоновая проверка в {formatClock(
-            new Date((app.health?.checked_at ?? 0) * 1000),
-          )} не прошла дважды. Остальное работает.
-        </p>
-        <button class="btn sm primary" disabled={app.busy} onclick={app.repairStrategy}>
-          <Icon name="wand" size={15} />Починить
-        </button>
-      </div>
-    {/if}
-    {#if app.installed && app.appUpdate?.available}
-      <div class="alert good health" role="status">
-        <Icon name="download" size={16} />
-        <p>
-          {#if app.appUpdate.installing}
-            Устанавливаем версию {app.appUpdate.available}. Окно закроется и откроется снова.
-          {:else}
-            Вышла новая версия приложения {app.appUpdate.available}. Она уже скачана и проверена.
-            {#if app.appUpdate.error}<br />{app.appUpdate.error}{/if}
-          {/if}
-        </p>
-        <button
-          class="btn sm primary"
-          disabled={app.busy || app.appUpdate.installing}
-          onclick={app.updateApp}
-        >
-          <Icon name="refresh" size={15} />Обновить
-        </button>
-      </div>
-    {/if}
-    <section class="panel services" aria-labelledby="svc-title">
-      {#if op?.busy}
-        <div class="progress" class:indeterminate={!op.total}>
-          <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
-        </div>
-      {/if}
-      <div class="panel-h">
-        <div>
-          <h2 class="h2" id="svc-title">Доступ к сервисам</h2>
-          <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
-        </div>
-        <button class="btn sm" disabled={!app.installed || app.busy} onclick={app.diagnose}>
-          <Icon name="refresh" size={15} />{op?.busy ? 'Проверяем…' : 'Проверить'}
-        </button>
-      </div>
-      <ul class="svc-list">
-        {#each rows as row (row.id)}
-          <li class="svc-row" title={row.result?.warning ?? row.result?.detail}>
-            <span class="svc-ico"><Icon name={row.icon} size={18} /></span>
-            <span class="svc-text">
-              <span class="svc-name">{row.name}</span>
-              <span class="svc-detail">{row.hint}</span>
-            </span>
-            <span class="state {row.status}"><i></i>{labels[row.status]}</span>
-            <span class="lat num">
-              {#if row.result?.ok}{row.result.latency_ms}<small>мс</small>{:else}<span class="dash">—</span>{/if}
-            </span>
-          </li>
-        {/each}
-      </ul>
-    </section>
-
-    <dl class="panel facts">
-      <div class="fact strategy">
-        <dt>Стратегия</dt>
-        <dd>
-          <span class="fact-v mono" title={activeStrategy?.description || service?.strategy}
-            >{activeStrategy?.name || service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span
-          >
-          {#if app.installed && app.bundle}
-            <span class="fact-sub" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}>
-              {bundleLine(app.bundle)}
-            </span>
-          {/if}
-          {#if app.installed && service?.strategy}
-            <button class="link" disabled={app.busy} onclick={app.selectStrategy}>Подобрать заново</button>
-          {/if}
-        </dd>
-      </div>
-      <div class="fact">
-        <dt>Движок</dt>
-        <dd><span class="fact-v">{service?.engine || '—'}</span></dd>
-      </div>
-      <div class="fact">
-        <dt>DNS</dt>
-        <dd>
-          <!-- winws reports no packet counters, so this tile shows DNS, which often decides whether a site opens. -->
-          {#if service?.secure_dns.enabled}
-            <span class="fact-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
-            <span class="fact-sub">через HTTPS для всех программ</span>
-          {:else}
-            <span class="fact-v">Системный</span>
-            <span class="fact-sub">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
-          {/if}
-        </dd>
-      </div>
-    </dl>
-  </div>
-</div>
-
-{#if service?.warnings.length}
-  <ul class="warnings">
-    {#each service.warnings as warning}
-      <li class="alert warn"><Icon name="alert" size={16} /><p>{warning}</p></li>
+  <ul class="svc-list">
+    {#each rows as row (row.id)}
+      <li class="svc-row {row.status}" title={row.result?.warning ?? row.result?.detail}>
+        <span class="svc-ico"><Icon name={row.icon} size={20} /></span>
+        <span class="svc-text">
+          <span class="svc-name">{row.name}</span>
+          <span class="svc-detail">{row.hint}</span>
+        </span>
+        <span class="state {row.status}"><i></i>{labels[row.status]}</span>
+        <span class="lat num">
+          {#if row.result?.ok}{row.result.latency_ms}<small>мс</small>{:else}<span class="dash">—</span>{/if}
+        </span>
+      </li>
     {/each}
   </ul>
-{/if}
+
+  <dl class="facts">
+    <div class="fact">
+      <dt>Стратегия</dt>
+      <dd>
+        <span class="fact-v mono" title={activeStrategy?.description || service?.strategy}
+          >{activeStrategy?.name || service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span
+        >
+        {#if app.installed && app.bundle}
+          <span class="fact-sub" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}>
+            {bundleLine(app.bundle)}
+          </span>
+        {/if}
+        {#if app.installed && service?.strategy}
+          <button class="link" disabled={app.busy} onclick={app.selectStrategy}>Подобрать заново</button>
+        {/if}
+      </dd>
+    </div>
+    <div class="fact">
+      <dt>Движок</dt>
+      <dd><span class="fact-v">{service?.engine || '—'}</span></dd>
+    </div>
+    <div class="fact">
+      <dt>DNS</dt>
+      <dd>
+        <!-- winws reports no packet counters, so this tile shows DNS, which often decides whether a site opens. -->
+        {#if service?.secure_dns.enabled}
+          <span class="fact-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
+          <span class="fact-sub">через HTTPS для всех программ</span>
+        {:else}
+          <span class="fact-v">Системный</span>
+          <span class="fact-sub">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
+        {/if}
+      </dd>
+    </div>
+  </dl>
+
+  {#if service?.warnings.length}
+    <ul class="warnings">
+      {#each service.warnings as warning}
+        <li class="alert warn"><Icon name="alert" size={16} /><p>{warning}</p></li>
+      {/each}
+    </ul>
+  {/if}
+</div>
 
 <style>
   .ov {
-    /* Fill a tall window, but never shrink below the content: the page scrolls instead. */
-    flex: 1 0 auto;
-    min-height: 470px;
-    display: grid;
-    grid-template-columns: minmax(300px, 372px) minmax(0, 1fr);
-    gap: 16px;
-    padding-top: 6px;
-  }
-
-  /* The big state card */
-  .slab {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    padding: 28px;
-    border-radius: 20px;
-    /* The title scales with the card, so long words never overflow it. */
-    container-type: inline-size;
-    background: var(--slab-off);
-    border: 1px solid var(--line);
-    color: var(--text);
-    transition: background-color 0.25s, color 0.25s, border-color 0.25s;
-  }
-  .on .slab {
-    background: var(--g);
-    border-color: transparent;
-    color: var(--on-g);
-  }
-  .big-toggle {
-    position: relative;
-    flex: none;
-    width: 104px;
-    height: 56px;
-    padding: 0;
-    border: 0;
-    border-radius: 28px;
-    background: var(--line-2);
-    transition: background-color 0.25s;
-  }
-  .big-toggle .knob {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--text-3);
-    transition: transform 0.25s cubic-bezier(0.3, 0.7, 0.4, 1), background-color 0.25s;
-  }
-  .big-toggle:hover:not(:disabled) .knob {
-    background: var(--text-2);
-  }
-  .big-toggle.on {
-    background: var(--on-g);
-  }
-  .big-toggle.on .knob,
-  .big-toggle.on:hover:not(:disabled) .knob {
-    transform: translateX(48px);
-    background: var(--g);
-  }
-  .big-toggle.moving .knob {
-    transform: translateX(24px);
-  }
-  .big-toggle:disabled:not(.moving) {
-    opacity: 0.6;
-  }
-  .big-toggle:focus-visible {
-    outline-color: currentColor;
-    outline-offset: 4px;
-    border-radius: 28px;
-  }
-  .slab-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    display: grid;
-    place-items: center;
-    background: var(--raise-2);
-    color: var(--text-2);
-  }
-  .slab-title {
-    margin-top: auto;
-    padding-top: 32px;
-    font-size: min(56px, 15cqi);
-    line-height: 1;
-    font-weight: 500;
-    letter-spacing: -0.03em;
-  }
-  .slab-sub {
-    margin-top: 16px;
-    font-size: 15px;
-    font-weight: 500;
-    opacity: 0.72;
-  }
-  .slab-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 20px;
-  }
-  .slab-foot {
-    margin-top: 28px;
-    padding-top: 16px;
-    border-top: 1px solid var(--line-2);
-    font-size: 13px;
-    line-height: 1.5;
-    opacity: 0.72;
-    max-width: 300px;
-  }
-  .on .slab-foot {
-    border-top-color: rgb(3 20 10 / 0.16);
-  }
-
-  /* Services and facts */
-  .ov-right {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-  }
-  .services {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .services .progress {
-    margin-bottom: -3px;
   }
   .warn-text {
     color: var(--amber);
   }
+  .progress {
+    margin-bottom: 8px;
+  }
+
+  /* Services: rows on the page itself, no frame and no rules. */
   .svc-list {
-    flex: 1;
-    display: grid;
-    grid-auto-rows: minmax(64px, 1fr);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 -16px;
     list-style: none;
   }
   .svc-row {
     display: grid;
-    grid-template-columns: 20px minmax(0, 1fr) auto 72px;
+    grid-template-columns: 40px minmax(0, 1fr) auto 72px;
     align-items: center;
-    gap: 12px;
-    padding: 0 20px;
-    border-top: 1px solid var(--line);
+    gap: 16px;
+    min-height: 72px;
+    padding: 0 16px;
+    border-radius: 16px;
+    transition: background-color 0.15s;
+  }
+  .svc-row:hover {
+    background: var(--hover);
   }
   .svc-ico {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     display: grid;
     place-items: center;
-    color: var(--text-3);
+    background: var(--raise);
+    color: var(--text-2);
+  }
+  .svc-row.ok .svc-ico {
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+  .svc-row.bad .svc-ico {
+    background: var(--red-soft);
+    color: var(--red);
   }
   .svc-text {
     min-width: 0;
@@ -413,7 +222,7 @@
     flex-direction: column;
   }
   .svc-name {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -430,18 +239,23 @@
   .state.wait {
     color: var(--text-2);
   }
+  .lat {
+    font-family: var(--mono);
+    font-size: 14px;
+  }
 
+  /* Facts: three figures on one soft band. */
   .facts {
     display: grid;
     grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 4px;
+    margin-top: 32px;
+    padding: 20px 24px;
+    border-radius: 20px;
+    background: var(--panel);
   }
   .fact {
-    padding: 16px 20px;
-    border-left: 1px solid var(--line);
     min-width: 0;
-  }
-  .fact:first-child {
-    border-left: 0;
   }
   .fact dt {
     font-size: 13px;
@@ -457,7 +271,7 @@
   }
   .fact-v {
     max-width: 100%;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -483,61 +297,16 @@
     margin: 0 0 8px;
   }
 
-  /* Narrower windows: the card becomes a band above the list. */
-  @media (max-width: 940px) {
-    .ov {
-      grid-template-columns: minmax(0, 1fr);
-      min-height: 0;
-    }
-    .slab {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas: 'title toggle' 'sub toggle' 'actions actions' 'foot foot';
-      align-items: start;
-      padding: 24px;
-    }
-    .slab-title {
-      grid-area: title;
-      padding-top: 0;
-      font-size: min(40px, 8cqi);
-    }
-    .slab-sub {
-      grid-area: sub;
-      margin-top: 10px;
-    }
-    .big-toggle,
-    .slab-icon {
-      grid-area: toggle;
-      align-self: center;
-    }
-    .slab-actions {
-      grid-area: actions;
-    }
-    .slab-foot {
-      grid-area: foot;
-      max-width: none;
-      margin-top: 20px;
-    }
-    .svc-list {
-      grid-auto-rows: 64px;
-    }
-  }
   @media (max-width: 640px) {
-    .slab-title {
-      font-size: min(32px, 8cqi);
-    }
     .facts {
       grid-template-columns: 1fr 1fr;
+      gap: 16px;
     }
-    .fact.strategy {
+    .fact:first-child {
       grid-column: 1 / -1;
-      border-bottom: 1px solid var(--line);
-    }
-    .fact:nth-child(2) {
-      border-left: 0;
     }
     .svc-row {
-      grid-template-columns: 20px minmax(0, 1fr) auto;
+      grid-template-columns: 40px minmax(0, 1fr) auto;
     }
     .svc-row .lat {
       display: none;
