@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="resources/icon-dark.svg" width="112" height="112" alt="Iolit icon">
+
 # Iolit
 
 **Gets YouTube, Discord and Telegram working again on Windows.**

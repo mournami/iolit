@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="resources/icon-dark.svg" width="112" height="112" alt="Значок Iolit">
+
 # Iolit
 
 **Чтобы YouTube, Discord и Telegram на Windows снова нормально работали.**
