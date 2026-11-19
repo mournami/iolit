@@ -46,9 +46,15 @@ is replaced by the application's own GPLv3 license.
 
 ## Interface fonts and icons
 
-Bundled into the desktop interface and the installer window (Latin and Cyrillic
-subsets copied to `crates/zsetup/ui/fonts/`), nothing is loaded at runtime:
+Bundled into the desktop interface and the installer window, nothing is loaded
+at runtime:
 
-- Inter (`@fontsource-variable/inter`), SIL Open Font License 1.1: `Inter-OFL.txt`.
-- Geist Mono (`@fontsource/geist-mono`), SIL Open Font License 1.1: `GeistMono-OFL.txt`.
+- Fixel Text and Fixel Display by MacPaw, in `ui/src/assets/fonts/`, SIL Open
+  Font License 1.1: `Fixel-OFL.txt`. Used by the desktop interface.
+- Inter and Geist Mono, Latin and Cyrillic subsets copied to
+  `crates/zsetup/ui/fonts/`, SIL Open Font License 1.1: `Inter-OFL.txt`,
+  `GeistMono-OFL.txt`. Used by the installer window.
 - Lucide icon paths, inlined in `ui/src/Icon.svelte`, ISC: `Lucide-ISC.txt`.
+- YouTube, Discord and Cloudflare marks from Simple Icons 16.38.0, inlined in
+  `ui/src/components/Overview.svelte`, CC0 1.0. The marks themselves are
+  trademarks of their owners and only name the services being checked.

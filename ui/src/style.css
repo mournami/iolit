@@ -67,14 +67,15 @@
 }
 
 :root {
-  --sans: 'Inter Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-  --mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --sans: 'Fixel Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --display: 'Fixel Display', var(--sans);
+  /* Only logs and colour codes are monospaced; Windows ships Cascadia Mono. */
+  --mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
   font-family: var(--sans);
   font-size: 14px;
   line-height: 1.4;
   color: var(--text);
   background: var(--bg);
-  font-feature-settings: 'cv05', 'calt';
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -90,7 +91,7 @@ button:disabled { cursor: not-allowed; }
 svg { flex-shrink: 0; }
 :focus-visible { outline: 2px solid var(--g); outline-offset: 2px; border-radius: 6px; }
 
-.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum', 'cv05'; }
+.num { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--mono); font-size: 12px; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -103,7 +104,7 @@ svg { flex-shrink: 0; }
   gap: 16px 24px; flex-wrap: wrap;
   padding: 16px 0 20px;
 }
-.h1 { font-size: 28px; line-height: 1.15; font-weight: 500; letter-spacing: -0.01em; }
+.h1 { font-family: var(--display); font-size: 30px; line-height: 1.15; font-weight: 600; letter-spacing: -0.01em; }
 .page-h .sub { font-size: 14px; margin-top: 6px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -117,7 +118,7 @@ svg { flex-shrink: 0; }
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 0 0 12px;
 }
-.h2 { font-size: 15px; font-weight: 500; }
+.h2 { font-size: 16px; font-weight: 600; }
 .sub { font-size: 13px; color: var(--text-2); margin-top: 2px; line-height: 1.45; }
 
 /* Buttons */

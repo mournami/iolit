@@ -5,9 +5,8 @@
 import { accentTokens, isLight, normalizeHex, surfaceTokens } from './color';
 
 export const FONTS = [
-  { id: 'inter', label: 'Inter', stack: "'Inter Variable'", note: 'По умолчанию' },
+  { id: 'fixel', label: 'Fixel', stack: "'Fixel Text'", note: 'По умолчанию' },
   { id: 'system', label: 'Системный', stack: "'Segoe UI Variable Text', 'Segoe UI', system-ui", note: 'Как в Windows' },
-  { id: 'geist-mono', label: 'Geist Mono', stack: "'Geist Mono'", note: 'Моноширинный' },
   { id: 'bahnschrift', label: 'Bahnschrift', stack: 'Bahnschrift', note: 'Есть в Windows' },
   { id: 'cascadia', label: 'Cascadia Code', stack: "'Cascadia Code', 'Cascadia Mono'", note: 'Windows 11' },
   { id: 'trebuchet', label: 'Trebuchet MS', stack: "'Trebuchet MS'", note: 'Есть в Windows' },
@@ -32,13 +31,13 @@ const TOKENS = [
 ];
 
 function load(): Saved {
-  const empty: Saved = { bg: null, accent: null, font: 'inter', icon: null };
+  const empty: Saved = { bg: null, accent: null, font: 'fixel', icon: null };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}');
     return {
       bg: typeof raw.bg === 'string' ? normalizeHex(raw.bg) : null,
       accent: typeof raw.accent === 'string' ? normalizeHex(raw.accent) : null,
-      font: FONTS.some((f) => f.id === raw.font) ? raw.font : 'inter',
+      font: FONTS.some((f) => f.id === raw.font) ? raw.font : 'fixel',
       icon: typeof raw.icon === 'string' && raw.icon.startsWith('data:image/png;base64,') ? raw.icon : null,
     };
   } catch {
@@ -56,7 +55,7 @@ class Appearance {
   storageError = $state('');
 
   get custom() {
-    return !!(this.bg || this.accent || this.font !== 'inter' || this.icon);
+    return !!(this.bg || this.accent || this.font !== 'fixel' || this.icon);
   }
 
   /** Background the accent is shown on: the custom one or the theme's. */
@@ -77,8 +76,8 @@ class Appearance {
     if (this.accent)
       for (const [k, v] of Object.entries(accentTokens(this.accent, this.surface(theme)))) root.setProperty(k, v);
     const font = FONTS.find((f) => f.id === this.font) ?? FONTS[0];
-    if (font.id === 'inter') root.removeProperty('--sans');
-    else root.setProperty('--sans', `${font.stack}, 'Inter Variable', 'Segoe UI', system-ui, sans-serif`);
+    if (font.id === 'fixel') root.removeProperty('--sans');
+    else root.setProperty('--sans', `${font.stack}, 'Fixel Text', 'Segoe UI', system-ui, sans-serif`);
   }
 
   setBg = (hex: string | null) => {
@@ -103,7 +102,7 @@ class Appearance {
   };
   reset = () => {
     this.bg = this.accent = this.icon = null;
-    this.font = 'inter';
+    this.font = 'fixel';
     this.#save();
   };
 
