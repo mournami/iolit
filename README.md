@@ -43,8 +43,13 @@ in Russian.
 > [!NOTE]
 > The installer is not signed yet, so Windows SmartScreen will complain about
 > it. Click "More info" → "Run anyway". Some antivirus programs also flag
-> WinDivert, the packet driver that every zapret build uses. Signing is on its
-> way, see the [code signing policy](#code-signing-policy).
+> WinDivert, the packet driver that every zapret build uses. Signing will come
+> later, see the [code signing policy](#code-signing-policy).
+
+If Iolit brought YouTube, Discord or Telegram back for you, please star the
+repository with the **Star** button at the top of the page. It helps people
+find the project, and free code signing, which would stop the Windows warning,
+is only given to projects that are visibly in use.
 
 ## What it does
 
