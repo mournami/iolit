@@ -3,6 +3,7 @@
   import { app, bundleLine, formatClock, plural } from '../store.svelte';
   import Details from './Details.svelte';
   import Power from './Power.svelte';
+  import QuickTiles from './QuickTiles.svelte';
 
   /** Two layouts to compare: `?layout=a` (banner, default) or `?layout=b` (card). */
   const layout = new URLSearchParams(location.search).get('layout') === 'b' ? 'b' : 'a';
@@ -196,6 +197,8 @@
       {/if}
     </section>
 
+    <QuickTiles />
+
     <!-- Properties of this computer, read like the fields of a document. -->
     <dl class="props block">
       <div class="prop">
@@ -258,10 +261,11 @@
     align-items: start;
     gap: 32px;
   }
+  /* The card fills the window height beside the scrolling content. */
   .home.split :global(.power.card) {
     position: sticky;
     top: 0;
-    min-height: 420px;
+    min-height: calc(100vh - 52px - 16px - 48px);
   }
   .home-main {
     display: flex;
