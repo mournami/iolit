@@ -16,11 +16,12 @@
   // Windows draws its own title row (no system frame); other systems keep theirs.
   const ownFrame = native && navigator.userAgent.includes('Windows');
 
-  const pages: { id: Page; label: string }[] = [
-    { id: 'overview', label: 'Обзор' },
-    { id: 'checks', label: 'Проверка' },
-    { id: 'settings', label: 'Настройки' },
+  const pages: { id: Page; label: string; icon: string }[] = [
+    { id: 'overview', label: 'Обзор', icon: 'home' },
+    { id: 'checks', label: 'Проверка', icon: 'activity' },
+    { id: 'settings', label: 'Настройки', icon: 'settings' },
   ];
+  const current = $derived(pages.find((p) => p.id === app.page) ?? pages[0]);
 
   const serviceState = $derived(
     !native
@@ -65,7 +66,7 @@
           aria-current={app.page === p.id ? 'page' : undefined}
           onclick={() => (app.page = p.id)}
         >
-          {p.label}
+          <Icon name={p.icon} size={18} />{p.label}
         </button>
       {/each}
     </nav>
@@ -75,10 +76,11 @@
 
   <div class="content">
     <header class="titlebar" data-tauri-drag-region>
+      <p class="crumbs" data-tauri-drag-region><span>Iolit</span><span class="sep">/</span>{current.label}</p>
+      <div class="grow" data-tauri-drag-region></div>
       <div class="svc-state {serviceState.tone}" title={serviceState.text}>
         <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
       </div>
-      <div class="grow" data-tauri-drag-region></div>
       <button
         class="icon-btn"
         aria-label={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
@@ -90,7 +92,7 @@
       {#if ownFrame}<WindowControls />{/if}
     </header>
 
-    <main class="main">
+    <main class="main"><div class="page">
       {#if app.error}
         <div class="alert bad" role="alert">
           <Icon name="alert" size={16} />
@@ -117,7 +119,7 @@
       {:else}
         <Settings />
       {/if}
-    </main>
+    </div></main>
   </div>
 </div>
 
@@ -125,16 +127,18 @@
   .shell {
     height: 100vh;
     display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 264px minmax(0, 1fr);
+    padding: 8px 0 8px 8px;
     background: var(--bg);
   }
 
-  /* The brand panel: full height, edge to edge, one colour. */
+  /* The brand panel: a rounded column inside the window, one colour. */
   .side {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding: 20px 28px 28px;
+    padding: 16px 20px 24px;
+    border-radius: 16px;
     background: var(--brand);
     color: var(--on-brand);
     --mark-bg: rgb(255 255 255 / 0.12);
@@ -149,6 +153,7 @@
     align-items: center;
     gap: 12px;
     height: 32px;
+    padding-left: 4px;
   }
   .brand-word {
     font-size: 18px;
@@ -158,15 +163,18 @@
   .nav {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin: 32px -12px 0;
+    gap: 2px;
+    margin: 24px -8px 0;
   }
   .nav button {
-    height: 36px;
-    padding: 0 12px;
-    border-radius: 10px;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 8px;
     border: 0;
     background: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     text-align: left;
     font-size: 14px;
     font-weight: 500;
@@ -184,7 +192,7 @@
   .nav button:focus-visible {
     outline-color: var(--on-brand);
     outline-offset: -2px;
-    border-radius: 10px;
+    border-radius: 8px;
   }
   .grow {
     flex: 1;
@@ -197,13 +205,27 @@
     min-height: 0;
   }
   .titlebar {
-    height: 48px;
+    height: 40px;
     flex: none;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 12px 0 32px;
+    gap: 8px;
+    padding: 0 12px 0 24px;
     user-select: none;
+  }
+  .crumbs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--text);
+  }
+  .crumbs span {
+    color: var(--text-2);
+  }
+  .crumbs .sep {
+    color: var(--text-3);
   }
   .svc-state {
     display: flex;
@@ -232,7 +254,12 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 8px 32px 32px;
+    padding: 24px 48px 48px;
+  }
+  /* Like a document: one readable column, centred in wide windows. */
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
   }
@@ -242,6 +269,7 @@
     .shell {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr);
+      padding: 8px 8px 0;
     }
     .side {
       padding: 16px 20px 20px;
@@ -257,7 +285,10 @@
       padding: 0 12px 0 20px;
     }
     .main {
-      padding: 8px 20px 20px;
+      padding: 16px 20px 20px;
+    }
+    .crumbs {
+      display: none;
     }
   }
 </style>

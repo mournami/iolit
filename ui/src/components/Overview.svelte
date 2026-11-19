@@ -95,78 +95,83 @@
   {/if}
 
   <header class="page-h">
-    <div>
-      <h1 class="h1">Доступ к сервисам</h1>
-      <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
-    </div>
-    <button class="btn" disabled={!app.installed || app.busy} onclick={app.diagnose}>
-      <Icon name="refresh" size={16} />{op?.busy ? 'Проверяем…' : 'Проверить'}
-    </button>
+    <h1 class="h1">Обзор</h1>
   </header>
 
-  {#if op?.busy}
-    <div class="progress" class:indeterminate={!op.total}>
-      <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
-    </div>
-  {/if}
-
-  <ul class="svc-list">
-    {#each rows as row (row.id)}
-      <li class="svc-row {row.status}" title={row.result?.warning ?? row.result?.detail}>
-        <span class="svc-ico">
-          {#if marks[row.id]}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={marks[row.id]} /></svg>
-          {:else}
-            <Icon name={row.icon} size={20} />
-          {/if}
-        </span>
-        <span class="svc-text">
-          <span class="svc-name">{row.name}</span>
-          <span class="svc-detail">{row.hint}</span>
-        </span>
-        <span class="state {row.status}"><i></i>{labels[row.status]}</span>
-        <span class="lat num">
-          {#if row.result?.ok}{row.result.latency_ms}<small>мс</small>{:else}<span class="dash">—</span>{/if}
-        </span>
-      </li>
-    {/each}
-  </ul>
-
-  <dl class="facts">
-    <div class="fact">
-      <dt>Стратегия</dt>
+  <!-- Properties of this computer, read like the fields of a document. -->
+  <dl class="props">
+    <div class="prop">
+      <dt><Icon name="layers" size={16} />Стратегия</dt>
       <dd>
-        <span class="fact-v" title={activeStrategy?.description || service?.strategy}
+        <span class="prop-v" title={activeStrategy?.description || service?.strategy}
           >{activeStrategy?.name || service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span
         >
         {#if app.installed && app.bundle}
-          <span class="fact-sub" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}>
-            {bundleLine(app.bundle)}
-          </span>
+          <span class="muted" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}
+            >{bundleLine(app.bundle)}</span
+          >
         {/if}
         {#if app.installed && service?.strategy}
           <button class="link" disabled={app.busy} onclick={app.selectStrategy}>Подобрать заново</button>
         {/if}
       </dd>
     </div>
-    <div class="fact">
-      <dt>Движок</dt>
-      <dd><span class="fact-v">{service?.engine || '—'}</span></dd>
+    <div class="prop">
+      <dt><Icon name="cpu" size={16} />Движок</dt>
+      <dd><span class="prop-v">{service?.engine || '—'}</span></dd>
     </div>
-    <div class="fact">
-      <dt>DNS</dt>
+    <div class="prop">
+      <dt><Icon name="shield" size={16} />DNS</dt>
       <dd>
-        <!-- winws reports no packet counters, so this tile shows DNS, which often decides whether a site opens. -->
+        <!-- winws reports no packet counters, so DNS is shown: it often decides whether a site opens. -->
         {#if service?.secure_dns.enabled}
-          <span class="fact-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
-          <span class="fact-sub">через HTTPS для всех программ</span>
+          <span class="prop-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
+          <span class="muted">через HTTPS для всех программ</span>
         {:else}
-          <span class="fact-v">Системный</span>
-          <span class="fact-sub">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
+          <span class="prop-v">Системный</span>
+          <span class="muted">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
         {/if}
       </dd>
     </div>
   </dl>
+
+  <section aria-labelledby="svc-title">
+    <div class="section-h">
+      <div>
+        <h2 class="h2" id="svc-title">Сервисы</h2>
+        <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
+      </div>
+      <button class="btn sm" disabled={!app.installed || app.busy} onclick={app.diagnose}>
+        <Icon name="refresh" size={16} />{op?.busy ? 'Проверяем…' : 'Проверить'}
+      </button>
+    </div>
+
+    {#if op?.busy}
+      <div class="progress" class:indeterminate={!op.total}>
+        <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
+      </div>
+    {/if}
+
+    <ul class="svc-list">
+      {#each rows as row (row.id)}
+        <li class="svc-row {row.status}" title={row.result?.warning ?? row.result?.detail}>
+          <span class="svc-ico">
+            {#if marks[row.id]}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={marks[row.id]} /></svg>
+            {:else}
+              <Icon name={row.icon} size={18} />
+            {/if}
+          </span>
+          <span class="svc-name">{row.name}</span>
+          <span class="svc-detail">{row.hint}</span>
+          <span class="state {row.status}"><i></i>{labels[row.status]}</span>
+          <span class="lat num">
+            {#if row.result?.ok}{row.result.latency_ms}<small>мс</small>{:else}<span class="dash">—</span>{/if}
+          </span>
+        </li>
+      {/each}
+    </ul>
+  </section>
 
   {#if service?.warnings.length}
     <ul class="warnings">
@@ -186,26 +191,74 @@
   .warn-text {
     color: var(--amber);
   }
+
+  /* Properties: label column and value, a hover surface per row. */
+  .props {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 -8px 40px;
+  }
+  .prop {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: 6px;
+  }
+  .prop:hover {
+    background: var(--hover);
+  }
+  .prop dt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-2);
+  }
+  .prop dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    min-width: 0;
+  }
+  .prop-v {
+    font-weight: 500;
+  }
+  .muted {
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  .section-h {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+  }
   .progress {
     margin-bottom: 8px;
   }
 
-  /* Services: rows on the page itself, no frame and no rules. */
+  /* Services: single-line rows, like items of a list block. */
   .svc-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin: 0 -16px;
+    gap: 2px;
+    margin: 0 -8px;
     list-style: none;
   }
   .svc-row {
     display: grid;
-    grid-template-columns: 24px minmax(0, 1fr) auto 72px;
+    grid-template-columns: 20px auto minmax(0, 1fr) auto 64px;
     align-items: center;
-    gap: 16px;
-    min-height: 72px;
-    padding: 0 16px;
-    border-radius: 16px;
+    gap: 12px;
+    height: 44px;
+    padding: 0 8px;
+    border-radius: 6px;
     transition: background-color 0.15s;
   }
   .svc-row:hover {
@@ -216,72 +269,17 @@
     place-items: center;
     color: var(--text-2);
   }
-  .svc-text {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
   .svc-name {
     font-size: 15px;
     font-weight: 500;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .svc-detail {
-    margin-top: 2px;
     font-size: 13px;
-    color: var(--text-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .state.wait {
-    color: var(--text-2);
-  }
-  .lat {
-    font-size: 15px;
-  }
-
-  /* Facts: three figures on one soft band. */
-  .facts {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr;
-    gap: 4px;
-    margin-top: 32px;
-    padding: 20px 24px;
-    border-radius: 20px;
-    background: var(--panel);
-  }
-  .fact {
-    min-width: 0;
-  }
-  .fact dt {
-    font-size: 13px;
-    color: var(--text-2);
-  }
-  .fact dd {
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
-  }
-  .fact-v {
-    max-width: 100%;
-    font-size: 16px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .fact-sub {
-    font-size: 12px;
     color: var(--text-3);
-  }
-  .fact .link {
-    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .warnings {
@@ -293,16 +291,13 @@
   }
 
   @media (max-width: 640px) {
-    .facts {
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .fact:first-child {
-      grid-column: 1 / -1;
+    .prop {
+      grid-template-columns: 120px minmax(0, 1fr);
     }
     .svc-row {
-      grid-template-columns: 24px minmax(0, 1fr) auto;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
     }
+    .svc-detail,
     .svc-row .lat {
       display: none;
     }

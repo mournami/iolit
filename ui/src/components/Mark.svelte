@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Brand mark: a round-cut iolite on the brand violet, or the icon chosen in
+  // Brand mark: "io" with a cut iolite crystal for the dot of the i, or the icon chosen in
   // settings. Same drawing as resources/icon.svg.
   import { appearance } from '../appearance.svelte';
 
@@ -11,17 +11,12 @@
 {:else}
   <svg class="mark" width={size} height={size} viewBox="0 0 1024 1024" aria-hidden="true">
     <rect width="1024" height="1024" rx="232" fill="var(--mark-bg, #32216b)" />
-    <circle cx="512" cy="512" r="300" fill="#a893f7"/>
-    <polygon points="569.4,373.4 724.1,299.9 650.6,454.6" fill="#c9bcff"/>
-    <polygon points="650.6,454.6 812.0,512.0 650.6,569.4" fill="#8f78ec"/>
-    <polygon points="650.6,569.4 724.1,724.1 569.4,650.6" fill="#c9bcff"/>
-    <polygon points="569.4,650.6 512.0,812.0 454.6,650.6" fill="#8f78ec"/>
-    <polygon points="454.6,650.6 299.9,724.1 373.4,569.4" fill="#c9bcff"/>
-    <polygon points="373.4,569.4 212.0,512.0 373.4,454.6" fill="#8f78ec"/>
-    <polygon points="373.4,454.6 299.9,299.9 454.6,373.4" fill="#c9bcff"/>
-    <polygon points="454.6,373.4 512.0,212.0 569.4,373.4" fill="#8f78ec"/>
-    <polygon points="569.4,373.4 650.6,454.6 650.6,569.4 569.4,650.6 454.6,650.6 373.4,569.4 373.4,454.6 454.6,373.4" fill="#e6dfff"/>
-    <circle cx="512" cy="512" r="300" fill="none" stroke="#1d1240" stroke-opacity="0.35" stroke-width="10"/>
+    <rect x="282" y="448" width="96" height="312" rx="48" fill="#f1eefb"/>
+    <polygon points="330,196 388,254 388,346 330,404 272,346 272,254" fill="#a893f7"/>
+    <polygon points="330,196 388,254 330,285.9" fill="#e2d9ff"/>
+    <polygon points="330,196 330,285.9 272,254" fill="#c9bcff"/>
+    <polygon points="330,285.9 388,254 388,346 330,404" fill="#8670e3"/>
+    <circle cx="612" cy="600" r="148" fill="none" stroke="#f1eefb" stroke-width="96"/>
   </svg>
 {/if}
 

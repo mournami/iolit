@@ -73,7 +73,7 @@
   --mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
   font-family: var(--sans);
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 20px;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -102,30 +102,32 @@ svg { flex-shrink: 0; }
 .page-h {
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: 16px 24px; flex-wrap: wrap;
-  padding: 16px 0 20px;
+  padding: 8px 0 24px;
 }
-.h1 { font-family: var(--display); font-size: 30px; line-height: 1.15; font-weight: 600; letter-spacing: -0.01em; }
-.page-h .sub { font-size: 14px; margin-top: 6px; }
+.h1 { font-family: var(--display); font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.01em; }
+.page-h .sub { font-size: 14px; line-height: 20px; margin-top: 4px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* Panels */
 /* Sections sit straight on the page: no frame, no fill. A band groups
    related rows on one soft surface, still without rules. */
 .panel { min-width: 0; }
-.band { background: var(--panel); border-radius: 20px; overflow: hidden; }
-.band .panel-h { padding: 20px 20px 12px; }
+/* No cards: the band only lines its rows up with the page edge, so rows
+   can show a hover surface that reaches a little past the text. */
+.band { margin-inline: -20px; }
+.band .panel-h { padding: 8px 20px; }
 .panel-h {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 0 0 12px;
+  padding: 0 0 8px;
 }
-.h2 { font-size: 16px; font-weight: 600; }
-.sub { font-size: 13px; color: var(--text-2); margin-top: 2px; line-height: 1.45; }
+.h2 { font-size: 16px; line-height: 24px; font-weight: 600; }
+.sub { font-size: 13px; color: var(--text-2); margin-top: 2px; line-height: 20px; }
 
 /* Buttons */
 .btn {
-  height: 36px; padding: 0 16px; border-radius: 10px;
+  height: 32px; padding: 0 12px; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 13px; font-weight: 500; color: var(--text);
+  font-size: 14px; font-weight: 500; color: var(--text);
   background: var(--raise-2); border: 0;
   white-space: nowrap; transition: background-color 0.15s, color 0.15s, opacity 0.15s;
 }
@@ -137,7 +139,7 @@ svg { flex-shrink: 0; }
 .btn.primary:hover:not(:disabled) { background: var(--g-text); }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); padding: 0 12px; }
 .btn.ghost:hover:not(:disabled) { background: var(--hover); color: var(--text); }
-.btn.sm { height: 32px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 13px; border-radius: 6px; }
 
 .link {
   padding: 0; border: 0; background: none;
@@ -154,11 +156,16 @@ svg { flex-shrink: 0; }
 .icon-btn:disabled { opacity: 0.45; }
 
 /* Status words */
-.state { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ok); white-space: nowrap; }
-.state i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
-.state.bad { color: var(--red); }
-.state.warn { color: var(--amber); }
-.state.idle { color: var(--text-3); }
+/* Status tags, like select properties in a document app. */
+.state {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px;
+  font-size: 13px; line-height: 20px; font-weight: 500; white-space: nowrap;
+  color: var(--ok); background: var(--ok-soft);
+}
+.state i { display: none; }
+.state.bad { color: var(--red); background: var(--red-soft); }
+.state.warn { color: var(--amber); background: var(--amber-soft); }
+.state.idle, .state.wait { color: var(--text-2); background: var(--raise-2); }
 
 .lat { text-align: right; font-size: 14px; font-weight: 500; white-space: nowrap; }
 .lat small { font-size: 12px; color: var(--text-2); font-weight: 400; margin-left: 2px; }
@@ -166,13 +173,13 @@ svg { flex-shrink: 0; }
 
 /* Fields */
 input, select {
-  height: 36px; padding: 0 12px; border-radius: 10px;
-  background: var(--raise); border: 0; color: var(--text);
+  height: 32px; padding: 0 10px; border-radius: 8px;
+  background: var(--raise-2); border: 0; color: var(--text);
   font-size: 14px; min-width: 0;
 }
 input::placeholder { color: var(--text-3); }
 input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
-input:focus-visible, select:focus-visible { outline: 2px solid var(--g); outline-offset: -1px; border-color: transparent; border-radius: 10px; }
+input:focus-visible, select:focus-visible { outline: 2px solid var(--g); outline-offset: -1px; border-color: transparent; border-radius: 8px; }
 
 /* Segmented control */
 .seg { display: flex; flex-wrap: wrap; padding: 4px; gap: 4px; border-radius: 12px; background: var(--raise-2); }
@@ -187,16 +194,17 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--g); outline
 
 /* Messages */
 .alert {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 12px 12px 12px 16px; margin: 4px 0 12px;
-  border-radius: 12px; font-size: 13px;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 12px 12px 16px; margin: 0 0 16px;
+  border-radius: 8px; font-size: 14px; line-height: 20px;
+  background: var(--panel); color: var(--text);
 }
-.alert > svg { margin-top: 1px; }
+.alert > svg { margin-top: 2px; }
 .alert p { flex: 1; line-height: 1.5; overflow-wrap: anywhere; }
-.alert .icon-btn { width: 24px; height: 24px; color: inherit; }
-.alert.bad { background: var(--red-soft); color: var(--red); }
-.alert.good { background: var(--ok-soft); color: var(--ok); }
-.alert.warn { background: var(--amber-soft); color: var(--amber); }
+.alert .icon-btn { width: 24px; height: 24px; color: var(--text-2); }
+.alert.bad > svg { color: var(--red); }
+.alert.good > svg { color: var(--ok); }
+.alert.warn > svg { color: var(--amber); }
 
 /* Progress */
 .progress { height: 3px; background: var(--raise-2); border-radius: 2px; overflow: hidden; }

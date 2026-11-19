@@ -279,8 +279,8 @@
     text-align: left;
   }
   .res td {
-    height: 64px;
-    padding: 12px 0 12px 16px;
+    height: 48px;
+    padding: 8px 0 8px 16px;
     vertical-align: middle;
   }
   .res th:first-child,
