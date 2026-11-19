@@ -141,7 +141,7 @@
     border-radius: 16px;
     background: var(--brand);
     color: var(--on-brand);
-    --mark-bg: rgb(255 255 255 / 0.12);
+    --mark-bg: #ffffff;
     transition: background-color 0.3s;
     user-select: none;
   }
