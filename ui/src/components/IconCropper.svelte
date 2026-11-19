@@ -305,7 +305,7 @@
   }
   .drop-d {
     max-width: 320px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-2);
   }
 
@@ -361,8 +361,7 @@
     background: var(--bg);
     border: 1px solid var(--line);
     font-size: 15.5px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 500;
   }
   .ic-small {
     width: 20px;
@@ -405,7 +404,7 @@
     align-items: center;
     gap: 8px;
     margin: 12px 20px 0;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--red);
   }
   .foot {

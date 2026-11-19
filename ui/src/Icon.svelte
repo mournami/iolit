@@ -1,6 +1,6 @@
 <script lang="ts">
   // Lucide icons (ISC, see licenses/Lucide-ISC.txt), inlined so nothing loads at runtime.
-  let { name = 'info', size = 16, stroke = 2 }: { name?: string; size?: number; stroke?: number } = $props();
+  let { name = 'info', size = 16, stroke = 1.5 }: { name?: string; size?: number; stroke?: number } = $props();
 
   const icons: Record<string, string> = {
     check: '<path d="M20 6 9 17l-5-5"/>',

@@ -219,7 +219,7 @@
     border: 1px solid var(--line-2);
     background: var(--raise);
     color: var(--text);
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .trigger:hover {
     background: var(--raise-2);
@@ -234,7 +234,7 @@
     box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.35);
   }
   .auto {
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--text-3);
   }
 
@@ -311,7 +311,7 @@
     left: 11px;
     color: var(--text-3);
     font-family: var(--mono);
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .hex input {
     width: 100%;

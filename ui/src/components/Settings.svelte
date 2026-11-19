@@ -108,7 +108,6 @@
         {#if dns?.supported}
           <button
             class="btn sm"
-            class:primary={!dns.enabled}
             disabled={!app.installed || app.busy}
             onclick={() => app.setSecureDns(!dns.enabled)}
           >
@@ -144,7 +143,6 @@
         </div>
         <button
           class="btn sm"
-          class:primary={!tg?.enabled}
           disabled={!app.installed || app.pending !== null}
           onclick={() => app.setTelegram(!tg?.enabled)}
         >
@@ -403,7 +401,7 @@
   .row-d {
     margin-top: 3px;
     max-width: 380px;
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.45;
     color: var(--text-2);
   }
@@ -477,7 +475,7 @@
   }
   .count {
     padding: 0 20px 12px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-3);
   }
   .domains {
@@ -492,7 +490,7 @@
     min-height: 44px;
     padding: 0 10px 0 20px;
     border-top: 1px solid var(--line);
-    font-size: 13.5px;
+    font-size: 14px;
   }
   .domains li.fresh {
     background: var(--g-soft);
@@ -516,7 +514,7 @@
     background: var(--log-bg);
     border: 1px solid var(--line);
     font-family: var(--mono);
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.75;
     color: var(--text-2);
     white-space: pre;
@@ -535,7 +533,7 @@
   }
   .about-t {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
   }
   .about-d {
     margin-top: 2px;

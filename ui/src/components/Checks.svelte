@@ -111,7 +111,7 @@
               <tr>
                 <td>
                   <span class="mark" class:bad={!r.ok} class:warn={r.ok && r.warning}>
-                    <Icon name={!r.ok ? 'close' : r.warning ? 'alert' : 'check'} size={13} stroke={r.warning ? 2.4 : 3} />
+                    <Icon name={!r.ok ? 'close' : r.warning ? 'alert' : 'check'} size={14} stroke={2} />
                   </span>
                   <span class="sr-only">{!r.ok ? 'Не подтверждена' : r.warning ? 'Прошла с предупреждением' : 'Прошла'}</span>
                 </td>
@@ -201,7 +201,7 @@
         <ul class="caps">
           {#each capRows as c}
             <li class:off={!c.on}>
-              <Icon name={c.on ? 'check' : 'close'} size={14} stroke={2.8} />{c.label}
+              <Icon name={c.on ? 'check' : 'close'} size={14} stroke={2} />{c.label}
               <span class="sr-only">{c.on ? 'есть' : 'нет'}</span>
             </li>
           {/each}
@@ -237,7 +237,7 @@
     padding: 16px 20px;
   }
   .op-head strong {
-    font-weight: 600;
+    font-weight: 500;
   }
   .op-icon {
     display: flex;
@@ -271,22 +271,22 @@
     border-collapse: collapse;
   }
   .res th {
-    height: 38px;
-    padding: 0 0 0 14px;
+    height: 40px;
+    padding: 0 0 0 16px;
     font-size: 12px;
     font-weight: 400;
     color: var(--text-3);
     text-align: left;
   }
   .res td {
-    height: 70px;
-    padding: 10px 0 10px 14px;
+    height: 64px;
+    padding: 12px 0 12px 16px;
     border-top: 1px solid var(--line);
     vertical-align: middle;
   }
   .res th:first-child,
   .res td:first-child {
-    width: 46px;
+    width: 44px;
     padding-left: 20px;
   }
   .res th:last-child,
@@ -310,8 +310,8 @@
     color: var(--red);
   }
   .dns-hint {
-    margin: 4px 20px 14px;
-    font-size: 12.5px;
+    margin: 4px 20px 16px;
+    font-size: 13px;
     align-items: center;
   }
   .dns-hint .btn {
@@ -334,34 +334,31 @@
   }
   .detail {
     display: block;
-    margin-top: 1px;
-    font-size: 12.5px;
+    margin-top: 2px;
+    font-size: 13px;
     color: var(--text-2);
     overflow-wrap: anywhere;
   }
   .proto {
     font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--text-2);
-    border: 1px solid var(--line-2);
-    border-radius: 6px;
-    padding: 3px 7px;
+    font-size: 12px;
+    color: var(--text-3);
     white-space: nowrap;
   }
   .res td.lat {
     width: 90px;
   }
   .empty {
-    padding: 22px 20px;
+    padding: 24px 20px;
     color: var(--text-2);
   }
   .note {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: flex-start;
-    padding: 14px 20px 16px;
+    padding: 16px 20px;
     border-top: 1px solid var(--line);
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.5;
     color: var(--text-2);
   }
@@ -385,7 +382,7 @@
     min-height: 48px;
     padding: 10px 20px;
     border-top: 1px solid var(--line);
-    font-size: 13.5px;
+    font-size: 14px;
   }
   .kv dt {
     color: var(--text-2);
@@ -395,9 +392,9 @@
     text-align: right;
   }
   .side-empty {
-    padding: 14px 20px 18px;
+    padding: 16px 20px;
     border-top: 1px solid var(--line);
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.5;
     color: var(--text-2);
   }
@@ -405,16 +402,16 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 2px 20px 20px;
+    padding: 0 20px 20px;
     list-style: none;
   }
   .caps li {
     height: 32px;
-    padding: 0 12px 0 10px;
+    padding: 0 12px 0 8px;
     border-radius: 8px;
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     background: var(--raise);
     border: 1px solid var(--line-2);
     font-size: 13px;

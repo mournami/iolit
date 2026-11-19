@@ -142,12 +142,12 @@
   .note {
     grid-area: note;
     align-self: center;
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--text-3);
   }
   .sample {
     grid-area: sample;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-2);
   }
   .tick {

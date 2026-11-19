@@ -120,32 +120,31 @@
   }
 
   .titlebar {
-    height: 46px;
+    height: 48px;
     flex: none;
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 0 10px 0 16px;
+    padding: 0 12px 0 20px;
     user-select: none;
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 9px;
-    margin-right: 22px;
+    gap: 8px;
+    margin-right: 24px;
   }
   .brand-word {
-    font-size: 15.5px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 500;
     line-height: 1;
-    letter-spacing: -0.02em;
   }
   .tabs {
     display: flex;
     gap: 2px;
   }
   .tabs button {
-    height: 30px;
+    height: 32px;
     padding: 0 12px;
     border-radius: 8px;
     border: 0;
@@ -168,25 +167,23 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-right: 6px;
-    font-size: 12.5px;
+    margin-right: 8px;
+    font-size: 13px;
     color: var(--text-2);
     white-space: nowrap;
   }
   .dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--text-3);
     flex: none;
   }
   .ok .dot {
     background: var(--g);
-    box-shadow: 0 0 0 3px var(--g-soft);
   }
   .warn .dot {
     background: var(--amber);
-    box-shadow: 0 0 0 3px var(--amber-soft);
   }
 
   /* The page scrolls inside the window; the title bar stays. */

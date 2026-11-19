@@ -270,8 +270,10 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    padding: 26px 28px 24px;
+    padding: 28px;
     border-radius: 20px;
+    /* The title scales with the card, so long words never overflow it. */
+    container-type: inline-size;
     background: var(--slab-off);
     border: 1px solid var(--line);
     color: var(--text);
@@ -286,17 +288,17 @@
     position: relative;
     flex: none;
     width: 104px;
-    height: 58px;
+    height: 56px;
     padding: 0;
     border: 0;
-    border-radius: 29px;
+    border-radius: 28px;
     background: var(--line-2);
     transition: background-color 0.25s;
   }
   .big-toggle .knob {
     position: absolute;
-    top: 7px;
-    left: 7px;
+    top: 6px;
+    left: 6px;
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -311,11 +313,11 @@
   }
   .big-toggle.on .knob,
   .big-toggle.on:hover:not(:disabled) .knob {
-    transform: translateX(46px);
+    transform: translateX(48px);
     background: var(--g);
   }
   .big-toggle.moving .knob {
-    transform: translateX(23px);
+    transform: translateX(24px);
   }
   .big-toggle:disabled:not(.moving) {
     opacity: 0.6;
@@ -323,12 +325,12 @@
   .big-toggle:focus-visible {
     outline-color: currentColor;
     outline-offset: 4px;
-    border-radius: 29px;
+    border-radius: 28px;
   }
   .slab-icon {
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
     display: grid;
     place-items: center;
     background: var(--raise-2);
@@ -337,10 +339,10 @@
   .slab-title {
     margin-top: auto;
     padding-top: 32px;
-    font-size: 56px;
-    line-height: 0.96;
-    font-weight: 600;
-    letter-spacing: -0.04em;
+    font-size: min(56px, 15cqi);
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: -0.03em;
   }
   .slab-sub {
     margin-top: 16px;
@@ -358,9 +360,9 @@
     margin-top: 28px;
     padding-top: 16px;
     border-top: 1px solid var(--line-2);
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.5;
-    opacity: 0.66;
+    opacity: 0.72;
     max-width: 300px;
   }
   .on .slab-foot {
@@ -394,21 +396,16 @@
   }
   .svc-row {
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) auto 76px;
+    grid-template-columns: 20px minmax(0, 1fr) auto 72px;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 0 20px;
     border-top: 1px solid var(--line);
   }
   .svc-ico {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
     display: grid;
     place-items: center;
-    background: var(--raise);
-    border: 1px solid var(--line);
-    color: var(--text-2);
+    color: var(--text-3);
   }
   .svc-text {
     min-width: 0;
@@ -423,8 +420,8 @@
     text-overflow: ellipsis;
   }
   .svc-detail {
-    margin-top: 1px;
-    font-size: 12.5px;
+    margin-top: 2px;
+    font-size: 13px;
     color: var(--text-2);
     white-space: nowrap;
     overflow: hidden;
@@ -439,7 +436,7 @@
     grid-template-columns: 1.5fr 1fr 1fr;
   }
   .fact {
-    padding: 18px 20px;
+    padding: 16px 20px;
     border-left: 1px solid var(--line);
     min-width: 0;
   }
@@ -447,11 +444,11 @@
     border-left: 0;
   }
   .fact dt {
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-2);
   }
   .fact dd {
-    margin-top: 6px;
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -462,15 +459,13 @@
     max-width: 100%;
     font-size: 15px;
     font-weight: 500;
-    letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .fact-v.mono {
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 400;
-    letter-spacing: -0.02em;
   }
   .fact-sub {
     font-size: 12px;
@@ -499,12 +494,12 @@
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas: 'title toggle' 'sub toggle' 'actions actions' 'foot foot';
       align-items: start;
-      padding: 22px 24px;
+      padding: 24px;
     }
     .slab-title {
       grid-area: title;
       padding-top: 0;
-      font-size: 40px;
+      font-size: min(40px, 8cqi);
     }
     .slab-sub {
       grid-area: sub;
@@ -529,7 +524,7 @@
   }
   @media (max-width: 640px) {
     .slab-title {
-      font-size: 32px;
+      font-size: min(32px, 8cqi);
     }
     .facts {
       grid-template-columns: 1fr 1fr;
@@ -542,7 +537,7 @@
       border-left: 0;
     }
     .svc-row {
-      grid-template-columns: 38px minmax(0, 1fr) auto;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
     }
     .svc-row .lat {
       display: none;
