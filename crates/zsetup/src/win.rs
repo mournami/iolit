@@ -448,6 +448,9 @@ fn backup_files(paths: &Paths, notes: &mut Vec<String>) -> Result<Option<PathBuf
     if backup.exists() {
         fs::remove_dir_all(&backup)?;
     }
+    // Created here, not only for the first file: a record with no files
+    // still needs the folder for `installed.json`.
+    fs::create_dir_all(&backup)?;
     for file in &record.files {
         let source = payload::join(&paths.install, file);
         let target = payload::join(&backup, file);
