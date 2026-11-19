@@ -339,8 +339,7 @@
     overflow-wrap: anywhere;
   }
   .proto {
-    font-family: var(--mono);
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-3);
     white-space: nowrap;
   }

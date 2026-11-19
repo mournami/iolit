@@ -18,33 +18,33 @@
     switch (mode) {
       case 'preview':
         return {
-          title: ['Только', 'просмотр'],
+          title: 'Только просмотр',
           sub: 'Здесь ничего не подключается',
           foot: 'Управлять сетью можно в установленном приложении Iolit.',
         };
       case 'loading':
-        return { title: ['Связываемся', 'со службой'], sub: 'Это занимает пару секунд', foot: '' };
+        return { title: '', sub: 'Подключаемся к службе…', foot: '' };
       case 'missing':
         return {
-          title: ['Служба', 'не найдена'],
+          title: 'Служба не найдена',
           sub: 'Без неё пакеты не изменяются',
           foot: 'Системную службу устанавливают один раз, понадобятся права администратора.',
         };
       case 'on':
         return {
-          title: ['Обход', 'включён'],
+          title: 'Обход включён',
           sub: service ? `Работает ${formatUptime(service.uptime_secs)}` : '',
           foot: 'Пакеты меняются только на этом компьютере. Трафик не уходит на наши серверы, телеметрии нет.',
         };
       default:
         return service?.strategy
           ? {
-              title: ['Обход', 'выключен'],
+              title: 'Обход выключен',
               sub: 'Пакеты не изменяются',
               foot: 'Включите обход, чтобы приложение начало менять пакеты к заблокированным сервисам.',
             }
           : {
-              title: ['Обход', 'выключен'],
+              title: 'Обход выключен',
               sub: 'Стратегия ещё не выбрана',
               foot: 'Подберите её автоматически: приложение проверит варианты и оставит тот, что работает в вашей сети.',
             };
@@ -53,8 +53,13 @@
 </script>
 
 <section class="power" class:on={mode === 'on'} aria-live="polite">
-  <h1 class="title">{state.title[0]}<br />{state.title[1]}</h1>
-  <p class="sub">{pendingText || state.sub}</p>
+  {#if mode === 'loading'}
+    <!-- Connecting takes a second or two: one quiet line, not a headline. -->
+    <p class="connecting"><span class="spin"><Icon name="refresh" size={16} /></span>{state.sub}</p>
+  {:else}
+    <h1 class="title">{state.title}</h1>
+    <p class="sub">{pendingText || state.sub}</p>
+  {/if}
 
   {#if mode === 'on' || mode === 'off'}
     <button
@@ -69,7 +74,7 @@
     >
       <span class="knob"></span>
     </button>
-  {:else}
+  {:else if mode !== 'loading'}
     <span class="badge"><Icon name={mode === 'missing' ? 'download' : 'power'} size={22} /></span>
   {/if}
 
@@ -102,11 +107,23 @@
   }
   .title {
     width: 100%;
-    font-size: min(48px, 17cqi);
+    max-width: 8ch;
+    font-family: var(--display);
+    font-size: min(52px, 19cqi);
     line-height: 1;
-    font-weight: 500;
-    letter-spacing: -0.03em;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--on-brand);
+  }
+  .connecting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    color: var(--on-brand-2);
+  }
+  .connecting span {
+    display: flex;
   }
   .sub {
     margin-top: 12px;
@@ -211,6 +228,7 @@
     }
     .title {
       grid-area: title;
+      max-width: none;
       font-size: min(32px, 8cqi);
     }
     .sub {
