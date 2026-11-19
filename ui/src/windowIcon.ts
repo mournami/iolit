@@ -1,22 +1,20 @@
 /**
- * Puts the user's icon on the window (taskbar, Alt+Tab) and the tray. The
- * Start menu and desktop shortcuts keep the exe's icon.
+ * Puts the user's icon, or the mark for the current theme, on the window
+ * (taskbar, Alt+Tab) and the tray. The Start menu and desktop shortcuts keep
+ * the exe's icon, the light mark.
  */
 import { TrayIcon } from '@tauri-apps/api/tray';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-
-/** The built-in mark, the same as the exe icon. */
-const DEFAULT_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 20 20"><rect width="20" height="20" rx="6" fill="#3ee387"/><path d="M5.5 6.2h9l-9 7.6h9" fill="none" stroke="#03140a" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+import { markSvg, type MarkTheme } from './brandMark';
 
 function decode(dataUrl: string): Uint8Array {
   const binary = atob(dataUrl.slice(dataUrl.indexOf(',') + 1));
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
-async function renderDefault(): Promise<Uint8Array> {
+async function renderDefault(theme: MarkTheme): Promise<Uint8Array> {
   const img = new Image();
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(DEFAULT_SVG);
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markSvg(theme, 256));
   await img.decode();
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;
@@ -40,9 +38,10 @@ async function rounded(dataUrl: string): Promise<Uint8Array> {
   return decode(canvas.toDataURL('image/png'));
 }
 
-export async function applyWindowIcon(icon: string | null) {
+/** The user's icon, or the built-in mark matching the theme. */
+export async function applyWindowIcon(icon: string | null, theme: MarkTheme) {
   try {
-    const bytes = icon ? await rounded(icon) : await renderDefault();
+    const bytes = icon ? await rounded(icon) : await renderDefault(theme);
     await getCurrentWindow().setIcon(bytes);
     const tray = await TrayIcon.getById('main');
     await tray?.setIcon(bytes);

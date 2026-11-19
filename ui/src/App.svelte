@@ -35,14 +35,13 @@
             : { text: 'Служба на связи', tone: 'ok' },
   );
 
-  // Taskbar and tray follow the icon chosen in settings. The exe icon is
-  // already the default mark, so nothing is sent until the user picks one.
-  let iconTouched = false;
+  // Taskbar and tray follow the icon chosen in settings, or the mark for the
+  // theme: the exe icon is the light mark, so the dark theme swaps it.
   $effect(() => {
     const icon = appearance.icon;
-    if (!native || (!icon && !iconTouched)) return;
-    iconTouched = true;
-    void applyWindowIcon(icon);
+    const resolved = theme.resolved;
+    if (!native) return;
+    void applyWindowIcon(icon, resolved);
   });
 
   onMount(() => {
