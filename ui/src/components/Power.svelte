@@ -1,11 +1,10 @@
 <script lang="ts">
-  // The bypass state and its switch on the brand colour: a wide banner above
-  // the services, or a card beside them.
+  // The bypass state and its switch: a wide banner above the services, in
+  // the brand colour while the bypass is on.
   import { native } from '../api';
   import Icon from '../Icon.svelte';
   import { app, formatUptime } from '../store.svelte';
 
-  let { variant = 'banner' }: { variant?: 'banner' | 'card' } = $props();
 
   const service = $derived(app.service);
   const mode = $derived(
@@ -54,10 +53,7 @@
   });
 </script>
 
-<section class="power {variant}" class:on={mode === 'on'} aria-live="polite">
-  {#if variant === 'card'}
-    {@render control()}
-  {/if}
+<section class="power" class:on={mode === 'on'} aria-live="polite">
   <div class="text">
     {#if mode === 'loading'}
       <!-- Connecting takes a second or two: one quiet line, not a headline. -->
@@ -68,11 +64,6 @@
     {/if}
   </div>
 
-  {#if variant === 'banner'}
-    {@render control()}
-  {/if}
-
-  {#snippet control()}
   {#if mode === 'on' || mode === 'off'}
     <button
       class="toggle"
@@ -89,7 +80,6 @@
   {:else if mode !== 'loading'}
     <span class="badge"><Icon name={mode === 'missing' ? 'download' : 'power'} size={22} /></span>
   {/if}
-  {/snippet}
 
   {#if mode === 'missing'}
     <div class="actions">
@@ -126,56 +116,31 @@
     color: var(--on-brand);
   }
 
-  /* Banner: text on the left, the switch on the right. */
-  .banner {
+  /* Text on the left, the switch on the right. */
+  .power {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: 'text switch' 'actions actions' 'foot foot';
     align-items: center;
     column-gap: 24px;
   }
-  .banner .text {
+  .power .text {
     grid-area: text;
   }
-  .banner .toggle,
-  .banner .badge {
+  .power .toggle,
+  .power .badge {
     grid-area: switch;
   }
-  .banner .actions {
+  .power .actions {
     grid-area: actions;
   }
-  .banner .foot {
+  .power .foot {
     grid-area: foot;
     max-width: 60ch;
     margin-top: 16px;
   }
-  .banner .title {
+  .power .title {
     font-size: min(40px, 7cqi);
-  }
-
-  /* Card, like the first design: the switch at the top, the state in large
-     type at the bottom, a rule and the note under it. */
-  .card {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 28px;
-  }
-  .card .text {
-    margin-top: auto;
-    padding-top: 32px;
-    width: 100%;
-  }
-  .card .title {
-    max-width: 8ch;
-    font-size: min(56px, 20cqi);
-  }
-  .card .foot {
-    width: 100%;
-    margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid currentColor;
-    border-top-color: color-mix(in srgb, currentColor 18%, transparent);
   }
 
   .text {
@@ -229,7 +194,7 @@
   .toggle:hover:not(:disabled) .knob {
     background: var(--text-2);
   }
-  /* On: a dark track cut into the card and a light knob, as in the first design. */
+  /* On: a dark track cut into the banner and a light knob. */
   .toggle.on {
     background: #0b0718;
   }
@@ -291,7 +256,7 @@
   }
 
   @media (max-width: 640px) {
-    .banner .foot {
+    .power .foot {
       display: none;
     }
   }
