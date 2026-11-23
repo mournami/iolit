@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fly } from 'svelte/transition';
-  import { cubicOut } from 'svelte/easing';
+  import { flow, SPRING_CSS } from './motion';
   import { native } from './api';
   import Icon from './Icon.svelte';
   import { app, type Page } from './store.svelte';
@@ -16,15 +15,19 @@
   // Windows draws its own title row (no system frame); other systems keep theirs.
   const ownFrame = native && navigator.userAgent.includes('Windows');
 
-  // The pill under the active tab slides from one tab to the next.
+  // The pill under the active tab flows to the next tab like a drop: the edge
+  // it moves towards leaves first, the other edge follows a beat later, so it
+  // stretches on the way and settles on a spring.
   let tabs: HTMLElement | undefined = $state();
-  let pill = $state({ x: 0, w: 0, ready: false });
+  let pill = $state({ left: 0, right: 0, lead: 'right' as 'left' | 'right', ready: false });
   function movePill() {
     const on = tabs?.querySelector<HTMLElement>('button.on');
     if (!tabs || !on) return;
     const a = on.getBoundingClientRect();
     const box = tabs.getBoundingClientRect();
-    pill = { x: a.x - box.x, w: a.width, ready: true };
+    const left = a.x - box.x;
+    const right = box.width - (left + a.width);
+    pill = { left, right, lead: left > pill.left ? 'right' : 'left', ready: true };
   }
   $effect(() => {
     app.page;
@@ -60,7 +63,7 @@
 
 <svelte:head><title>Iolit</title></svelte:head>
 
-<div class="shell">
+<div class="shell" style:--spring={SPRING_CSS}>
   <header class="topbar" data-tauri-drag-region>
     <div class="brand" data-tauri-drag-region>
       <Mark size={24} /><span class="brand-word" data-tauri-drag-region>iolit</span>
@@ -69,8 +72,9 @@
       <span
         class="pill"
         class:ready={pill.ready}
-        style:width="{pill.w}px"
-        style:transform="translateX({pill.x}px)"
+        style:left="{pill.left}px"
+        style:right="{pill.right}px"
+        style:--lead={pill.lead === 'left' ? '1' : '0'}
         aria-hidden="true"
       ></span>
       {#each pages as p (p.id)}
@@ -116,16 +120,23 @@
         </div>
       {/if}
 
-      <!-- The new page rises a few pixels while it fades in; the old one just goes. -->
-      {#key app.page}
-        <div class="view" in:fly={{ y: 10, duration: 240, easing: cubicOut }}>
-          {#if app.page === 'overview'}
-            <Overview />
-          {:else}
-            <Settings />
-          {/if}
-        </div>
-      {/key}
+      <!-- Pages flow into each other: the old one blurs out while the new one
+           comes out of a blur; their blocks then rise one after another. -->
+      <div class="stage">
+        {#key app.page}
+          <div
+            class="view"
+            in:flow={{ delay: 70 }}
+            out:flow={{ duration: 200, leaving: true }}
+          >
+            {#if app.page === 'overview'}
+              <Overview />
+            {:else}
+              <Settings />
+            {/if}
+          </div>
+        {/key}
+      </div>
     </div>
   </main>
 </div>
@@ -167,22 +178,56 @@
   .pill {
     position: absolute;
     top: 0;
-    left: 0;
     height: 32px;
     border-radius: 8px;
     background: var(--raise-2);
     pointer-events: none;
     opacity: 0;
   }
-  /* No slide on the first paint, only between tabs. */
+  /* No slide on the first paint, only between tabs. The leading edge
+     (--lead picks which one) is quick, the trailing edge slow. */
   .pill.ready {
     opacity: 1;
-    transition: transform 0.28s cubic-bezier(0.3, 0.7, 0.2, 1), width 0.28s cubic-bezier(0.3, 0.7, 0.2, 1);
+    transition:
+      left calc(560ms - 200ms * var(--lead)) var(--spring),
+      right calc(360ms + 200ms * var(--lead)) var(--spring);
+  }
+
+  /* Old and new page share one grid cell while they cross over. */
+  .stage {
+    display: grid;
   }
   .view {
+    grid-area: 1 / 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+  /* Blocks of a page rise one after another. */
+  .view :global(.home > .power),
+  .view :global(.home-main > *),
+  .view :global(.set .col > *),
+  .view :global(.set > .about) {
+    animation: rise 0.6s var(--spring) backwards;
+  }
+  .view :global(.home-main > :nth-child(2)),
+  .view :global(.set .col > :nth-child(2)) {
+    animation-delay: 60ms;
+  }
+  .view :global(.home-main > :nth-child(3)),
+  .view :global(.set .col > :nth-child(3)) {
+    animation-delay: 120ms;
+  }
+  .view :global(.home-main > :nth-child(n + 4)),
+  .view :global(.set .col > :nth-child(n + 4)),
+  .view :global(.set > .about) {
+    animation-delay: 180ms;
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
   }
   .tabs button {
     position: relative;
