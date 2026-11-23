@@ -10,6 +10,15 @@
   const service = $derived(app.service);
   const activeStrategy = $derived(app.data?.strategies.find((s) => s.id === service?.strategy));
   const op = $derived(app.operation);
+
+  /** One slow turn of the check button's icon per click. */
+  let turning = $state(false);
+  function check() {
+    turning = false;
+    // Restart the animation if the button is pressed again mid-turn.
+    requestAnimationFrame(() => (turning = true));
+    return app.diagnose();
+  }
   const results = $derived(op?.results ?? []);
 
   const services = [
@@ -119,8 +128,8 @@
               <Icon name="wand" size={16} />Подобрать стратегию
             </button>
           {/if}
-          <button class="btn sm primary" disabled={!app.installed || app.busy} onclick={app.diagnose}>
-            <Icon name="refresh" size={16} />{op?.busy ? 'Проверяем…' : 'Проверить'}
+          <button class="btn sm primary" disabled={!app.installed || app.busy} onclick={check}>
+            <span class="turn" class:on={turning} onanimationend={() => (turning = false)}><Icon name="refresh" size={16} /></span>{op?.busy ? 'Проверяем…' : 'Проверить'}
           </button>
         </div>
       </div>
@@ -295,6 +304,17 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .turn {
+    display: flex;
+  }
+  .turn.on {
+    animation: turn 1.1s ease-in-out;
+  }
+  @keyframes turn {
+    to {
+      transform: rotate(360deg);
+    }
   }
   .progress {
     margin-bottom: 8px;
