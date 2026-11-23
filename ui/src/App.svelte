@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fly } from 'svelte/transition';
   import { native } from './api';
   import Icon from './Icon.svelte';
   import { app, type Page } from './store.svelte';
@@ -86,11 +87,17 @@
         </div>
       {/if}
 
-      {#if app.page === 'overview'}
-        <Overview />
-      {:else}
-        <Settings />
-      {/if}
+      <!-- One short fade with a 6px rise; the old page is replaced at once.
+           Only opacity and transform, so it stays smooth without GPU help. -->
+      {#key app.page}
+        <div class="view" in:fly={{ y: 6, duration: 160 }}>
+          {#if app.page === 'overview'}
+            <Overview />
+          {:else}
+            <Settings />
+          {/if}
+        </div>
+      {/key}
     </div>
   </main>
 </div>
@@ -153,6 +160,12 @@
   .grow {
     flex: 1;
   }
+  .view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
   /* The page scrolls inside the window; the top bar stays. */
   .main {
     flex: 1;
