@@ -168,18 +168,21 @@ them by hand.
 
 ## Code signing policy
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)
-
 > [!IMPORTANT]
-> We are still preparing the application to SignPath Foundation. Until it is
-> approved, the installers in Releases are not signed.
+> The installers in Releases are **not signed** yet, which is why Windows
+> SmartScreen warns about them.
 
-We sign only the installer that GitHub Actions builds from this repository, and
-every release is approved by hand.
+We asked [SignPath Foundation](https://signpath.org) for free code signing and
+were turned down: the project is not well enough known yet. We will apply again
+once it has grown. If Iolit helped you, a star on the repository brings that
+day closer.
 
-- Committers and reviewers: [mournami](https://github.com/mournami),
-  [pushmoveax](https://github.com/pushmoveax)
-- Approvers: [mournami](https://github.com/mournami)
+Windows code signing and update signing are different things. Updates inside
+the app are signed with our own key and checked against a key built into the
+app, even though the installer itself has no Windows signature.
+
+Authors: [mournami](https://github.com/mournami),
+[pushmoveax](https://github.com/pushmoveax).
 
 What the app sends over the network is described in the
 [privacy policy](#privacy-policy).
