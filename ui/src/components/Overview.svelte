@@ -1,57 +1,24 @@
 <script lang="ts">
-  import { native } from '../api';
   import Icon from '../Icon.svelte';
-  import { app, bundleLine, formatClock, formatUptime, plural } from '../store.svelte';
+  import { app, bundleLine, formatClock, plural } from '../store.svelte';
+  import Details from './Details.svelte';
+  import Power from './Power.svelte';
+  import QuickTiles from './QuickTiles.svelte';
+
   import type { ProbeResult } from '../types';
 
   const service = $derived(app.service);
   const activeStrategy = $derived(app.data?.strategies.find((s) => s.id === service?.strategy));
   const op = $derived(app.operation);
-  const results = $derived(op?.results ?? []);
-  const mode = $derived(
-    !native ? 'preview' : !app.loaded ? 'loading' : !app.installed ? 'missing' : app.running ? 'on' : 'off',
-  );
 
-  const pendingText = $derived(
-    app.pending === 'enable' ? 'Включаем обход…' : app.pending === 'disable' ? 'Выключаем обход…' : '',
-  );
-
-  const slab = $derived.by(() => {
-    switch (mode) {
-      case 'preview':
-        return {
-          title: ['Только', 'просмотр'],
-          sub: 'Здесь ничего не подключается',
-          foot: 'Управлять сетью можно в установленном приложении Iolit.',
-        };
-      case 'loading':
-        return { title: ['Связываемся', 'со службой'], sub: 'Это занимает пару секунд', foot: '' };
-      case 'missing':
-        return {
-          title: ['Служба', 'не найдена'],
-          sub: 'Без неё пакеты не изменяются',
-          foot: 'Системную службу устанавливают один раз, понадобятся права администратора.',
-        };
-      case 'on':
-        return {
-          title: ['Обход', 'включён'],
-          sub: service ? `Работает ${formatUptime(service.uptime_secs)}` : '',
-          foot: 'Пакеты меняются только на этом компьютере. Трафик не уходит на наши серверы, телеметрии нет.',
-        };
-      default:
-        return service?.strategy
-          ? {
-              title: ['Обход', 'выключен'],
-              sub: 'Пакеты не изменяются',
-              foot: 'Включите обход, чтобы приложение начало менять пакеты к заблокированным сервисам.',
-            }
-          : {
-              title: ['Обход', 'выключен'],
-              sub: 'Стратегия ещё не выбрана',
-              foot: 'Подберите её автоматически: приложение проверит варианты и оставит тот, что работает в вашей сети.',
-            };
-    }
+  /** The check button's icon turns while a check runs and finishes its
+   *  current turn when the check ends, so it never jumps back. */
+  const checking = $derived(!!op?.busy || app.pending === 'diagnose');
+  let turning = $state(false);
+  $effect(() => {
+    if (checking) turning = true;
   });
+  const results = $derived(op?.results ?? []);
 
   const services = [
     { id: 'youtube', name: 'YouTube', hint: 'Открывается главная страница', icon: 'play' },
@@ -59,6 +26,12 @@
     { id: 'udp', name: 'UDP', hint: 'Отвечает STUN-сервер', icon: 'wave' },
     { id: 'cloudflare', name: 'Сайты на Cloudflare', hint: 'Проходит HTTPS', icon: 'globe' },
   ];
+  /** Monochrome service marks from Simple Icons (CC0); UDP has no brand. */
+  const marks: Record<string, string> = {
+    youtube: 'M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z',
+    discord: 'M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z',
+    cloudflare: 'M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727',
+  };
   /** Services the background check found broken, by name. */
   const broken = $derived(
     (app.health?.broken ?? []).map((id) => services.find((s) => s.id === id)?.name ?? id),
@@ -99,51 +72,16 @@
     if (!failed) return `${n === 1 ? 'Проверка пройдена' : `Все ${n} ${plural(n, 'проверка', 'проверки', 'проверок')} пройдены`}${at}`;
     return `${failed} из ${n} ${plural(n, 'проверки', 'проверок', 'проверок')} не прошли${at}`;
   });
+  const dnsWarning = $derived(results.some((r) => r.ok && r.warning));
+  const secureDns = $derived(service?.secure_dns);
 </script>
 
-<div class="ov" class:on={mode === 'on'}>
-  <section class="slab" aria-live="polite">
-    {#if mode === 'on' || mode === 'off'}
-      <button
-        class="big-toggle"
-        class:on={app.running}
-        class:moving={!!pendingText}
-        role="switch"
-        aria-checked={app.running}
-        aria-label="Обход блокировок"
-        disabled={app.busy}
-        onclick={app.toggle}
-      >
-        <span class="knob"></span>
-      </button>
-    {:else}
-      <span class="slab-icon"><Icon name={mode === 'missing' ? 'download' : 'power'} size={22} /></span>
-    {/if}
+<div class="home split">
+  <Power />
 
-    <h1 class="slab-title">{slab.title[0]}<br />{slab.title[1]}</h1>
-    <p class="slab-sub">{pendingText || slab.sub}</p>
-
-    {#if mode === 'missing'}
-      <div class="slab-actions">
-        <button class="btn primary" disabled={app.busy} onclick={app.installService}>
-          <Icon name="download" size={15} />{app.pending === 'install' ? 'Открываем установщик…' : 'Установить службу'}
-        </button>
-        <button class="btn ghost" disabled={app.busy} onclick={app.refresh}>Проверить снова</button>
-      </div>
-    {:else if mode === 'off' && !service?.strategy}
-      <div class="slab-actions">
-        <button class="btn primary" disabled={app.busy} onclick={app.selectStrategy}>
-          <Icon name="wand" size={15} />Подобрать стратегию
-        </button>
-      </div>
-    {/if}
-
-    {#if slab.foot}<p class="slab-foot">{slab.foot}</p>{/if}
-  </section>
-
-  <div class="ov-right">
+  <div class="home-main">
     {#if app.running && broken.length}
-      <div class="alert warn health" role="status">
+      <div class="alert warn" role="status">
         <Icon name="info" size={16} />
         <p>
           {broken.join(', ')}
@@ -152,12 +90,12 @@
           )} не прошла дважды. Остальное работает.
         </p>
         <button class="btn sm primary" disabled={app.busy} onclick={app.repairStrategy}>
-          <Icon name="wand" size={15} />Починить
+          <Icon name="wand" size={16} />Починить
         </button>
       </div>
     {/if}
     {#if app.installed && app.appUpdate?.available}
-      <div class="alert good health" role="status">
+      <div class="alert good" role="status">
         <Icon name="download" size={16} />
         <p>
           {#if app.appUpdate.installing}
@@ -167,38 +105,70 @@
             {#if app.appUpdate.error}<br />{app.appUpdate.error}{/if}
           {/if}
         </p>
-        <button
-          class="btn sm primary"
-          disabled={app.busy || app.appUpdate.installing}
-          onclick={app.updateApp}
-        >
-          <Icon name="refresh" size={15} />Обновить
+        <button class="btn sm primary" disabled={app.busy || app.appUpdate.installing} onclick={app.updateApp}>
+          <Icon name="refresh" size={16} />Обновить
         </button>
       </div>
     {/if}
-    <section class="panel services" aria-labelledby="svc-title">
+
+    <section class="block" aria-labelledby="svc-title">
+      <div class="section-h">
+        <div>
+          <h2 class="h2" id="svc-title">Сервисы</h2>
+          <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
+        </div>
+        <div class="actions">
+          {#if op?.busy}
+            <button class="btn sm" disabled={app.pending === 'cancel'} onclick={app.cancel}>
+              {app.pending === 'cancel' ? 'Останавливаем…' : 'Остановить'}
+            </button>
+          {:else}
+            <button class="btn sm" disabled={!app.installed || app.busy} onclick={app.selectStrategy}>
+              <Icon name="wand" size={16} />Подобрать стратегию
+            </button>
+          {/if}
+          <button class="btn sm primary" disabled={!app.installed || app.busy} onclick={app.diagnose}>
+            <span class="turn" class:on={turning} onanimationiteration={() => { if (!checking) turning = false; }}><Icon name="refresh" size={16} /></span>{op?.busy ? 'Проверяем…' : 'Проверить'}
+          </button>
+        </div>
+      </div>
+
       {#if op?.busy}
         <div class="progress" class:indeterminate={!op.total}>
           <span style:width={op.total ? `${(op.current / op.total) * 100}%` : null}></span>
         </div>
       {/if}
-      <div class="panel-h">
-        <div>
-          <h2 class="h2" id="svc-title">Доступ к сервисам</h2>
-          <p class="sub" class:warn-text={internet && !internet.ok} aria-live="polite">{summary}</p>
+      {#if op && !op.busy && (op.error || op.notice || op.winner)}
+        {@const chosen = app.data?.strategies.find((s) => s.id === op.winner)}
+        <div class="alert {op.error ? 'bad' : 'good'}" role="status">
+          <Icon name={op.error ? 'alert' : 'check'} size={16} />
+          <p>
+            {#if op.error}{op.error}{/if}
+            {#if op.notice}{op.notice}{/if}
+            {#if op.winner === 'composite'}
+              Включена стратегия, собранная по сервисам ({chosen?.description ?? 'у каждого сервиса своя'}): она дважды
+              прошла проверки.
+            {:else if op.winner}
+              Выбрана и включена стратегия {chosen?.name ?? op.winner}: она дважды прошла проверки.
+            {/if}
+          </p>
         </div>
-        <button class="btn sm" disabled={!app.installed || app.busy} onclick={app.diagnose}>
-          <Icon name="refresh" size={15} />{op?.busy ? 'Проверяем…' : 'Проверить'}
-        </button>
-      </div>
+      {/if}
+
       <ul class="svc-list">
         {#each rows as row (row.id)}
-          <li class="svc-row" title={row.result?.warning ?? row.result?.detail}>
-            <span class="svc-ico"><Icon name={row.icon} size={18} /></span>
-            <span class="svc-text">
-              <span class="svc-name">{row.name}</span>
-              <span class="svc-detail">{row.hint}</span>
+          <li class="svc-row {row.status}" title={row.result?.warning ?? row.result?.detail}>
+            <span class="svc-ico">
+              {#if marks[row.id]}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={marks[row.id]} /></svg>
+              {:else}
+                <Icon name={row.icon} size={18} />
+              {/if}
             </span>
+            <span class="svc-name">{row.name}</span>
+            <span class="svc-detail" class:bad-text={row.status === 'bad'}
+              >{row.status === 'bad' && row.result?.detail ? row.result.detail : row.hint}</span
+            >
             <span class="state {row.status}"><i></i>{labels[row.status]}</span>
             <span class="lat num">
               {#if row.result?.ok}{row.result.latency_ms}<small>мс</small>{:else}<span class="dash">—</span>{/if}
@@ -206,344 +176,307 @@
           </li>
         {/each}
       </ul>
+
+      {#if dnsWarning}
+        <div class="alert warn dns-hint">
+          <Icon name="info" size={16} />
+          {#if secureDns?.supported && !secureDns.enabled}
+            <p>
+              Провайдер подменяет адреса сайтов. Включите защищённый DNS, и адреса будут приходить через HTTPS для всех
+              программ. Прежние настройки сохранятся, вернуть их можно в «Настройках».
+            </p>
+            <button class="btn sm primary" disabled={app.busy} onclick={() => app.setSecureDns(true)}>
+              {app.pending === 'dns' ? 'Включаем…' : 'Включить'}
+            </button>
+          {:else if secureDns?.enabled}
+            <p>Защищённый DNS включён. Если предупреждение осталось, проверьте ещё раз через минуту.</p>
+          {:else}
+            <p>
+              В этой версии Windows защищённый DNS для всей системы недоступен. Включите его в браузере: Chrome и Edge
+              «Конфиденциальность и безопасность», «Использовать безопасный DNS»; Firefox «Приватность и защита», «DNS
+              через HTTPS».
+            </p>
+          {/if}
+        </div>
+      {/if}
     </section>
 
-    <dl class="panel facts">
-      <div class="fact strategy">
-        <dt>Стратегия</dt>
+    <QuickTiles />
+
+    <!-- Properties of this computer, read like the fields of a document. -->
+    <dl class="props block">
+      <div class="prop">
+        <dt><Icon name="layers" size={16} />Стратегия</dt>
         <dd>
-          <span class="fact-v mono" title={activeStrategy?.description || service?.strategy}
+          <span class="prop-v" title={activeStrategy?.description || service?.strategy}
             >{activeStrategy?.name || service?.strategy || (app.installed ? 'Не выбрана' : '—')}</span
           >
           {#if app.installed && app.bundle}
-            <span class="fact-sub" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}>
-              {bundleLine(app.bundle)}
-            </span>
-          {/if}
-          {#if app.installed && service?.strategy}
-            <button class="link" disabled={app.busy} onclick={app.selectStrategy}>Подобрать заново</button>
+            <span class="muted" title={app.bundle.error ?? (app.bundle.flowseal ? `Flowseal ${app.bundle.flowseal}` : undefined)}
+              >{bundleLine(app.bundle)}</span
+            >
           {/if}
         </dd>
       </div>
-      <div class="fact">
-        <dt>Движок</dt>
-        <dd><span class="fact-v">{service?.engine || '—'}</span></dd>
+      <div class="prop">
+        <dt><Icon name="cpu" size={16} />Движок</dt>
+        <dd><span class="prop-v">{service?.engine || '—'}</span></dd>
       </div>
-      <div class="fact">
-        <dt>DNS</dt>
+      <div class="prop">
+        <dt><Icon name="shield" size={16} />DNS</dt>
         <dd>
-          <!-- winws reports no packet counters, so this tile shows DNS, which often decides whether a site opens. -->
+          <!-- winws reports no packet counters, so DNS is shown: it often decides whether a site opens. -->
           {#if service?.secure_dns.enabled}
-            <span class="fact-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
-            <span class="fact-sub">через HTTPS для всех программ</span>
+            <span class="prop-v">{service.secure_dns.provider ?? 'Защищённый'}</span>
+            <span class="muted">через HTTPS для всех программ</span>
           {:else}
-            <span class="fact-v">Системный</span>
-            <span class="fact-sub">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
+            <span class="prop-v">Системный</span>
+            <span class="muted">{service?.secure_dns.supported ? 'защищённый можно включить в «Настройках»' : 'от провайдера или роутера'}</span>
           {/if}
         </dd>
       </div>
     </dl>
+
+    <details class="more block">
+      <summary><Icon name="chevron" size={16} />Подробности</summary>
+      <Details />
+    </details>
+
+    {#if service?.warnings.length}
+      <ul class="warnings">
+        {#each service.warnings as warning}
+          <li class="alert warn"><Icon name="alert" size={16} /><p>{warning}</p></li>
+        {/each}
+      </ul>
+    {/if}
   </div>
 </div>
 
-{#if service?.warnings.length}
-  <ul class="warnings">
-    {#each service.warnings as warning}
-      <li class="alert warn"><Icon name="alert" size={16} /><p>{warning}</p></li>
-    {/each}
-  </ul>
-{/if}
-
 <style>
-  .ov {
-    /* Fill a tall window, but never shrink below the content: the page scrolls instead. */
-    flex: 1 0 auto;
-    min-height: 470px;
-    display: grid;
-    grid-template-columns: minmax(300px, 372px) minmax(0, 1fr);
-    gap: 16px;
-    padding-top: 6px;
-  }
-
-  /* The big state card */
-  .slab {
+  .home {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    padding: 26px 28px 24px;
-    border-radius: 20px;
-    background: var(--slab-off);
-    border: 1px solid var(--line);
-    color: var(--text);
-    transition: background-color 0.25s, color 0.25s, border-color 0.25s;
   }
-  .on .slab {
-    background: var(--g);
-    border-color: transparent;
-    color: var(--on-g);
-  }
-  .big-toggle {
-    position: relative;
-    flex: none;
-    width: 104px;
-    height: 58px;
-    padding: 0;
-    border: 0;
-    border-radius: 29px;
-    background: var(--line-2);
-    transition: background-color 0.25s;
-  }
-  .big-toggle .knob {
-    position: absolute;
-    top: 7px;
-    left: 7px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--text-3);
-    transition: transform 0.25s cubic-bezier(0.3, 0.7, 0.4, 1), background-color 0.25s;
-  }
-  .big-toggle:hover:not(:disabled) .knob {
-    background: var(--text-2);
-  }
-  .big-toggle.on {
-    background: var(--on-g);
-  }
-  .big-toggle.on .knob,
-  .big-toggle.on:hover:not(:disabled) .knob {
-    transform: translateX(46px);
-    background: var(--g);
-  }
-  .big-toggle.moving .knob {
-    transform: translateX(23px);
-  }
-  .big-toggle:disabled:not(.moving) {
-    opacity: 0.6;
-  }
-  .big-toggle:focus-visible {
-    outline-color: currentColor;
-    outline-offset: 4px;
-    border-radius: 29px;
-  }
-  .slab-icon {
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
+  /* The bypass card beside the content. */
+  .home.split {
     display: grid;
-    place-items: center;
-    background: var(--raise-2);
-    color: var(--text-2);
+    grid-template-columns: 340px minmax(0, 1fr);
+    align-items: start;
+    gap: 40px;
   }
-  .slab-title {
-    margin-top: auto;
-    padding-top: 32px;
-    font-size: 56px;
-    line-height: 0.96;
-    font-weight: 600;
-    letter-spacing: -0.04em;
+  /* Beside the card the content keeps a readable width. */
+  .home.split .home-main {
+    max-width: 880px;
   }
-  .slab-sub {
-    margin-top: 16px;
-    font-size: 15px;
-    font-weight: 500;
-    opacity: 0.72;
+  /* The card fills the window height beside the scrolling content. */
+  .home.split :global(.power.card) {
+    position: sticky;
+    top: 0;
+    min-height: calc(100vh - 52px - 8px - 20px);
   }
-  .slab-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 20px;
-  }
-  .slab-foot {
-    margin-top: 28px;
-    padding-top: 16px;
-    border-top: 1px solid var(--line-2);
-    font-size: 12.5px;
-    line-height: 1.5;
-    opacity: 0.66;
-    max-width: 300px;
-  }
-  .on .slab-foot {
-    border-top-color: rgb(3 20 10 / 0.16);
-  }
-
-  /* Services and facts */
-  .ov-right {
+  .home-main {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0;
     min-width: 0;
   }
-  .services {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .services .progress {
-    margin-bottom: -3px;
+  .block {
+    margin-bottom: 32px;
   }
   .warn-text {
     color: var(--amber);
   }
+  .bad-text {
+    color: var(--red);
+  }
+
+  .section-h {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    padding-bottom: 12px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .turn {
+    display: flex;
+  }
+  .turn.on {
+    animation: turn 1.2s linear infinite;
+  }
+  @keyframes turn {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .progress {
+    margin-bottom: 8px;
+  }
+  .dns-hint {
+    margin-top: 12px;
+    align-items: center;
+  }
+
+  /* Services: single-line rows, like items of a list block. */
   .svc-list {
-    flex: 1;
-    display: grid;
-    grid-auto-rows: minmax(64px, 1fr);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 -8px;
     list-style: none;
   }
   .svc-row {
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) auto 76px;
+    grid-template-columns: 20px auto minmax(0, 1fr) auto 64px;
     align-items: center;
-    gap: 14px;
-    padding: 0 20px;
-    border-top: 1px solid var(--line);
+    gap: 12px;
+    height: 44px;
+    padding: 0 8px;
+    border-radius: 6px;
+    transition: background-color 0.15s;
+  }
+  .svc-row:hover {
+    background: var(--hover);
   }
   .svc-ico {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
     display: grid;
     place-items: center;
-    background: var(--raise);
-    border: 1px solid var(--line);
     color: var(--text-2);
-  }
-  .svc-text {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
   }
   .svc-name {
-    font-size: 14px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .svc-detail {
-    margin-top: 1px;
-    font-size: 12.5px;
-    color: var(--text-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .state.wait {
-    color: var(--text-2);
-  }
-
-  .facts {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr;
-  }
-  .fact {
-    padding: 18px 20px;
-    border-left: 1px solid var(--line);
-    min-width: 0;
-  }
-  .fact:first-child {
-    border-left: 0;
-  }
-  .fact dt {
-    font-size: 12.5px;
-    color: var(--text-2);
-  }
-  .fact dd {
-    margin-top: 6px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
-  }
-  .fact-v {
-    max-width: 100%;
     font-size: 15px;
     font-weight: 500;
-    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .svc-detail {
+    font-size: 13px;
+    color: var(--text-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .fact-v.mono {
-    font-size: 13.5px;
-    font-weight: 400;
-    letter-spacing: -0.02em;
+  .svc-detail.bad-text {
+    color: var(--red);
   }
-  .fact-sub {
-    font-size: 12px;
+
+  /* Properties: label column and value, a hover surface per row. */
+  .props {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-inline: -8px;
+  }
+  .prop {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: 6px;
+  }
+  .prop:hover {
+    background: var(--hover);
+  }
+  .prop dt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-2);
+  }
+  .prop dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    min-width: 0;
+  }
+  .prop-v {
+    font-weight: 500;
+  }
+  .muted {
+    font-size: 13px;
     color: var(--text-3);
   }
-  .fact .link {
-    margin-top: 4px;
+
+  /* Details fold away, like a toggle block. */
+  .more summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    height: 32px;
+    margin-left: -8px;
+    padding: 0 10px 0 6px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+  }
+  .more summary::-webkit-details-marker {
+    display: none;
+  }
+  .more summary:hover {
+    background: var(--hover);
+  }
+  .more summary :global(svg) {
+    color: var(--text-2);
+    transform: rotate(-90deg);
+    transition: transform 0.15s;
+  }
+  .more[open] summary :global(svg) {
+    transform: none;
   }
 
   .warnings {
     list-style: none;
-    margin-top: 16px;
   }
   .warnings .alert {
     margin: 0 0 8px;
   }
 
-  /* Narrower windows: the card becomes a band above the list. */
-  @media (max-width: 940px) {
-    .ov {
-      grid-template-columns: minmax(0, 1fr);
-      min-height: 0;
+  /* The window is at least 720 wide, so the app always keeps the column;
+     a narrower column and shorter rows make it fit. */
+  @media (max-width: 1040px) {
+    .home.split {
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 24px;
     }
-    .slab {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas: 'title toggle' 'sub toggle' 'actions actions' 'foot foot';
-      align-items: start;
-      padding: 22px 24px;
+    .svc-row {
+      grid-template-columns: 20px minmax(0, 1fr) auto 56px;
     }
-    .slab-title {
-      grid-area: title;
-      padding-top: 0;
-      font-size: 40px;
+    .svc-detail {
+      display: none;
     }
-    .slab-sub {
-      grid-area: sub;
-      margin-top: 10px;
-    }
-    .big-toggle,
-    .slab-icon {
-      grid-area: toggle;
-      align-self: center;
-    }
-    .slab-actions {
-      grid-area: actions;
-    }
-    .slab-foot {
-      grid-area: foot;
-      max-width: none;
-      margin-top: 20px;
-    }
-    .svc-list {
-      grid-auto-rows: 64px;
+    .prop {
+      grid-template-columns: 112px minmax(0, 1fr);
     }
   }
   @media (max-width: 640px) {
-    .slab-title {
-      font-size: 32px;
+    .home.split {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
     }
-    .facts {
-      grid-template-columns: 1fr 1fr;
+    .home.split :global(.power.card) {
+      position: static;
+      min-height: 0;
     }
-    .fact.strategy {
-      grid-column: 1 / -1;
-      border-bottom: 1px solid var(--line);
-    }
-    .fact:nth-child(2) {
-      border-left: 0;
+  }
+  @media (max-width: 640px) {
+    .prop {
+      grid-template-columns: 120px minmax(0, 1fr);
     }
     .svc-row {
-      grid-template-columns: 38px minmax(0, 1fr) auto;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
     }
+    .svc-detail,
     .svc-row .lat {
       display: none;
     }

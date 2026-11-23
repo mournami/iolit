@@ -1,6 +1,8 @@
 <script lang="ts">
-  // Brand mark: a green tile with a "z", or the icon chosen in settings.
+  // Brand mark, light or dark with the theme, or the icon chosen in settings.
   import { appearance } from '../appearance.svelte';
+  import { markSvg } from '../brandMark';
+  import { theme } from '../theme.svelte';
 
   let { size = 20 }: { size?: number } = $props();
 </script>
@@ -8,23 +10,16 @@
 {#if appearance.icon}
   <img class="mark" src={appearance.icon} width={size} height={size} alt="" />
 {:else}
-  <svg class="mark" width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
-    <rect width="20" height="20" rx="6" fill="var(--g)" />
-    <path
-      d="M5.5 6.2h9l-9 7.6h9"
-      fill="none"
-      stroke="var(--on-g)"
-      stroke-width="2.1"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-  </svg>
+  <span class="mark" style:width="{size}px" style:height="{size}px">{@html markSvg(theme.resolved, size)}</span>
 {/if}
 
 <style>
   .mark {
     display: block;
     flex: none;
+  }
+  .mark :global(svg) {
+    display: block;
   }
   img.mark {
     border-radius: 30%;

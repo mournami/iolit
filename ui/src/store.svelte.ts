@@ -2,7 +2,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { api, native, type Command } from './api';
 import type { BundleStatus, DoctorCheck, DoctorResult, Snapshot } from './types';
 
-export type Page = 'overview' | 'checks' | 'settings';
+export type Page = 'overview' | 'settings';
 
 /** Command currently waiting for the service, used to word the busy state. */
 type Pending = 'enable' | 'disable' | 'strategy' | 'install' | 'diagnose' | 'select' | 'cancel' | 'doctor' | 'dns' | 'update' | 'telegram' | null;
@@ -85,12 +85,12 @@ class AppState {
   installService = () => this.#run('install_service', undefined, 'install');
   diagnose = () => this.#run('diagnose', undefined, 'diagnose');
   selectStrategy = () => {
-    this.page = 'checks';
+    this.page = 'overview';
     return this.#run('select_strategy', undefined, 'select');
   };
   /** Selection only for the services the background check found broken. */
   repairStrategy = () => {
-    this.page = 'checks';
+    this.page = 'overview';
     return this.#run('repair_strategy', undefined, 'select');
   };
   /** Runs the downloaded installer; the window closes and opens again. */

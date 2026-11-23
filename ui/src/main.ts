@@ -1,5 +1,4 @@
-import '@fontsource-variable/inter';
-import '@fontsource/geist-mono/400.css';
+import './fonts.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
 import './style.css';

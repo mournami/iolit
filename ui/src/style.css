@@ -1,66 +1,80 @@
 /*
-  Iolit. Black or white chrome, one green for "works / on",
-  red for "not confirmed / error", amber for warnings.
+  Iolit. Black and neutral greys; the brand colour #32216B (iolite) marks
+  only what matters: the bypass card, the main button, the switch. Green
+  only means "works", red "not confirmed / error", amber a warning.
 */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --brand: #32216b;
+  --brand-on: #3f2a88;
+  --on-brand: #f4f1ff;
+  --on-brand-2: rgb(244 241 255 / 0.68);
   --bg: #000000;
-  --panel: #0c0e0d;
-  --raise: #151816;
-  --raise-2: #1c201e;
-  --tab-on: #181b19;
-  --line: #1d211f;
-  --line-2: #2a2f2c;
-  --text: #f2f5f3;
-  --text-2: #98a09c;
-  --text-3: #5f6763;
-  --g: #3ee387;
-  --g-text: #4be892;
-  --g-soft: rgb(62 227 135 / 0.11);
-  --on-g: #03140a;
-  --red: #ff6b5e;
-  --red-soft: rgb(255 107 94 / 0.12);
+  --panel: #0f0f11;
+  --raise: #161618;
+  --raise-2: #1f1f22;
+  --tab-on: #1f1f22;
+  --line: rgb(255 255 255 / 0.07);
+  --line-2: rgb(255 255 255 / 0.12);
+  --text: #f2f2f3;
+  --text-2: #a1a1a8;
+  --text-3: #7c7c84;
+  --g: #32216b;
+  --g-text: #ad9bff;
+  --g-soft: rgb(173 155 255 / 0.12);
+  --on-g: #ffffff;
+  --ok: #5fd39a;
+  --ok-soft: rgb(95 211 154 / 0.12);
+  --red: #ff7a6e;
+  --red-soft: rgb(255 122 110 / 0.12);
   --amber: #f2b33d;
   --amber-soft: rgb(242 179 61 / 0.12);
-  --slab-off: #111412;
-  --log-bg: #070807;
+  --slab-off: #0f0f11;
+  --log-bg: #0a0a0b;
   --hover: rgb(255 255 255 / 0.05);
 }
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #ffffff;
-  --panel: #f4f6f5;
+  --brand: #32216b;
+  --brand-on: #3f2a88;
+  --on-brand: #f4f1ff;
+  --on-brand-2: rgb(244 241 255 / 0.68);
+  --bg: #f7f5fc;
+  --panel: #efebf8;
   --raise: #ffffff;
-  --raise-2: #e9edeb;
-  --tab-on: #edf0ee;
-  --line: #e4e8e6;
-  --line-2: #d3d9d6;
-  --text: #06110a;
-  --text-2: #56605b;
-  --text-3: #8c9590;
-  --g: #34dc7f;
-  --g-text: #0a8746;
-  --g-soft: rgb(14 160 84 / 0.11);
-  --on-g: #03140a;
-  --red: #d23b2c;
-  --red-soft: rgb(210 59 44 / 0.1);
-  --amber: #a86e06;
+  --raise-2: #e8e3f5;
+  --tab-on: #e8e3f5;
+  --line: rgb(26 20 51 / 0.08);
+  --line-2: rgb(26 20 51 / 0.14);
+  --text: #1a1433;
+  --text-2: #57507a;
+  --text-3: #736c94;
+  --g: #32216b;
+  --g-text: #32216b;
+  --g-soft: rgb(50 33 107 / 0.09);
+  --on-g: #ffffff;
+  --ok: #15804d;
+  --ok-soft: rgb(21 128 77 / 0.1);
+  --red: #c8372a;
+  --red-soft: rgb(200 55 42 / 0.1);
+  --amber: #9a6505;
   --amber-soft: rgb(196 132 12 / 0.12);
-  --slab-off: #eef1ef;
+  --slab-off: #efebf8;
   --log-bg: #ffffff;
-  --hover: rgb(6 17 10 / 0.05);
+  --hover: rgb(26 20 51 / 0.05);
 }
 
 :root {
-  --sans: 'Inter Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-  --mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --sans: 'Fixel Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --display: 'Fixel Display', var(--sans);
+  /* Only logs and colour codes are monospaced; Windows ships Cascadia Mono. */
+  --mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
   font-family: var(--sans);
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 20px;
   color: var(--text);
   background: var(--bg);
-  font-feature-settings: 'cv05', 'calt';
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -76,8 +90,8 @@ button:disabled { cursor: not-allowed; }
 svg { flex-shrink: 0; }
 :focus-visible { outline: 2px solid var(--g); outline-offset: 2px; border-radius: 6px; }
 
-.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum', 'cv05'; }
-.mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); font-size: 12px; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -87,42 +101,48 @@ svg { flex-shrink: 0; }
 .page-h {
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: 16px 24px; flex-wrap: wrap;
-  padding: 14px 2px 20px;
+  padding: 8px 0 24px;
 }
-.h1 { font-size: 28px; line-height: 1.1; font-weight: 600; letter-spacing: -0.028em; }
-.page-h .sub { font-size: 13.5px; margin-top: 6px; }
+.h1 { font-family: var(--display); font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.01em; }
+.page-h .sub { font-size: 14px; line-height: 20px; margin-top: 4px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* Panels */
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+/* Sections sit straight on the page: no frame, no fill. A band groups
+   related rows on one soft surface, still without rules. */
+.panel { min-width: 0; }
+/* No cards: the band only lines its rows up with the page edge, so rows
+   can show a hover surface that reaches a little past the text. */
+.band { margin-inline: -20px; }
+.band .panel-h { padding: 8px 20px; }
 .panel-h {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 16px 18px 14px 20px;
+  padding: 0 0 8px;
 }
-.h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
-.sub { font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.45; }
+.h2 { font-size: 16px; line-height: 24px; font-weight: 600; }
+.sub { font-size: 13px; color: var(--text-2); margin-top: 2px; line-height: 20px; }
 
 /* Buttons */
 .btn {
-  height: 34px; padding: 0 14px; border-radius: 9px;
+  height: 32px; padding: 0 12px; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 13px; font-weight: 500; color: var(--text);
-  background: var(--raise); border: 1px solid var(--line-2);
+  font-size: 14px; font-weight: 500; color: var(--text);
+  background: var(--raise-2); border: 0;
   white-space: nowrap; transition: background-color 0.15s, color 0.15s, opacity 0.15s;
 }
 .btn svg { color: var(--text-2); }
-.btn:hover:not(:disabled) { background: var(--raise-2); }
+.btn:hover:not(:disabled) { background: color-mix(in srgb, var(--raise-2) 80%, var(--text) 8%); }
 .btn:disabled { opacity: 0.45; }
-.btn.primary { background: var(--g); border-color: transparent; color: var(--on-g); font-weight: 600; }
+.btn.primary { background: var(--g); border-color: transparent; color: var(--on-g); }
 .btn.primary svg { color: var(--on-g); }
-.btn.primary:hover:not(:disabled) { background: var(--g-text); }
-.btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); padding: 0 10px; }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--g) 82%, #ffffff); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); padding: 0 12px; }
 .btn.ghost:hover:not(:disabled) { background: var(--hover); color: var(--text); }
-.btn.sm { height: 30px; padding: 0 11px; font-size: 12.5px; border-radius: 8px; }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 13px; border-radius: 6px; }
 
 .link {
   padding: 0; border: 0; background: none;
-  font-size: 12.5px; font-weight: 500; color: var(--g-text);
+  font-size: 13px; font-weight: 500; color: var(--g-text);
 }
 .link:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .link:disabled { opacity: 0.45; }
@@ -135,11 +155,16 @@ svg { flex-shrink: 0; }
 .icon-btn:disabled { opacity: 0.45; }
 
 /* Status words */
-.state { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--g-text); white-space: nowrap; }
-.state i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
-.state.bad { color: var(--red); }
-.state.warn { color: var(--amber); }
-.state.idle { color: var(--text-3); }
+/* Status tags, like select properties in a document app. */
+.state {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px;
+  font-size: 13px; line-height: 20px; font-weight: 500; white-space: nowrap;
+  color: var(--ok); background: var(--ok-soft);
+}
+.state i { display: none; }
+.state.bad { color: var(--red); background: var(--red-soft); }
+.state.warn { color: var(--amber); background: var(--amber-soft); }
+.state.idle, .state.wait { color: var(--text-2); background: var(--raise-2); }
 
 .lat { text-align: right; font-size: 14px; font-weight: 500; white-space: nowrap; }
 .lat small { font-size: 12px; color: var(--text-2); font-weight: 400; margin-left: 2px; }
@@ -147,40 +172,50 @@ svg { flex-shrink: 0; }
 
 /* Fields */
 input, select {
-  height: 36px; padding: 0 12px; border-radius: 9px;
-  background: var(--raise); border: 1px solid var(--line-2); color: var(--text);
-  font-size: 13.5px; min-width: 0;
+  height: 32px; padding: 0 10px; border-radius: 8px;
+  background: var(--raise-2); border: 0; color: var(--text);
+  font-size: 14px; min-width: 0;
 }
 input::placeholder { color: var(--text-3); }
 input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
-input:focus-visible, select:focus-visible { outline: 2px solid var(--g); outline-offset: -1px; border-color: transparent; border-radius: 9px; }
+input:focus-visible, select:focus-visible { outline: 2px solid var(--g); outline-offset: -1px; border-color: transparent; border-radius: 8px; }
 
 /* Segmented control */
-.seg { display: flex; flex-wrap: wrap; padding: 3px; gap: 2px; border-radius: 10px; background: var(--raise-2); }
+.seg { position: relative; display: flex; flex-wrap: wrap; padding: 4px; gap: 4px; border-radius: 12px; background: var(--raise-2); }
 .seg button {
-  height: 30px; padding: 0 13px; border-radius: 7px; border: 0; background: none;
-  display: flex; align-items: center; gap: 7px;
+  height: 28px; padding: 0 12px; border-radius: 8px; border: 0; background: none;
+  display: flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 500; color: var(--text-2);
 }
 .seg button:hover:not(.on) { color: var(--text); }
-.seg button.on { background: var(--raise); color: var(--text); box-shadow: 0 0 0 1px var(--line-2); }
-:root[data-theme='light'] .seg button.on { box-shadow: 0 1px 2px rgb(6 17 10 / 0.08), 0 0 0 1px var(--line-2); }
+.seg button { position: relative; }
+.seg button.on { color: var(--text); }
+/* The selected item's plate slides to the item chosen (see Settings.svelte). */
+.seg-pill {
+  position: absolute; top: 4px; left: 0; height: 28px; border-radius: 8px;
+  background: var(--raise); box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  pointer-events: none; opacity: 0;
+}
+.seg-pill.show { opacity: 1; }
+.seg-pill.ready { transition: transform 0.26s cubic-bezier(0.3, 0.7, 0.2, 1), width 0.26s cubic-bezier(0.3, 0.7, 0.2, 1), opacity 0.15s; }
+:root[data-theme='light'] .seg-pill { box-shadow: 0 1px 2px rgb(26 20 51 / 0.1); }
 
 /* Messages */
 .alert {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 11px 10px 11px 14px; margin: 4px 0 12px;
-  border-radius: 12px; border: 1px solid; font-size: 13px;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 12px 12px 16px; margin: 0 0 16px;
+  border-radius: 8px; font-size: 14px; line-height: 20px;
+  background: var(--panel); color: var(--text);
 }
-.alert > svg { margin-top: 1px; }
+.alert > svg { margin-top: 2px; }
 .alert p { flex: 1; line-height: 1.5; overflow-wrap: anywhere; }
-.alert .icon-btn { width: 24px; height: 24px; color: inherit; }
-.alert.bad { background: var(--red-soft); border-color: color-mix(in srgb, var(--red) 35%, transparent); color: var(--red); }
-.alert.good { background: var(--g-soft); border-color: color-mix(in srgb, var(--g) 35%, transparent); color: var(--g-text); }
-.alert.warn { background: var(--amber-soft); border-color: color-mix(in srgb, var(--amber) 35%, transparent); color: var(--amber); }
+.alert .icon-btn { width: 24px; height: 24px; color: var(--text-2); }
+.alert.bad > svg { color: var(--red); }
+.alert.good > svg { color: var(--ok); }
+.alert.warn > svg { color: var(--amber); }
 
 /* Progress */
-.progress { height: 3px; background: var(--line); overflow: hidden; }
+.progress { height: 3px; background: var(--raise-2); border-radius: 2px; overflow: hidden; }
 .progress span { display: block; height: 100%; background: var(--g); transition: width 0.3s ease; }
 .progress.indeterminate span { width: 30%; animation: slide 1.3s ease-in-out infinite; }
 @keyframes slide {
@@ -192,4 +227,18 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--g); outline
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Manual theme switch (theme.svelte.ts): the new theme is drawn over the old
+   one and revealed by a circle; the default cross-fade is switched off. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 0;
+}
+::view-transition-new(root) {
+  z-index: 1;
 }

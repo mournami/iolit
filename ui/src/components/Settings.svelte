@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Icon from '../Icon.svelte';
   import { app, bundleLine, plural } from '../store.svelte';
   import { theme, type ThemeChoice } from '../theme.svelte';
@@ -9,6 +10,35 @@
   import Mark from './Mark.svelte';
 
   let cropping = $state(false);
+
+  // The plate behind the chosen theme slides between the items.
+  let seg: HTMLElement | undefined = $state();
+  let plate = $state({ x: 0, w: 0, show: false, ready: false });
+  function movePlate() {
+    const on = seg?.querySelector<HTMLElement>('button.on');
+    if (!seg) return;
+    if (!on) {
+      plate.show = false;
+      return;
+    }
+    const a = on.getBoundingClientRect();
+    const box = seg.getBoundingClientRect();
+    plate.x = a.x - box.x;
+    plate.w = a.width;
+    plate.show = true;
+  }
+  $effect(() => {
+    theme.choice;
+    appearance.bg;
+    movePlate();
+    // No slide on the first paint, only when the choice changes.
+    requestAnimationFrame(() => (plate.ready = true));
+  });
+  onMount(() => {
+    void document.fonts?.ready.then(movePlate);
+    window.addEventListener('resize', movePlate);
+    return () => window.removeEventListener('resize', movePlate);
+  });
   const BG_PRESETS = [
     '#000000', '#0b0d0c', '#0d1117', '#111827', '#14161f', '#1a1b26', '#1e1e2e', '#1f1d2b',
     '#18181b', '#202225', '#1b2420', '#2b1d24', '#ffffff', '#f6f7f6', '#f5f1e8', '#eef2f7',
@@ -62,7 +92,7 @@
 
 <div class="set">
   <div class="col left">
-    <section class="panel rows" aria-label="Работа обхода">
+    <section class="panel band rows" aria-label="Работа обхода">
       <div class="row">
         <div>
           <h2 class="row-k" id="strategy-label">Стратегия</h2>
@@ -108,7 +138,6 @@
         {#if dns?.supported}
           <button
             class="btn sm"
-            class:primary={!dns.enabled}
             disabled={!app.installed || app.busy}
             onclick={() => app.setSecureDns(!dns.enabled)}
           >
@@ -127,7 +156,7 @@
       </div>
     </section>
 
-    <section class="panel rows" aria-labelledby="tg-title">
+    <section class="panel band rows" aria-labelledby="tg-title">
       <div class="row">
         <div>
           <h2 class="row-k" id="tg-title">Telegram</h2>
@@ -144,7 +173,6 @@
         </div>
         <button
           class="btn sm"
-          class:primary={!tg?.enabled}
           disabled={!app.installed || app.pending !== null}
           onclick={() => app.setTelegram(!tg?.enabled)}
         >
@@ -182,7 +210,7 @@
       {/if}
     </section>
 
-    <section class="panel rows" aria-labelledby="look-title">
+    <section class="panel band rows" aria-labelledby="look-title">
       <div class="row head-row">
         <h2 class="h2" id="look-title">Оформление</h2>
         {#if appearance.custom}
@@ -194,7 +222,15 @@
           <h2 class="row-k" id="theme-label">Тема</h2>
           {#if appearance.bg}<p class="row-d">Сейчас тему задаёт свой цвет фона</p>{/if}
         </div>
-        <div class="seg" role="radiogroup" aria-labelledby="theme-label">
+        <div class="seg" role="radiogroup" aria-labelledby="theme-label" bind:this={seg}>
+          <span
+            class="seg-pill"
+            class:show={plate.show}
+            class:ready={plate.ready}
+            style:width="{plate.w}px"
+            style:transform="translateX({plate.x}px)"
+            aria-hidden="true"
+          ></span>
           {#each themes as t (t.id)}
             <button
               role="radio"
@@ -261,7 +297,7 @@
       </div>
     </section>
 
-    <section class="panel rows" aria-label="Данные">
+    <section class="panel band rows" aria-label="Данные">
       <div class="row">
         <div>
           <h2 class="row-k">Телеметрия</h2>
@@ -274,7 +310,7 @@
   </div>
 
   <div class="col right">
-    <section class="panel" aria-labelledby="domains-title">
+    <section class="panel band" aria-labelledby="domains-title">
       <div class="panel-h">
         <div>
           <h2 class="h2" id="domains-title">Свои домены</h2>
@@ -323,7 +359,7 @@
       {/if}
     </section>
 
-    <section class="panel" aria-labelledby="log-title">
+    <section class="panel band" aria-labelledby="log-title">
       <div class="panel-h">
         <div>
           <h2 class="h2" id="log-title">Журнал службы</h2>
@@ -390,8 +426,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px 24px;
-    padding: 18px 20px;
-    border-top: 1px solid var(--line);
+    padding: 16px 20px;
   }
   .rows .row:first-child {
     border-top: 0;
@@ -403,7 +438,7 @@
   .row-d {
     margin-top: 3px;
     max-width: 380px;
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.45;
     color: var(--text-2);
   }
@@ -432,7 +467,6 @@
     place-items: center;
     border-radius: 12px;
     background: var(--raise);
-    border: 1px solid var(--line);
   }
   .icon-actions {
     display: flex;
@@ -477,7 +511,7 @@
   }
   .count {
     padding: 0 20px 12px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-3);
   }
   .domains {
@@ -491,8 +525,7 @@
     gap: 10px;
     min-height: 44px;
     padding: 0 10px 0 20px;
-    border-top: 1px solid var(--line);
-    font-size: 13.5px;
+    font-size: 14px;
   }
   .domains li.fresh {
     background: var(--g-soft);
@@ -514,9 +547,8 @@
     overflow: auto;
     border-radius: 10px;
     background: var(--log-bg);
-    border: 1px solid var(--line);
     font-family: var(--mono);
-    font-size: 11.5px;
+    font-size: 12px;
     line-height: 1.75;
     color: var(--text-2);
     white-space: pre;
@@ -535,7 +567,7 @@
   }
   .about-t {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
   }
   .about-d {
     margin-top: 2px;
@@ -543,7 +575,8 @@
     color: var(--text-3);
   }
 
-  @media (max-width: 1000px) {
+  /* The brand panel takes 300px, so two columns need a wide window. */
+  @media (max-width: 1300px) {
     .set {
       grid-template-columns: minmax(0, 1fr);
       grid-template-areas: 'left' 'right' 'about';
