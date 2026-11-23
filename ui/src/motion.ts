@@ -20,16 +20,16 @@ export function spring(t: number): number {
 /** The same curve as a CSS `linear()` easing, for transitions and animations. */
 export const SPRING_CSS = `linear(${Array.from({ length: 41 }, (_, i) => spring(i / 40).toFixed(4)).join(', ')})`;
 
-/** Page enter and leave: blur, scale and fade. Blocks do the sliding themselves. */
-export function flow(_node: Element, { delay = 0, duration = 520, leaving = false } = {}) {
+/**
+ * Page enter and leave: opacity only. Blur or scale on a whole page makes the
+ * browser repaint every pixel on each frame, which janks; the blocks of the
+ * page do the moving (see App.svelte), and they only use transform and opacity.
+ */
+export function flow(_node: Element, { delay = 0, duration = 360, leaving = false } = {}) {
   return {
     delay,
     duration,
-    easing: leaving ? (t: number) => t : spring,
-    css: (t: number) => {
-      const shown = Math.min(Math.max(t, 0), 1);
-      const hidden = 1 - shown;
-      return `opacity:${shown};transform:scale(${1 - 0.012 * hidden});filter:blur(${Math.max(0, hidden * (leaving ? 4 : 8)).toFixed(2)}px)`;
-    },
+    easing: leaving ? (t: number) => t : (t: number) => Math.min(spring(t), 1),
+    css: (t: number) => `opacity:${Math.min(Math.max(t, 0), 1)}`,
   };
 }

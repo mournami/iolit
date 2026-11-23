@@ -120,14 +120,13 @@
         </div>
       {/if}
 
-      <!-- Pages flow into each other: the old one blurs out while the new one
-           comes out of a blur; their blocks then rise one after another. -->
+      <!-- Pages cross-fade; the blocks of the new page rise one after another. -->
       <div class="stage">
         {#key app.page}
           <div
             class="view"
-            in:flow={{ delay: 70 }}
-            out:flow={{ duration: 200, leaving: true }}
+            in:flow={{ delay: 60 }}
+            out:flow={{ duration: 140, leaving: true }}
           >
             {#if app.page === 'overview'}
               <Overview />
@@ -208,7 +207,8 @@
   .view :global(.home-main > *),
   .view :global(.set .col > *),
   .view :global(.set > .about) {
-    animation: rise 0.6s var(--spring) backwards;
+    animation: rise 0.45s var(--spring) backwards;
+    will-change: transform, opacity;
   }
   .view :global(.home-main > :nth-child(2)),
   .view :global(.set .col > :nth-child(2)) {
@@ -226,7 +226,7 @@
   @keyframes rise {
     from {
       opacity: 0;
-      transform: translateY(14px);
+      transform: translateY(10px);
     }
   }
   .tabs button {
