@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { getAbortSignal, onMount } from 'svelte';
   import { fly } from 'svelte/transition';
-  import { native } from './api';
+  import { tauri } from './transport';
   import Icon from './Icon.svelte';
   import { app, type Page } from './store.svelte';
   import { theme } from './theme.svelte';
+  import { scrollbars } from './scrollbars';
   import { appearance } from './appearance.svelte';
   import { applyWindowIcon } from './windowIcon';
   import Mark from './components/Mark.svelte';
@@ -13,7 +14,7 @@
   import WindowControls from './components/WindowControls.svelte';
 
   // Windows draws its own title row (no system frame); other systems keep theirs.
-  const ownFrame = native && navigator.userAgent.includes('Windows');
+  const ownFrame = tauri && navigator.userAgent.includes('Windows');
 
   const pages: { id: Page; label: string; icon: string }[] = [
     { id: 'overview', label: 'Главная', icon: 'home' },
@@ -43,8 +44,8 @@
   $effect(() => {
     const icon = appearance.icon;
     const resolved = theme.resolved;
-    if (!native) return;
-    void applyWindowIcon(icon, resolved);
+    if (!tauri) return;
+    void applyWindowIcon(icon, resolved, getAbortSignal());
   });
 
   onMount(() => {
@@ -97,40 +98,42 @@
     {#if ownFrame}<WindowControls />{/if}
   </header>
 
-  <main class="main" class:edge={app.page === 'overview'}>
-    <div class="page">
-      {#if app.error}
-        <div class="alert bad" role="alert">
-          <Icon name="alert" size={16} />
-          <p>{app.error}</p>
-          <button class="icon-btn" aria-label="Закрыть сообщение об ошибке" onclick={() => (app.error = '')}>
-            <Icon name="close" size={14} />
-          </button>
-        </div>
-      {/if}
-      {#if app.notice}
-        <div class="alert good" role="status">
-          <Icon name="check" size={16} />
-          <p>{app.notice}</p>
-          <button class="icon-btn" aria-label="Закрыть уведомление" onclick={() => (app.notice = '')}>
-            <Icon name="close" size={14} />
-          </button>
-        </div>
-      {/if}
+  <div class="main-scroll scroll-host" use:scrollbars>
+    <main class="main" class:edge={app.page === 'overview'}>
+      <div class="page">
+        {#if app.error}
+          <div class="alert bad" role="alert">
+            <Icon name="alert" size={16} />
+            <p>{app.error}</p>
+            <button class="icon-btn" aria-label="Закрыть сообщение об ошибке" onclick={() => (app.error = '')}>
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        {/if}
+        {#if app.notice}
+          <div class="alert good" role="status">
+            <Icon name="check" size={16} />
+            <p>{app.notice}</p>
+            <button class="icon-btn" aria-label="Закрыть уведомление" onclick={() => (app.notice = '')}>
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        {/if}
 
-      <!-- One short fade with a 6px rise; the old page is replaced at once.
-           Only opacity and transform, so it stays smooth without GPU help. -->
-      {#key app.page}
-        <div class="view" in:fly={{ y: 6, duration: 160 }}>
-          {#if app.page === 'overview'}
-            <Overview />
-          {:else}
-            <Settings />
-          {/if}
-        </div>
-      {/key}
-    </div>
-  </main>
+        <!-- One short fade with a 6px rise; the old page is replaced at once.
+             Only opacity and transform, so it stays smooth without GPU help. -->
+        {#key app.page}
+          <div class="view" in:fly={{ y: 6, duration: 160 }}>
+            {#if app.page === 'overview'}
+              <Overview />
+            {:else}
+              <Settings />
+            {/if}
+          </div>
+        {/key}
+      </div>
+    </main>
+  </div>
 </div>
 
 <style>
@@ -213,10 +216,17 @@
   }
 
   /* The page scrolls inside the window; the top bar stays. */
-  .main {
+  .main-scroll {
     flex: 1;
     min-height: 0;
-    overflow: auto;
+  }
+  .main-scroll:has(> :global(.os-scrollbar-vertical.os-scrollbar-visible)) {
+    padding-inline-end: var(--scrollbar-size);
+  }
+  .main {
+    width: 100%;
+    height: 100%;
+    overflow: hidden auto;
     padding: 16px 40px 48px;
   }
   /* Like a document: one readable column, centred in wide windows. */
@@ -245,6 +255,9 @@
     }
     .main {
       padding: 12px 16px 24px;
+    }
+    .main:not(.edge) :global(.band) {
+      margin-inline: -16px;
     }
   }
 </style>

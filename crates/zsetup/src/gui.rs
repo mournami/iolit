@@ -34,24 +34,24 @@ static FILES: [(&str, &str, &[u8]); 5] = [
         include_bytes!("../ui/index.html"),
     ),
     (
-        "/fonts/inter-cyrillic-wght-normal.woff2",
-        "font/woff2",
-        include_bytes!("../ui/fonts/inter-cyrillic-wght-normal.woff2"),
+        "/brand.svg",
+        "image/svg+xml",
+        include_bytes!("../../../resources/icon-dark.svg"),
     ),
     (
-        "/fonts/inter-latin-wght-normal.woff2",
+        "/fonts/FixelText-Regular.woff2",
         "font/woff2",
-        include_bytes!("../ui/fonts/inter-latin-wght-normal.woff2"),
+        include_bytes!("../../../ui/src/assets/fonts/FixelText-Regular.woff2"),
     ),
     (
-        "/fonts/geist-mono-cyrillic-400-normal.woff2",
+        "/fonts/FixelText-Medium.woff2",
         "font/woff2",
-        include_bytes!("../ui/fonts/geist-mono-cyrillic-400-normal.woff2"),
+        include_bytes!("../../../ui/src/assets/fonts/FixelText-Medium.woff2"),
     ),
     (
-        "/fonts/geist-mono-latin-400-normal.woff2",
+        "/fonts/FixelDisplay-SemiBold.woff2",
         "font/woff2",
-        include_bytes!("../ui/fonts/geist-mono-latin-400-normal.woff2"),
+        include_bytes!("../../../ui/src/assets/fonts/FixelDisplay-SemiBold.woff2"),
     ),
 ];
 
@@ -118,7 +118,7 @@ fn window(mode: Mode, payload: &'static [u8]) -> anyhow::Result<ExitCode> {
 
     let window = WindowBuilder::new()
         .with_title(TITLE)
-        .with_inner_size(LogicalSize::new(420.0, 500.0))
+        .with_inner_size(LogicalSize::new(552.0, 372.0))
         .with_resizable(false)
         .with_maximizable(false)
         .with_decorations(false)

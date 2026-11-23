@@ -13,6 +13,10 @@ fn files(root: &Path, app: &Path, service: &Path) -> Result<BTreeMap<String, Pat
     let mut files = BTreeMap::new();
     files.insert("zapret-desktop.exe".to_owned(), app.to_path_buf());
     files.insert("runtime/zapretd.exe".to_owned(), service.to_path_buf());
+    files.insert(
+        "iolit.ico".to_owned(),
+        root.join("src-tauri/icons/icon.ico"),
+    );
     bundle::walk(
         &root.join("resources/runtime/windows"),
         "runtime/windows",
@@ -75,6 +79,7 @@ mod tests {
             ("resources/runtime/windows/strategies.json", "[]"),
             ("resources/runtime/windows/bin/winws.exe", "winws"),
             ("resources/runtime/windows/lists/list-general-user.txt", ""),
+            ("src-tauri/icons/icon.ico", "icon"),
             ("licenses/WinDivert-LICENSE", "license"),
             ("LICENSE", "gpl"),
             ("app.exe", "app"),
@@ -99,6 +104,7 @@ mod tests {
             found,
             [
                 ("LICENSE.txt", "gpl"),
+                ("iolit.ico", "icon"),
                 ("licenses/WinDivert-LICENSE", "license"),
                 ("runtime/windows/bin/winws.exe", "winws"),
                 ("runtime/windows/lists/list-general-user.txt", ""),

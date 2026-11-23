@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scrollbars } from '../scrollbars';
   import { onMount } from 'svelte';
   import Icon from '../Icon.svelte';
   import { app, bundleLine, plural } from '../store.svelte';
@@ -336,24 +337,26 @@
           {app.domains.length}
           {plural(app.domains.length, 'домен', 'домена', 'доменов')} в вашем списке, общий список не меняется
         </p>
-        <ul class="domains">
-          {#each app.domains as d (d)}
-            <li class:fresh={d === app.lastDomain}>
-              <span class="dom-name">{d}</span>
-              {#if d === app.lastDomain}<span class="fresh-tag">добавлен</span>{/if}
-              <button
-                class="icon-btn"
-                type="button"
-                aria-label={`Удалить ${d}`}
-                title="Удалить из списка"
-                disabled={app.busy || app.domainBusy}
-                onclick={() => app.removeDomain(d)}
-              >
-                <Icon name="close" size={14} />
-              </button>
-            </li>
-          {/each}
-        </ul>
+        <div class="scroll-host" use:scrollbars>
+          <ul class="domains">
+            {#each app.domains as d (d)}
+              <li class:fresh={d === app.lastDomain}>
+                <span class="dom-name">{d}</span>
+                {#if d === app.lastDomain}<span class="fresh-tag">добавлен</span>{/if}
+                <button
+                  class="icon-btn"
+                  type="button"
+                  aria-label={`Удалить ${d}`}
+                  title="Удалить из списка"
+                  disabled={app.busy || app.domainBusy}
+                  onclick={() => app.removeDomain(d)}
+                >
+                  <Icon name="close" size={14} />
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
       {:else}
         <p class="count">Ваш список пока пуст. Общий список при этом работает.</p>
       {/if}
@@ -366,8 +369,10 @@
           <p class="sub">Последние 80 строк, только на этом компьютере. Может содержать сетевые адреса.</p>
         </div>
       </div>
-      <pre class="log" aria-label="Строки журнала">{app.logLines.join('\n') ||
-          (app.installed ? 'Журнал пуст.' : 'Журнал появится, когда служба будет установлена.')}</pre>
+      <div class="log-scroll scroll-host" use:scrollbars={{ horizontal: true }}>
+        <pre class="log" aria-label="Строки журнала">{app.logLines.join('\n') ||
+            (app.installed ? 'Журнал пуст.' : 'Журнал появится, когда служба будет установлена.')}</pre>
+      </div>
       <div class="log-actions">
         <button class="btn sm" disabled={!app.installed} onclick={app.loadLogs}>
           <Icon name="refresh" size={15} />Обновить
@@ -517,14 +522,14 @@
   .domains {
     list-style: none;
     max-height: 264px;
-    overflow: auto;
+    overflow: hidden auto;
   }
   .domains li {
     display: flex;
     align-items: center;
     gap: 10px;
     min-height: 44px;
-    padding: 0 10px 0 20px;
+    padding: 0 14px 0 20px;
     font-size: 14px;
   }
   .domains li.fresh {
@@ -540,13 +545,16 @@
     color: var(--g-text);
   }
 
-  .log {
+  .log-scroll {
     margin: 0 20px;
+    border-radius: 10px;
+    background: var(--log-bg);
+  }
+  .log {
+    margin: 0;
     padding: 12px 14px;
     max-height: 220px;
     overflow: auto;
-    border-radius: 10px;
-    background: var(--log-bg);
     font-family: var(--mono);
     font-size: 12px;
     line-height: 1.75;

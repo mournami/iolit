@@ -6,7 +6,7 @@ export interface Transport {
   call<T>(command: Command, args?: Record<string, unknown>): Promise<T>;
 }
 
-const tauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+export const tauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 /** `npm run dev` with `?demo`: plausible data instead of the service. Never in a build. */
 const demo = import.meta.env.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
 export const native = tauri || demo;

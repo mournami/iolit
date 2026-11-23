@@ -1,25 +1,18 @@
 /**
  * Puts the user's icon, or the mark for the current theme, on the window
- * (taskbar, Alt+Tab) and the tray. The Start menu and desktop shortcuts keep
- * the exe's icon, the light mark.
+ * (taskbar, Alt+Tab) and the tray. The shortcuts use the light mark.
  */
 import { TrayIcon } from '@tauri-apps/api/tray';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { markSvg, type MarkTheme } from './brandMark';
+import lightIcon from '../../src-tauri/icons/128x128.png?inline';
+import darkIcon from '../../src-tauri/icons/icon-dark.png?inline';
+import type { MarkTheme } from './brandMark';
+
+const icons = { light: lightIcon, dark: darkIcon };
 
 function decode(dataUrl: string): Uint8Array {
   const binary = atob(dataUrl.slice(dataUrl.indexOf(',') + 1));
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
-}
-
-async function renderDefault(theme: MarkTheme): Promise<Uint8Array> {
-  const img = new Image();
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markSvg(theme, 256));
-  await img.decode();
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 256;
-  canvas.getContext('2d')!.drawImage(img, 0, 0, 256, 256);
-  return decode(canvas.toDataURL('image/png'));
 }
 
 /** Rounds the corners like the in-app mark, so the taskbar matches. */
@@ -39,14 +32,20 @@ async function rounded(dataUrl: string): Promise<Uint8Array> {
 }
 
 /** The user's icon, or the built-in mark matching the theme. */
-export async function applyWindowIcon(icon: string | null, theme: MarkTheme) {
+export async function applyWindowIcon(icon: string | null, theme: MarkTheme, signal: AbortSignal) {
   try {
-    const bytes = icon ? await rounded(icon) : await renderDefault(theme);
-    await getCurrentWindow().setIcon(bytes);
-    const tray = await TrayIcon.getById('main');
-    await tray?.setIcon(bytes);
+    const bytes = icon ? await rounded(icon) : decode(icons[theme]);
+    if (signal.aborted) return;
+    const results = await Promise.allSettled([
+      getCurrentWindow().setIcon(bytes),
+      TrayIcon.getById('iolit').then((tray) => {
+        if (!signal.aborted) return tray?.setIcon(bytes);
+      }),
+    ]);
+    for (const result of results) {
+      if (result.status === 'rejected') console.warn('Не удалось сменить значок Iolit', result.reason);
+    }
   } catch (e) {
-    // The in-app mark still changes; only the taskbar keeps the old icon.
-    console.warn('Не удалось сменить значок окна', e);
+    console.warn('Не удалось подготовить значок Iolit', e);
   }
 }

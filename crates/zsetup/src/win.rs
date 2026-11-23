@@ -353,16 +353,17 @@ fn install(bytes: &[u8], after: After) -> Result<()> {
         step("Регистрация службы", |_| {
             register_service(&paths)
         })?;
+        step("Запуск службы", |_| start_service())?;
         step(
             "Ярлыки и запись в «Приложения»",
             |notes| {
+                register_uninstall(&paths, &record)?;
                 if let Err(e) = create_shortcuts(&paths) {
                     notes.push(format!("ярлыки не созданы: {e:#}"));
                 }
-                register_uninstall(&paths, &record)
+                Ok(())
             },
-        )?;
-        step("Запуск службы", |_| start_service())
+        )
     })();
     if let Err(e) = installed {
         if let Some(backup) = &backup {
@@ -1263,7 +1264,14 @@ fn create_shortcuts(paths: &Paths) -> Result<()> {
     for link in paths.old_shortcuts() {
         let _ = fs::remove_file(link);
     }
-    let icon = HSTRING::from(paths.app().as_os_str());
+    // The old location points to an exe whose icon Explorer may have cached.
+    let icon_file = paths.install.join("iolit.ico");
+    let icon = if icon_file.is_file() {
+        icon_file
+    } else {
+        paths.app()
+    };
+    let icon = HSTRING::from(icon.as_os_str());
     let folder = HSTRING::from(paths.install.as_os_str());
     unsafe {
         let initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();

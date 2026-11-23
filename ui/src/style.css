@@ -70,6 +70,7 @@
   --display: 'Fixel Display', var(--sans);
   /* Only logs and colour codes are monospaced; Windows ships Cascadia Mono. */
   --mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  --scrollbar-size: 14px;
   font-family: var(--sans);
   font-size: 14px;
   line-height: 20px;
@@ -89,6 +90,40 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 svg { flex-shrink: 0; }
 :focus-visible { outline: 2px solid var(--g); outline-offset: 2px; border-radius: 6px; }
+
+.scroll-host {
+  position: relative;
+}
+
+.os-scrollbar.os-theme-iolit {
+  --os-size: var(--scrollbar-size);
+}
+
+/* Animate the painted thumb inside a fixed hit area. */
+.os-theme-iolit .os-scrollbar-handle::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background-color: var(--text-3);
+  pointer-events: none;
+  transition: inset 220ms ease, background-color 220ms ease;
+}
+.os-theme-iolit.os-scrollbar-vertical .os-scrollbar-handle::after {
+  inset: 3px 5px;
+}
+.os-theme-iolit.os-scrollbar-horizontal .os-scrollbar-handle::after {
+  inset: 5px 3px;
+}
+.os-theme-iolit .os-scrollbar-handle:is(:hover, :active)::after {
+  inset: 3px;
+  background-color: var(--brand);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-theme-iolit .os-scrollbar-handle::after {
+    transition: none;
+  }
+}
 
 .num { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--mono); font-size: 12px; }

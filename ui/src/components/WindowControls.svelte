@@ -2,18 +2,37 @@
   // Minimise, maximise and close for the undecorated Windows window
   // (decorations are off only in tauri.windows.conf.json).
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { onMount } from 'svelte';
 
   const win = getCurrentWindow();
+  let maximized = $state(false);
+  const sizeAction = $derived(maximized ? 'Восстановить размер окна' : 'Развернуть');
+
+  onMount(() => {
+    const refresh = () => {
+      void win.isMaximized().then((value) => (maximized = value)).catch(console.warn);
+    };
+    const listener = win.onResized(refresh);
+    void listener.then(refresh).catch(console.warn);
+    return () => {
+      void listener.then((unlisten) => unlisten(), () => {});
+    };
+  });
 </script>
 
 <div class="winctl">
   <button aria-label="Свернуть" title="Свернуть" onclick={() => win.minimize()}>
     <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" /></svg>
   </button>
-  <button aria-label="Развернуть" title="Развернуть" onclick={() => win.toggleMaximize()}>
-    <svg viewBox="0 0 10 10" aria-hidden="true"
-      ><rect x=".5" y=".5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1" /></svg
-    >
+  <button aria-label={sizeAction} title={sizeAction} onclick={() => win.toggleMaximize()}>
+    <svg viewBox="0 0 10 10" aria-hidden="true" fill="none" stroke="currentColor">
+      {#if maximized}
+        <rect x=".5" y="2.5" width="7" height="7" rx="1" />
+        <path d="M2.5 2.5v-1a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1" />
+      {:else}
+        <rect x=".5" y=".5" width="9" height="9" rx="1.5" />
+      {/if}
+    </svg>
   </button>
   <button class="close" aria-label="Закрыть" title="Закрыть" onclick={() => win.close()}>
     <svg viewBox="0 0 10 10" aria-hidden="true"

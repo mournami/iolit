@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FONTS, type FontId } from '../appearance.svelte';
   import Icon from '../Icon.svelte';
+  import { scrollbars } from '../scrollbars';
 
   let { value, onchange }: { value: FontId; onchange: (font: FontId) => void } = $props();
 
@@ -48,33 +49,35 @@
     <Icon name="chevron" size={14} />
   </button>
   {#if open}
-    <ul
-      class="pop"
-      role="listbox"
-      tabindex="-1"
-      aria-label="Шрифт"
-      aria-activedescendant={`font-${FONTS[active].id}`}
-      bind:this={list}
-      onkeydown={key}
-    >
-      {#each FONTS as f, i (f.id)}
-        <li
-          id={`font-${f.id}`}
-          data-i={i}
-          role="option"
-          aria-selected={f.id === value}
-          class:active={i === active}
-          onpointerenter={() => (active = i)}
-          onclick={() => choose(i)}
-          onkeydown={() => {}}
-        >
-          <span class="name" style:font-family={family(f.stack)}>{f.label}</span>
-          <span class="sample" style:font-family={family(f.stack)}>Обход включён · 0123</span>
-          <span class="note">{f.note}</span>
-          {#if f.id === value}<span class="tick"><Icon name="check" size={15} stroke={2.6} /></span>{/if}
-        </li>
-      {/each}
-    </ul>
+    <div class="pop" use:scrollbars>
+      <ul
+        class="font-list"
+        role="listbox"
+        tabindex="-1"
+        aria-label="Шрифт"
+        aria-activedescendant={`font-${FONTS[active].id}`}
+        bind:this={list}
+        onkeydown={key}
+      >
+        {#each FONTS as f, i (f.id)}
+          <li
+            id={`font-${f.id}`}
+            data-i={i}
+            role="option"
+            aria-selected={f.id === value}
+            class:active={i === active}
+            onpointerenter={() => (active = i)}
+            onclick={() => choose(i)}
+            onkeydown={() => {}}
+          >
+            <span class="name" style:font-family={family(f.stack)}>{f.label}</span>
+            <span class="sample" style:font-family={family(f.stack)}>Обход включён · 0123</span>
+            <span class="note">{f.note}</span>
+            {#if f.id === value}<span class="tick"><Icon name="check" size={15} stroke={2.6} /></span>{/if}
+          </li>
+        {/each}
+      </ul>
+    </div>
   {/if}
 </div>
 
@@ -108,14 +111,16 @@
     top: calc(100% + 8px);
     z-index: 30;
     width: 300px;
-    max-height: 340px;
-    overflow: auto;
-    padding: 6px;
-    list-style: none;
     border-radius: 14px;
     background: var(--panel);
     border: 1px solid var(--line-2);
     box-shadow: 0 18px 50px rgb(0 0 0 / 0.45);
+  }
+  .font-list {
+    max-height: 340px;
+    overflow: hidden auto;
+    padding: 6px 14px 6px 6px;
+    list-style: none;
     outline: none;
   }
   li {

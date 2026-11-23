@@ -208,30 +208,28 @@ pub fn run() {
         ])
         .setup(|app| {
             use tauri::{
+                image::Image,
                 menu::{Menu, MenuItem},
                 tray::TrayIconBuilder,
             };
             let show = MenuItem::with_id(app, "show", "Открыть Iolit", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выйти из приложения", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
-            let mut tray =
-                // A fixed id lets the window swap the tray icon for the user's one.
-                TrayIconBuilder::with_id("main")
-                    .menu(&menu)
-                    .on_menu_event(|app, event| match event.id.as_ref() {
-                        "show" => {
-                            if let Some(w) = app.get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
+            let icon = Image::from_bytes(include_bytes!("../icons/128x128.png"))?;
+            TrayIconBuilder::with_id("iolit")
+                .icon(icon)
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
                         }
-                        "quit" => app.exit(0),
-                        _ => {}
-                    });
-            if let Some(icon) = app.default_window_icon() {
-                tray = tray.icon(icon.clone());
-            }
-            tray.build(app)?;
+                    }
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .build(app)?;
             Ok(())
         })
         .run(tauri::generate_context!())
