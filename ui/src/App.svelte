@@ -20,6 +20,24 @@
     { id: 'settings', label: 'Настройки', icon: 'settings' },
   ];
 
+  // The plate behind the active tab slides to the tab chosen.
+  let tabs: HTMLElement | undefined = $state();
+  let plate = $state({ x: 0, w: 0, ready: false });
+  function movePlate() {
+    const on = tabs?.querySelector<HTMLElement>('button.on');
+    if (!tabs || !on) return;
+    const a = on.getBoundingClientRect();
+    const box = tabs.getBoundingClientRect();
+    plate.x = a.x - box.x;
+    plate.w = a.width;
+  }
+  $effect(() => {
+    app.page;
+    movePlate();
+    // No slide on the first paint, only when the tab changes.
+    requestAnimationFrame(() => (plate.ready = true));
+  });
+
   // Taskbar and tray follow the icon chosen in settings, or the mark for the
   // theme: the exe icon is the light mark, so the dark theme swaps it.
   $effect(() => {
@@ -32,7 +50,13 @@
   onMount(() => {
     void app.refresh();
     const timer = setInterval(() => void app.refresh(), 2000);
-    return () => clearInterval(timer);
+    // Tab widths change once the font is loaded or the window is resized.
+    void document.fonts?.ready.then(movePlate);
+    window.addEventListener('resize', movePlate);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('resize', movePlate);
+    };
   });
 </script>
 
@@ -43,7 +67,14 @@
     <div class="brand" data-tauri-drag-region>
       <Mark size={24} /><span class="brand-word" data-tauri-drag-region>iolit</span>
     </div>
-    <nav class="tabs" aria-label="Разделы">
+    <nav class="tabs" aria-label="Разделы" bind:this={tabs}>
+      <span
+        class="plate"
+        class:ready={plate.ready}
+        style:width="{plate.w}px"
+        style:transform="translateX({plate.x}px)"
+        aria-hidden="true"
+      ></span>
       {#each pages as p (p.id)}
         <button
           class:on={app.page === p.id}
@@ -132,10 +163,26 @@
     font-weight: 600;
   }
   .tabs {
+    position: relative;
     display: flex;
     gap: 2px;
   }
+  .plate {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--raise-2);
+    pointer-events: none;
+    opacity: 0;
+  }
+  .plate.ready {
+    opacity: 1;
+    transition: transform 0.26s cubic-bezier(0.3, 0.7, 0.2, 1), width 0.26s cubic-bezier(0.3, 0.7, 0.2, 1);
+  }
   .tabs button {
+    position: relative;
     height: 32px;
     padding: 0 12px 0 10px;
     border-radius: 8px;
@@ -155,7 +202,6 @@
   }
   .tabs button.on {
     color: var(--text);
-    background: var(--raise-2);
   }
   .grow {
     flex: 1;
