@@ -11,14 +11,13 @@
   const activeStrategy = $derived(app.data?.strategies.find((s) => s.id === service?.strategy));
   const op = $derived(app.operation);
 
-  /** One slow turn of the check button's icon per click. */
+  /** The check button's icon turns while a check runs and finishes its
+   *  current turn when the check ends, so it never jumps back. */
+  const checking = $derived(!!op?.busy || app.pending === 'diagnose');
   let turning = $state(false);
-  function check() {
-    turning = false;
-    // Restart the animation if the button is pressed again mid-turn.
-    requestAnimationFrame(() => (turning = true));
-    return app.diagnose();
-  }
+  $effect(() => {
+    if (checking) turning = true;
+  });
   const results = $derived(op?.results ?? []);
 
   const services = [
@@ -128,8 +127,8 @@
               <Icon name="wand" size={16} />Подобрать стратегию
             </button>
           {/if}
-          <button class="btn sm primary" disabled={!app.installed || app.busy} onclick={check}>
-            <span class="turn" class:on={turning} onanimationend={() => (turning = false)}><Icon name="refresh" size={16} /></span>{op?.busy ? 'Проверяем…' : 'Проверить'}
+          <button class="btn sm primary" disabled={!app.installed || app.busy} onclick={app.diagnose}>
+            <span class="turn" class:on={turning} onanimationiteration={() => { if (!checking) turning = false; }}><Icon name="refresh" size={16} /></span>{op?.busy ? 'Проверяем…' : 'Проверить'}
           </button>
         </div>
       </div>
@@ -309,7 +308,7 @@
     display: flex;
   }
   .turn.on {
-    animation: turn 1.1s ease-in-out;
+    animation: turn 1.2s linear infinite;
   }
   @keyframes turn {
     to {
