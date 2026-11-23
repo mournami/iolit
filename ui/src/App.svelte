@@ -19,18 +19,6 @@
     { id: 'settings', label: 'Настройки', icon: 'settings' },
   ];
 
-  const serviceState = $derived(
-    !native
-      ? { text: 'Только просмотр', tone: 'idle' }
-      : !app.loaded
-        ? { text: 'Подключаемся…', tone: 'idle' }
-        : !app.installed
-          ? { text: 'Служба не найдена', tone: 'warn' }
-          : app.running
-            ? { text: 'Служба работает', tone: 'ok' }
-            : { text: 'Служба на связи', tone: 'ok' },
-  );
-
   // Taskbar and tray follow the icon chosen in settings, or the mark for the
   // theme: the exe icon is the light mark, so the dark theme swaps it.
   $effect(() => {
@@ -66,9 +54,6 @@
       {/each}
     </nav>
     <div class="grow" data-tauri-drag-region></div>
-    <div class="svc-state {serviceState.tone}" title={serviceState.text}>
-      <span class="dot"></span><span class="svc-text">{serviceState.text}</span>
-    </div>
     <button
       class="icon-btn"
       aria-label={theme.resolved === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
@@ -168,29 +153,6 @@
   .grow {
     flex: 1;
   }
-  .svc-state {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-right: 8px;
-    font-size: 13px;
-    color: var(--text-2);
-    white-space: nowrap;
-  }
-  .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--text-3);
-    flex: none;
-  }
-  .ok .dot {
-    background: var(--ok);
-  }
-  .warn .dot {
-    background: var(--amber);
-  }
-
   /* The page scrolls inside the window; the top bar stays. */
   .main {
     flex: 1;
@@ -219,8 +181,7 @@
     .brand {
       margin-right: 8px;
     }
-    .brand-word,
-    .svc-text {
+    .brand-word {
       display: none;
     }
     .main {
