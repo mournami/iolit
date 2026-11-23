@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { flow, SPRING_CSS } from './motion';
   import { native } from './api';
   import Icon from './Icon.svelte';
   import { app, type Page } from './store.svelte';
@@ -14,25 +13,6 @@
 
   // Windows draws its own title row (no system frame); other systems keep theirs.
   const ownFrame = native && navigator.userAgent.includes('Windows');
-
-  // The pill under the active tab flows to the next tab like a drop: the edge
-  // it moves towards leaves first, the other edge follows a beat later, so it
-  // stretches on the way and settles on a spring.
-  let tabs: HTMLElement | undefined = $state();
-  let pill = $state({ left: 0, right: 0, lead: 'right' as 'left' | 'right', ready: false });
-  function movePill() {
-    const on = tabs?.querySelector<HTMLElement>('button.on');
-    if (!tabs || !on) return;
-    const a = on.getBoundingClientRect();
-    const box = tabs.getBoundingClientRect();
-    const left = a.x - box.x;
-    const right = box.width - (left + a.width);
-    pill = { left, right, lead: left > pill.left ? 'right' : 'left', ready: true };
-  }
-  $effect(() => {
-    app.page;
-    movePill();
-  });
 
   const pages: { id: Page; label: string; icon: string }[] = [
     { id: 'overview', label: 'Главная', icon: 'home' },
@@ -51,32 +31,18 @@
   onMount(() => {
     void app.refresh();
     const timer = setInterval(() => void app.refresh(), 2000);
-    // Tab widths change once the font is loaded or the window is resized.
-    void document.fonts?.ready.then(movePill);
-    window.addEventListener('resize', movePill);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('resize', movePill);
-    };
+    return () => clearInterval(timer);
   });
 </script>
 
 <svelte:head><title>Iolit</title></svelte:head>
 
-<div class="shell" style:--spring={SPRING_CSS}>
+<div class="shell">
   <header class="topbar" data-tauri-drag-region>
     <div class="brand" data-tauri-drag-region>
       <Mark size={24} /><span class="brand-word" data-tauri-drag-region>iolit</span>
     </div>
-    <nav class="tabs" aria-label="Разделы" bind:this={tabs}>
-      <span
-        class="pill"
-        class:ready={pill.ready}
-        style:left="{pill.left}px"
-        style:right="{pill.right}px"
-        style:--lead={pill.lead === 'left' ? '1' : '0'}
-        aria-hidden="true"
-      ></span>
+    <nav class="tabs" aria-label="Разделы">
       {#each pages as p (p.id)}
         <button
           class:on={app.page === p.id}
@@ -120,17 +86,11 @@
         </div>
       {/if}
 
-      <!-- The new page fades in; the old one is replaced at once. Anything
-           heavier (stacked pages, many moving blocks) janks on weak GPUs. -->
-      {#key app.page}
-        <div class="view" in:flow={{ duration: 180 }}>
-          {#if app.page === 'overview'}
-            <Overview />
-          {:else}
-            <Settings />
-          {/if}
-        </div>
-      {/key}
+      {#if app.page === 'overview'}
+        <Overview />
+      {:else}
+        <Settings />
+      {/if}
     </div>
   </main>
 </div>
@@ -165,35 +125,10 @@
     font-weight: 600;
   }
   .tabs {
-    position: relative;
     display: flex;
     gap: 2px;
   }
-  .pill {
-    position: absolute;
-    top: 0;
-    height: 32px;
-    border-radius: 8px;
-    background: var(--raise-2);
-    pointer-events: none;
-    opacity: 0;
-  }
-  /* No slide on the first paint, only between tabs. The leading edge
-     (--lead picks which one) is quick, the trailing edge slow. */
-  .pill.ready {
-    opacity: 1;
-    transition:
-      left calc(560ms - 200ms * var(--lead)) var(--spring),
-      right calc(360ms + 200ms * var(--lead)) var(--spring);
-  }
-
-  .view {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
   .tabs button {
-    position: relative;
     height: 32px;
     padding: 0 12px 0 10px;
     border-radius: 8px;
@@ -213,6 +148,7 @@
   }
   .tabs button.on {
     color: var(--text);
+    background: var(--raise-2);
   }
   .grow {
     flex: 1;
