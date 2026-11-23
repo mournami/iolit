@@ -120,22 +120,17 @@
         </div>
       {/if}
 
-      <!-- Pages cross-fade; the blocks of the new page rise one after another. -->
-      <div class="stage">
-        {#key app.page}
-          <div
-            class="view"
-            in:flow={{ delay: 60 }}
-            out:flow={{ duration: 140, leaving: true }}
-          >
-            {#if app.page === 'overview'}
-              <Overview />
-            {:else}
-              <Settings />
-            {/if}
-          </div>
-        {/key}
-      </div>
+      <!-- The new page fades in; the old one is replaced at once. Anything
+           heavier (stacked pages, many moving blocks) janks on weak GPUs. -->
+      {#key app.page}
+        <div class="view" in:flow={{ duration: 180 }}>
+          {#if app.page === 'overview'}
+            <Overview />
+          {:else}
+            <Settings />
+          {/if}
+        </div>
+      {/key}
     </div>
   </main>
 </div>
@@ -192,42 +187,10 @@
       right calc(360ms + 200ms * var(--lead)) var(--spring);
   }
 
-  /* Old and new page share one grid cell while they cross over. */
-  .stage {
-    display: grid;
-  }
   .view {
-    grid-area: 1 / 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
-  }
-  /* Blocks of a page rise one after another. */
-  .view :global(.home > .power),
-  .view :global(.home-main > *),
-  .view :global(.set .col > *),
-  .view :global(.set > .about) {
-    animation: rise 0.45s var(--spring) backwards;
-    will-change: transform, opacity;
-  }
-  .view :global(.home-main > :nth-child(2)),
-  .view :global(.set .col > :nth-child(2)) {
-    animation-delay: 60ms;
-  }
-  .view :global(.home-main > :nth-child(3)),
-  .view :global(.set .col > :nth-child(3)) {
-    animation-delay: 120ms;
-  }
-  .view :global(.home-main > :nth-child(n + 4)),
-  .view :global(.set .col > :nth-child(n + 4)),
-  .view :global(.set > .about) {
-    animation-delay: 180ms;
-  }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
   }
   .tabs button {
     position: relative;

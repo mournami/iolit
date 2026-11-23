@@ -1,7 +1,6 @@
 /**
- * One spring for all movement in the window, so the tab pill, the page and
- * its blocks feel like the same material: quick start, a small overshoot,
- * a soft landing.
+ * The window's spring: quick start, a small overshoot, a soft landing. Used
+ * by the tab pill.
  */
 
 /** Damping ratio and settle point: the spring is within 1% at t = 1. */
@@ -21,15 +20,13 @@ export function spring(t: number): number {
 export const SPRING_CSS = `linear(${Array.from({ length: 41 }, (_, i) => spring(i / 40).toFixed(4)).join(', ')})`;
 
 /**
- * Page enter and leave: opacity only. Blur or scale on a whole page makes the
- * browser repaint every pixel on each frame, which janks; the blocks of the
- * page do the moving (see App.svelte), and they only use transform and opacity.
+ * A page appearing: opacity only and short. Blur, scale or many moving blocks
+ * made switching pages janky, so the spring is kept for the tab pill alone.
  */
-export function flow(_node: Element, { delay = 0, duration = 360, leaving = false } = {}) {
+export function flow(_node: Element, { delay = 0, duration = 180 } = {}) {
   return {
     delay,
     duration,
-    easing: leaving ? (t: number) => t : (t: number) => Math.min(spring(t), 1),
     css: (t: number) => `opacity:${Math.min(Math.max(t, 0), 1)}`,
   };
 }
