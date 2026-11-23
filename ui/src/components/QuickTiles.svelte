@@ -143,4 +143,19 @@
     gap: 8px 12px;
     margin-top: 16px;
   }
+  /* Beside the card two tiles fit in a row; the third takes the full width. */
+  @media (max-width: 860px) {
+    .tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tile:nth-child(3) {
+      grid-column: 1 / -1;
+      min-height: 0;
+    }
+  }
+  @media (max-width: 480px) {
+    .tiles {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 </style>

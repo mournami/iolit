@@ -423,7 +423,24 @@
     margin: 0 0 8px;
   }
 
-  @media (max-width: 860px) {
+  /* The window is at least 720 wide, so the app always keeps the column;
+     a narrower column and shorter rows make it fit. */
+  @media (max-width: 1040px) {
+    .home.split {
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 24px;
+    }
+    .svc-row {
+      grid-template-columns: 20px minmax(0, 1fr) auto 56px;
+    }
+    .svc-detail {
+      display: none;
+    }
+    .prop {
+      grid-template-columns: 112px minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 640px) {
     .home.split {
       grid-template-columns: minmax(0, 1fr);
       gap: 24px;
