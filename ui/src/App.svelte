@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { native } from './api';
   import Icon from './Icon.svelte';
   import { app, type Page } from './store.svelte';
@@ -13,6 +15,21 @@
 
   // Windows draws its own title row (no system frame); other systems keep theirs.
   const ownFrame = native && navigator.userAgent.includes('Windows');
+
+  // The pill under the active tab slides from one tab to the next.
+  let tabs: HTMLElement | undefined = $state();
+  let pill = $state({ x: 0, w: 0, ready: false });
+  function movePill() {
+    const on = tabs?.querySelector<HTMLElement>('button.on');
+    if (!tabs || !on) return;
+    const a = on.getBoundingClientRect();
+    const box = tabs.getBoundingClientRect();
+    pill = { x: a.x - box.x, w: a.width, ready: true };
+  }
+  $effect(() => {
+    app.page;
+    movePill();
+  });
 
   const pages: { id: Page; label: string; icon: string }[] = [
     { id: 'overview', label: 'Главная', icon: 'home' },
@@ -31,7 +48,13 @@
   onMount(() => {
     void app.refresh();
     const timer = setInterval(() => void app.refresh(), 2000);
-    return () => clearInterval(timer);
+    // Tab widths change once the font is loaded or the window is resized.
+    void document.fonts?.ready.then(movePill);
+    window.addEventListener('resize', movePill);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('resize', movePill);
+    };
   });
 </script>
 
@@ -42,7 +65,14 @@
     <div class="brand" data-tauri-drag-region>
       <Mark size={24} /><span class="brand-word" data-tauri-drag-region>iolit</span>
     </div>
-    <nav class="tabs" aria-label="Разделы">
+    <nav class="tabs" aria-label="Разделы" bind:this={tabs}>
+      <span
+        class="pill"
+        class:ready={pill.ready}
+        style:width="{pill.w}px"
+        style:transform="translateX({pill.x}px)"
+        aria-hidden="true"
+      ></span>
       {#each pages as p (p.id)}
         <button
           class:on={app.page === p.id}
@@ -86,11 +116,16 @@
         </div>
       {/if}
 
-      {#if app.page === 'overview'}
-        <Overview />
-      {:else}
-        <Settings />
-      {/if}
+      <!-- The new page rises a few pixels while it fades in; the old one just goes. -->
+      {#key app.page}
+        <div class="view" in:fly={{ y: 10, duration: 240, easing: cubicOut }}>
+          {#if app.page === 'overview'}
+            <Overview />
+          {:else}
+            <Settings />
+          {/if}
+        </div>
+      {/key}
     </div>
   </main>
 </div>
@@ -125,10 +160,32 @@
     font-weight: 600;
   }
   .tabs {
+    position: relative;
     display: flex;
     gap: 2px;
   }
+  .pill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--raise-2);
+    pointer-events: none;
+    opacity: 0;
+  }
+  /* No slide on the first paint, only between tabs. */
+  .pill.ready {
+    opacity: 1;
+    transition: transform 0.28s cubic-bezier(0.3, 0.7, 0.2, 1), width 0.28s cubic-bezier(0.3, 0.7, 0.2, 1);
+  }
+  .view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
   .tabs button {
+    position: relative;
     height: 32px;
     padding: 0 12px 0 10px;
     border-radius: 8px;
@@ -148,7 +205,6 @@
   }
   .tabs button.on {
     color: var(--text);
-    background: var(--raise-2);
   }
   .grow {
     flex: 1;
