@@ -68,11 +68,10 @@
   const secureDns = $derived(service?.secure_dns);
 </script>
 
-<div class="home">
+<div class="home split">
+  <Power />
 
   <div class="home-main">
-    <Power />
-
     {#if app.running && broken.length}
       <div class="alert warn" role="status">
         <Icon name="info" size={16} />
@@ -251,14 +250,28 @@
     flex-direction: column;
     min-width: 0;
   }
+  /* The bypass card beside the content. */
+  .home.split {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    align-items: start;
+    gap: 40px;
+  }
+  /* Beside the card the content keeps a readable width. */
+  .home.split .home-main {
+    max-width: 880px;
+  }
+  /* The card fills the window height beside the scrolling content. */
+  .home.split :global(.power.card) {
+    position: sticky;
+    top: 0;
+    min-height: calc(100vh - 52px - 8px - 20px);
+  }
   .home-main {
     display: flex;
     flex-direction: column;
     gap: 0;
     min-width: 0;
-  }
-  .home-main > :global(.power) {
-    margin-bottom: 32px;
   }
   .block {
     margin-bottom: 32px;
@@ -410,6 +423,16 @@
     margin: 0 0 8px;
   }
 
+  @media (max-width: 860px) {
+    .home.split {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+    }
+    .home.split :global(.power.card) {
+      position: static;
+      min-height: 0;
+    }
+  }
   @media (max-width: 640px) {
     .prop {
       grid-template-columns: 120px minmax(0, 1fr);

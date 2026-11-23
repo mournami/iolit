@@ -80,7 +80,7 @@
     {#if ownFrame}<WindowControls />{/if}
   </header>
 
-  <main class="main">
+  <main class="main" class:edge={app.page === 'overview'}>
     <div class="page">
       {#if app.error}
         <div class="alert bad" role="alert">
@@ -204,6 +204,15 @@
     margin: 0 auto;
     display: flex;
     flex-direction: column;
+  }
+  /* Home: the card sits at the left edge, under the logo; the content
+     takes the rest of the width. */
+  .main.edge {
+    padding: 8px 20px 20px;
+  }
+  .main.edge .page {
+    max-width: none;
+    margin: 0;
   }
 
   @media (max-width: 760px) {
