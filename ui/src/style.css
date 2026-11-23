@@ -181,15 +181,24 @@ input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
 input:focus-visible, select:focus-visible { outline: 2px solid var(--g); outline-offset: -1px; border-color: transparent; border-radius: 8px; }
 
 /* Segmented control */
-.seg { display: flex; flex-wrap: wrap; padding: 4px; gap: 4px; border-radius: 12px; background: var(--raise-2); }
+.seg { position: relative; display: flex; flex-wrap: wrap; padding: 4px; gap: 4px; border-radius: 12px; background: var(--raise-2); }
 .seg button {
   height: 28px; padding: 0 12px; border-radius: 8px; border: 0; background: none;
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 500; color: var(--text-2);
 }
 .seg button:hover:not(.on) { color: var(--text); }
-.seg button.on { background: var(--raise); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); }
-:root[data-theme='light'] .seg button.on { box-shadow: 0 1px 2px rgb(26 20 51 / 0.1); }
+.seg button { position: relative; }
+.seg button.on { color: var(--text); }
+/* The selected item's plate slides to the item chosen (see Settings.svelte). */
+.seg-pill {
+  position: absolute; top: 4px; left: 0; height: 28px; border-radius: 8px;
+  background: var(--raise); box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  pointer-events: none; opacity: 0;
+}
+.seg-pill.show { opacity: 1; }
+.seg-pill.ready { transition: transform 0.26s cubic-bezier(0.3, 0.7, 0.2, 1), width 0.26s cubic-bezier(0.3, 0.7, 0.2, 1), opacity 0.15s; }
+:root[data-theme='light'] .seg-pill { box-shadow: 0 1px 2px rgb(26 20 51 / 0.1); }
 
 /* Messages */
 .alert {

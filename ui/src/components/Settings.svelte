@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Icon from '../Icon.svelte';
   import { app, bundleLine, plural } from '../store.svelte';
   import { theme, type ThemeChoice } from '../theme.svelte';
@@ -9,6 +10,35 @@
   import Mark from './Mark.svelte';
 
   let cropping = $state(false);
+
+  // The plate behind the chosen theme slides between the items.
+  let seg: HTMLElement | undefined = $state();
+  let plate = $state({ x: 0, w: 0, show: false, ready: false });
+  function movePlate() {
+    const on = seg?.querySelector<HTMLElement>('button.on');
+    if (!seg) return;
+    if (!on) {
+      plate.show = false;
+      return;
+    }
+    const a = on.getBoundingClientRect();
+    const box = seg.getBoundingClientRect();
+    plate.x = a.x - box.x;
+    plate.w = a.width;
+    plate.show = true;
+  }
+  $effect(() => {
+    theme.choice;
+    appearance.bg;
+    movePlate();
+    // No slide on the first paint, only when the choice changes.
+    requestAnimationFrame(() => (plate.ready = true));
+  });
+  onMount(() => {
+    void document.fonts?.ready.then(movePlate);
+    window.addEventListener('resize', movePlate);
+    return () => window.removeEventListener('resize', movePlate);
+  });
   const BG_PRESETS = [
     '#000000', '#0b0d0c', '#0d1117', '#111827', '#14161f', '#1a1b26', '#1e1e2e', '#1f1d2b',
     '#18181b', '#202225', '#1b2420', '#2b1d24', '#ffffff', '#f6f7f6', '#f5f1e8', '#eef2f7',
@@ -192,7 +222,15 @@
           <h2 class="row-k" id="theme-label">Тема</h2>
           {#if appearance.bg}<p class="row-d">Сейчас тему задаёт свой цвет фона</p>{/if}
         </div>
-        <div class="seg" role="radiogroup" aria-labelledby="theme-label">
+        <div class="seg" role="radiogroup" aria-labelledby="theme-label" bind:this={seg}>
+          <span
+            class="seg-pill"
+            class:show={plate.show}
+            class:ready={plate.ready}
+            style:width="{plate.w}px"
+            style:transform="translateX({plate.x}px)"
+            aria-hidden="true"
+          ></span>
           {#each themes as t (t.id)}
             <button
               role="radio"
