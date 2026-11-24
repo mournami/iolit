@@ -6,7 +6,7 @@ use crate::{
     service::{Controller, Daemon},
     updater::{self, HttpFetch, Store, Updater},
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
@@ -14,7 +14,6 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::windows::named_pipe::ServerOptions,
     sync::{Mutex, watch},
 };
@@ -33,7 +32,6 @@ use windows_sys::Win32::{
         Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW, SECURITY_ATTRIBUTES,
     },
 };
-use zapret_core::api::*;
 const NAME: &str = "ZapretDesktop";
 define_windows_service!(ffi_main, service_main);
 
@@ -269,64 +267,7 @@ async fn run(mut shutdown: watch::Receiver<bool>) -> Result<()> {
         // Open the next instance before serving this client, so a parallel
         // request never finds the pipe without a listener (ERROR_PIPE_BUSY).
         let pipe = std::mem::replace(&mut next, create(false)?);
-        let daemon = daemon.clone();
-        tokio::spawn(async move {
-            let outcome = tokio::time::timeout(Duration::from_secs(20), async {
-                let mut stream = BufReader::new(pipe);
-                let mut line = Vec::new();
-                loop {
-                    let buf = stream.fill_buf().await?;
-                    if buf.is_empty() {
-                        bail!("Пустой запрос");
-                    }
-                    let n = buf
-                        .iter()
-                        .position(|b| *b == b'\n')
-                        .map(|i| i + 1)
-                        .unwrap_or(buf.len());
-                    if line.len() + n > zapret_core::ipc::MAX_MESSAGE {
-                        bail!("Слишком большой запрос");
-                    }
-                    line.extend_from_slice(&buf[..n]);
-                    stream.consume(n);
-                    if line.last() == Some(&b'\n') {
-                        break;
-                    }
-                }
-                let result = match serde_json::from_slice::<DaemonCommand>(&line) {
-                    Ok(req) => daemon.dispatch(req).await,
-                    Err(e) => Err(e.into()),
-                };
-                let response = match result {
-                    Ok(data) => ApiResponse {
-                        ok: true,
-                        data: Some(data),
-                        error: None,
-                    },
-                    Err(e) => ApiResponse {
-                        ok: false,
-                        data: None,
-                        error: Some(e.to_string()),
-                    },
-                };
-                let mut data = serde_json::to_vec(&response)?;
-                data.push(b'\n');
-                stream.get_mut().write_all(&data).await?;
-                Ok::<_, anyhow::Error>(())
-            })
-            .await;
-            let _ = outcome;
-        });
+        tokio::spawn(super::serve::client(daemon.clone(), pipe));
     }
-    operations.cancel();
-    // A running app update holds the gate until the installer stops this
-    // service, which is happening now: waiting for it would hold the stop
-    // until the update gives up.
-    let _gate = if operations.app.lock().await.installing {
-        None
-    } else {
-        Some(operations.gate.lock().await)
-    };
-    controller.lock().await.stop()?;
-    Ok(())
+    super::serve::shutdown(&daemon, &operations).await
 }
