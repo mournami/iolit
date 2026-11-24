@@ -52,6 +52,17 @@ async fn service_rejects_invalid_commands_without_changing_state() {
     // Exercise the real signed WinDivert driver in this disposable Windows VM.
     // Stop is attempted before asserting, so an unsupported driver cannot leave it enabled.
     let started = request_command::<()>(DaemonCommand::Enable).await;
+    // The first enable of a clean installation also starts a selection, which
+    // holds the service until it ends; stop it and wait for the restored state.
+    if started.is_ok() && snapshot().await.operation.busy {
+        let _ = request_command::<()>(DaemonCommand::CancelOperation).await;
+        for _ in 0..120 {
+            if !snapshot().await.operation.busy {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+    }
     let running = snapshot().await;
     let stopped = request_command::<()>(DaemonCommand::Disable).await;
     if started.is_err() {
