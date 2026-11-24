@@ -129,6 +129,57 @@ jobs:
           name: Iolit-Windows-x64-DEVELOPMENT
           path: outputs/Iolit-Setup.exe
           if-no-files-found: error
+  linux:
+    # Step L0 of the Linux plan: the service builds statically, runs as root,
+    # answers on its socket to the iolit group and fails honestly on enable.
+    name: Linux service skeleton
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: x86_64-unknown-linux-musl
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-linux-rust-${{ hashFiles('Cargo.lock') }}
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools socat
+      - run: cargo clippy -p zapret-core -p zapretd --all-targets --locked -- -D warnings
+      - run: cargo test -p zapret-core -p zapretd --locked
+      - run: cargo build --release -p zapretd --locked --target x86_64-unknown-linux-musl
+      - name: Run the service, query it over the socket, stop it
+        run: |
+          set -eu
+          bin=target/x86_64-unknown-linux-musl/release/zapretd
+          file "$bin"
+          ls -l "$bin"
+          sudo groupadd --system iolit
+          sudo usermod -aG iolit "$USER"
+          sudo install -Dm755 "$bin" /opt/iolit/bin/zapretd
+          sudo install -Dm644 contracts/golden/flowseal-1.10.4/strategies.json /opt/iolit/runtime/linux/strategies.json
+          sudo sh -c '/opt/iolit/bin/zapretd > /tmp/zapretd.log 2>&1 & echo $! > /tmp/zapretd.pid'
+          for i in $(seq 50); do [ -S /run/iolit/iolit.sock ] && break; sleep 0.2; done
+          sudo stat -c '%n %U:%G %a' /run/iolit /run/iolit/iolit.sock /var/lib/iolit
+          # usermod applies to new logins; sg runs the client with the new group.
+          reply=$(sg iolit -c "printf '%s\n' '{\"cmd\":\"snapshot\"}' | socat -t 20 - UNIX-CONNECT:/run/iolit/iolit.sock")
+          echo "$reply" | head -c 1500; echo
+          echo "$reply" | grep -q '"ok":true'
+          # Without the group the socket must refuse.
+          if sudo -u nobody socat -t 5 - UNIX-CONNECT:/run/iolit/iolit.sock < /dev/null; then
+            echo 'nobody connected to the socket'; exit 1
+          fi
+          # Enabling must fail honestly until the engine exists (step L2).
+          reply=$(sudo sh -c "printf '%s\n' '{\"cmd\":\"enable\"}' | socat -t 20 - UNIX-CONNECT:/run/iolit/iolit.sock")
+          echo "$reply"
+          echo "$reply" | grep -q '"ok":false'
+          sudo kill -TERM "$(cat /tmp/zapretd.pid)"
+          for i in $(seq 50); do sudo kill -0 "$(cat /tmp/zapretd.pid)" 2>/dev/null || break; sleep 0.2; done
+          test ! -e /run/iolit/iolit.sock
+          cat /tmp/zapretd.log
   macos:
     name: Optional frozen macOS package
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.macos }}
