@@ -27,9 +27,9 @@ use zapret_core::{
 /// same signed files on the `mirror-bundle` branch through two other hosts,
 /// for networks where github.com does not answer.
 pub const DEFAULT_SOURCES: [&str; 3] = [
-    "https://github.com/mournami/zapret13231/releases/download/bundle/",
-    "https://raw.githubusercontent.com/mournami/zapret13231/mirror-bundle/",
-    "https://cdn.jsdelivr.net/gh/mournami/zapret13231@mirror-bundle/",
+    "https://github.com/mournami/iolit/releases/download/bundle/",
+    "https://raw.githubusercontent.com/mournami/iolit/mirror-bundle/",
+    "https://cdn.jsdelivr.net/gh/mournami/iolit@mirror-bundle/",
 ];
 pub const MANIFEST_NAME: &str = "manifest.json";
 const STATE_FILE: &str = "state.json";

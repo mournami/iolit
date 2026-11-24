@@ -24,8 +24,8 @@ use zapret_core::{
 /// raw.githubusercontent.com. jsDelivr is not used here: it serves the
 /// manifest but answers 403 for the installer (checked 2026-11-17).
 pub const DEFAULT_SOURCES: [&str; 2] = [
-    "https://github.com/mournami/zapret13231/releases/download/app/",
-    "https://raw.githubusercontent.com/mournami/zapret13231/mirror-app/",
+    "https://github.com/mournami/iolit/releases/download/app/",
+    "https://raw.githubusercontent.com/mournami/iolit/mirror-app/",
 ];
 pub const DIR: &str = "updates";
 const INSTALLER: &str = "Iolit-Setup.exe";
