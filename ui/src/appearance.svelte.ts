@@ -60,7 +60,7 @@ class Appearance {
 
   /** Background the accent is shown on: the custom one or the theme's. */
   surface(theme: 'dark' | 'light') {
-    return this.bg ?? (theme === 'light' ? '#f7f5fc' : DEFAULT_BG);
+    return this.bg ?? (theme === 'light' ? '#f7f7f8' : DEFAULT_BG);
   }
 
   /** With a custom background the theme follows its brightness. */
