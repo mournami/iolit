@@ -147,7 +147,7 @@ async fn commands_preserve_preferences_busy_gate_and_report_privacy() {
     assert!(!final_state.service.running);
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 #[tokio::test]
 async fn unsupported_platform_never_reports_engine_success() {
     use zapretd::engine::UnsupportedEngine;
@@ -173,6 +173,30 @@ async fn unsupported_platform_never_reports_engine_success() {
             .await
             .is_err()
     );
+}
+
+/// The Linux skeleton (step L0) must not claim a running bypass.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn linux_skeleton_never_reports_engine_success() {
+    use zapretd::engine::nfqws::Nfqws;
+    let mut engine = Nfqws;
+    let s = Strategy {
+        id: "test".into(),
+        name: String::new(),
+        description: String::new(),
+        supported: true,
+        arguments: vec![],
+    };
+    assert!(
+        engine
+            .start(&s, Path::new("."), Path::new("."))
+            .await
+            .is_err()
+    );
+    assert!(!engine.is_ready().unwrap().running);
+    let caps = Nfqws::CAPABILITIES;
+    assert!(!(caps.tcp || caps.udp || caps.ipv6 || caps.packet_injection));
 }
 
 /// Counts engine starts so tests can tell an engine restart apart.

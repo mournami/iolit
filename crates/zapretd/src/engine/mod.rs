@@ -3,6 +3,8 @@ use anyhow::Result;
 use std::{future::Future, path::Path};
 use zapret_core::{Capabilities, Strategy};
 
+#[cfg(target_os = "linux")]
+pub mod nfqws;
 #[cfg(windows)]
 pub mod winws;
 
@@ -28,9 +30,9 @@ pub trait Engine: Send {
 }
 
 /// Unsupported platforms must fail rather than simulate a running engine.
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 pub struct UnsupportedEngine;
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 impl Engine for UnsupportedEngine {
     const PLATFORM: &'static str = std::env::consts::OS;
     const NAME: &'static str = "unsupported";

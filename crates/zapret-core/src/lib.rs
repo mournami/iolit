@@ -15,6 +15,13 @@ pub use api::*;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const MAC_SOCKET: &str = "/var/run/zapret-desktop/control.sock";
+/// Linux service socket. The service creates the folder `root:iolit 0750` and
+/// the socket `0660`, so members of the `iolit` group may connect.
+pub const LINUX_SOCKET: &str = "/run/iolit/iolit.sock";
+/// Linux data folder: settings, strategy, user domains, engine log.
+pub const LINUX_DATA: &str = "/var/lib/iolit";
+/// Group whose members may control the Linux service without sudo.
+pub const LINUX_GROUP: &str = "iolit";
 pub const WINDOWS_PIPE: &str = r"\\.\pipe\ZapretDesktop.Control.v1";
 pub const MAC_DATA: &str = "/Library/Application Support/Zapret Desktop";
 

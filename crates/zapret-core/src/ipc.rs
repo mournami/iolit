@@ -5,18 +5,18 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 pub const MAX_MESSAGE: usize = 1024 * 1024;
 
-/// Phase 0 enables the Rust daemon API on Windows only. Never route new commands
+/// The Rust daemon API runs on Windows and Linux. Never route new commands
 /// into the frozen Go daemon or pretend that another platform ran an operation.
 pub async fn request_command<T: serde::de::DeserializeOwned>(
     command: crate::DaemonCommand,
 ) -> Result<T> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
         let request = serde_json::to_value(command)?;
         let data = request_raw(request).await?;
         serde_json::from_value(data).context("Неверный тип ответа службы")
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = command;
         bail!("Платформа не поддерживается API zapretd. macOS заморожен до фазы 5.")
@@ -34,11 +34,19 @@ pub async fn request_raw(message: Value) -> Result<Value> {
 }
 
 async fn exchange(message: Value) -> Result<Value> {
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
+    let stream = tokio::net::UnixStream::connect(crate::LINUX_SOCKET)
+        .await
+        .context(
+            "Служба Iolit не запущена или нет доступа. Установите её через install.sh \
+             и перелогиньтесь, чтобы попасть в группу iolit.",
+        )?;
+    #[cfg(all(unix, not(target_os = "linux")))]
     let stream = tokio::net::UnixStream::connect(crate::MAC_SOCKET)
         .await
         .context("Служба Iolit не установлена или недоступна. Запустите установщик службы.")?;
-    #[cfg(target_os = "macos")]
+    // Only the system service runs as root; anything else on the socket is an impostor.
+    #[cfg(unix)]
     if stream.peer_cred()?.uid() != 0 {
         bail!("Ответил процесс без системных прав. Соединение отклонено.");
     }
