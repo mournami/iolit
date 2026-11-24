@@ -1,6 +1,7 @@
 // Development-only stand-in for the service, so the interface can be looked
 // at in a browser with plausible data: `npm run dev`, then open `/?demo`.
-// `?demo=off` starts with the bypass off, `?demo=missing` without a service.
+// `?demo=off` starts with the bypass off, `?demo=new` like a fresh install (off,
+// nothing chosen: the first enable also selects), `?demo=missing` without a service.
 // Production builds never include it (see `index.ts`).
 import type { ProbeResult, Snapshot } from '../types';
 import type { Command, Transport } from './index';
@@ -23,7 +24,7 @@ const state: Snapshot = {
     running: start === 'on',
     platform: 'windows',
     engine: 'winws 72.6',
-    strategy: start === 'missing' ? '' : 'general-alt5',
+    strategy: start === 'missing' || start === 'new' ? '' : 'general-alt5',
     uptime_secs: 2 * 3600 + 17 * 60,
     capabilities: { tcp: true, udp: true, ipv6: false, packet_injection: true },
     warnings: [],
@@ -77,6 +78,11 @@ export const demoTransport: Transport = {
         await delay(500);
         state.service.running = command === 'enable';
         state.service.uptime_secs = 0;
+        // Like the service: the first enable of a fresh install also selects.
+        if (command === 'enable' && !state.service.strategy) {
+          state.service.strategy = 'general-alt5';
+          runChecks('Подбираем стратегию');
+        }
         return result(null);
       case 'diagnose':
         runChecks('Проверяем сервисы');

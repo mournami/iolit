@@ -14,6 +14,8 @@ use zapret_core::{VERSION, api::*, strategy, targets::TargetList};
 const USER_DOMAINS: &str = "user-domains.txt";
 /// Strategy assembled by selection from several bundle strategies.
 const COMPOSITE: &str = "composite.json";
+/// Written once the first enable has started a selection, so it never repeats.
+const FIRST_SELECTION: &str = "first-selection";
 
 pub struct Controller<E: Engine> {
     pub(crate) root: PathBuf,
@@ -149,6 +151,27 @@ impl<E: Engine> Controller<E> {
         }
         std::fs::write(self.data.join("strategy"), id)?;
         Ok(())
+    }
+    /// True once, on the first enable of an installation that has never had a
+    /// strategy chosen or selected: the caller then starts a selection. A
+    /// bundle with a single strategy has nothing to choose from.
+    fn take_first_selection(&self) -> Result<bool> {
+        let chosen = [FIRST_SELECTION, "strategy", COMPOSITE]
+            .iter()
+            .map(|name| self.data.join(name).try_exists())
+            .collect::<std::io::Result<Vec<_>>>()?
+            .into_iter()
+            .any(|exists| exists);
+        let choices = self
+            .catalog
+            .iter()
+            .filter(|s| s.supported && s.id != zapret_core::composite::ID)
+            .count();
+        if chosen || choices < 2 {
+            return Ok(false);
+        }
+        std::fs::write(self.data.join(FIRST_SELECTION), b"1")?;
+        Ok(true)
     }
     /// Stored user domains, one per line, in the form winws matches.
     fn stored_domains(&self) -> Result<Vec<String>> {
@@ -353,6 +376,31 @@ impl<E: Engine + 'static> Daemon<E> {
                 }
                 Ok(DaemonResponse::Empty(()))
             }
+            // On the first enable the service also picks the strategy, so a
+            // new user needs one button, not two.
+            DaemonCommand::Enable => {
+                let select = {
+                    let _gate = self.operations.gate.try_lock().map_err(|_| {
+                        anyhow::anyhow!("Дождитесь завершения проверки или отмените её")
+                    })?;
+                    let controller = &mut *self.controller.lock().await;
+                    controller.enable().await?;
+                    controller.take_first_selection()?
+                };
+                if select {
+                    // Selection restores this enabled state if nothing works.
+                    self.operations
+                        .launch(
+                            self.controller.clone(),
+                            Arc::new(NetworkProbes {
+                                targets: self.controller.lock().await.targets.clone(),
+                            }),
+                            Mode::Select,
+                        )
+                        .await?;
+                }
+                Ok(DaemonResponse::Empty(()))
+            }
             DaemonCommand::CancelOperation => {
                 self.operations.cancel();
                 Ok(DaemonResponse::Empty(()))
@@ -416,7 +464,6 @@ impl<E: Engine + 'static> Daemon<E> {
                 }
                 let controller = &mut *self.controller.lock().await;
                 match other {
-                    DaemonCommand::Enable => controller.enable().await?,
                     DaemonCommand::Disable => controller.disable()?,
                     DaemonCommand::SetStrategy { strategy_id } => {
                         controller.set_strategy(&strategy_id).await?

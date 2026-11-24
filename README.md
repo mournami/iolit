@@ -36,8 +36,8 @@ button is enough.
    [latest release](https://github.com/mournami/iolit/releases/latest).
 2. Run it and allow the administrator prompt. The installer does the rest and
    opens the app.
-3. Press **«Включить обход»** (turn on), then **«Подобрать стратегию»** (find a
-   strategy). Finding one takes up to three minutes.
+3. Press **«Включить обход»** (turn on). The first time, Iolit also finds a
+   working strategy by itself; this takes up to three minutes.
 
 After installing, the bypass stays off until you turn it on. The interface is
 in Russian.

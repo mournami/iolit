@@ -420,3 +420,72 @@ async fn update_app_only_when_a_download_waits() {
     };
     assert_eq!(snapshot.app.available.as_deref(), Some("0.2.0"));
 }
+
+fn two_strategy_daemon(dir: &Path) -> (Daemon<TestEngine>, std::path::PathBuf) {
+    let root = dir.join("bundle");
+    let data = dir.join("data");
+    std::fs::create_dir_all(&root).unwrap();
+    let strategy = |id: &str| Strategy {
+        id: id.into(),
+        name: id.into(),
+        description: String::new(),
+        supported: true,
+        arguments: vec!["--test".into()],
+    };
+    std::fs::write(
+        root.join("strategies.json"),
+        serde_json::to_vec(&vec![strategy("general"), strategy("alt")]).unwrap(),
+    )
+    .unwrap();
+    let controller = Controller::new(root, data.clone(), TestEngine::default()).unwrap();
+    let daemon = Daemon {
+        controller: Arc::new(Mutex::new(controller)),
+        operations: Arc::new(OperationManager::new(data.clone())),
+        telegram: Arc::new(zapretd::telegram::Manager::new(data.clone())),
+    };
+    (daemon, data)
+}
+
+async fn busy(daemon: &Daemon<TestEngine>) -> bool {
+    let DaemonResponse::Snapshot(s) = daemon.dispatch(DaemonCommand::Snapshot).await.unwrap()
+    else {
+        panic!()
+    };
+    s.operation.busy
+}
+
+#[tokio::test]
+async fn first_enable_starts_a_selection_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let (daemon, data) = two_strategy_daemon(dir.path());
+    daemon.dispatch(DaemonCommand::Enable).await.unwrap();
+    assert_eq!(std::fs::read(data.join("enabled")).unwrap(), b"1");
+    assert!(data.join("first-selection").exists());
+    assert!(
+        busy(&daemon).await,
+        "the first enable must start a selection"
+    );
+    daemon
+        .dispatch(DaemonCommand::CancelOperation)
+        .await
+        .unwrap();
+
+    // Never a second time, even when that selection was cancelled.
+    let again = tempfile::tempdir().unwrap();
+    let (daemon, data) = two_strategy_daemon(again.path());
+    std::fs::create_dir_all(&data).unwrap();
+    std::fs::write(data.join("first-selection"), b"1").unwrap();
+    daemon.dispatch(DaemonCommand::Enable).await.unwrap();
+    assert!(!busy(&daemon).await);
+}
+
+#[tokio::test]
+async fn enable_after_a_chosen_strategy_does_not_select() {
+    let dir = tempfile::tempdir().unwrap();
+    let (daemon, data) = two_strategy_daemon(dir.path());
+    std::fs::create_dir_all(&data).unwrap();
+    std::fs::write(data.join("strategy"), "alt").unwrap();
+    daemon.dispatch(DaemonCommand::Enable).await.unwrap();
+    assert!(!busy(&daemon).await);
+    assert!(!data.join("first-selection").exists());
+}
