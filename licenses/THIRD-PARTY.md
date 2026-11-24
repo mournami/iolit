@@ -50,10 +50,12 @@ Bundled into the desktop interface and the installer window, nothing is loaded
 at runtime:
 
 - Fixel Text and Fixel Display by MacPaw, in `ui/src/assets/fonts/`, SIL Open
-  Font License 1.1: `Fixel-OFL.txt`. Used by the desktop interface.
-- Inter and Geist Mono, Latin and Cyrillic subsets copied to
-  `crates/zsetup/ui/fonts/`, SIL Open Font License 1.1: `Inter-OFL.txt`,
-  `GeistMono-OFL.txt`. Used by the installer window.
+  Font License 1.1: `Fixel-OFL.txt`. Used by the desktop interface and, since
+  0.4.1, by the installer window. Inter and Geist Mono are no longer bundled;
+  `Inter-OFL.txt` and `GeistMono-OFL.txt` stay for copies made before 0.4.1.
+- OverlayScrollbars 2.17.1 by KingSora (Rene Haas), MIT, bundled into the
+  desktop interface for the scrollbars. Its notice comes from package-lock.json
+  with the other JavaScript dependencies.
 - Lucide icon paths, inlined in `ui/src/Icon.svelte`, ISC: `Lucide-ISC.txt`.
 - YouTube, Discord and Cloudflare marks from Simple Icons 16.38.0, inlined in
   `ui/src/components/Overview.svelte`, CC0 1.0. The marks themselves are
